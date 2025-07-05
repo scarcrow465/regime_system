@@ -1,19 +1,9 @@
-# ---
-# jupyter:
-#   jupytext:
-#     formats: ipynb,py:percent
-#     text_representation:
-#       extension: .py
-#       format_name: percent
-#       format_version: '1.3'
-#       jupytext_version: 1.17.2
-#   kernelspec:
-#     display_name: Python 3 (ipykernel)
-#     language: python
-#     name: python3
-# ---
+#!/usr/bin/env python
+# coding: utf-8
 
-# %%
+# In[ ]:
+
+
 """
 Configuration settings for the Regime System
 All constants and configuration parameters in one place
@@ -210,7 +200,7 @@ TIMEFRAMES = {
 }
 
 # Default symbols
-DEFAULT_SYMBOLS = ['NQ'] # , 'ES', 'YM', 'RTY', 'GC', 'CL', 'ZB', 'ZW', 'ZS'
+DEFAULT_SYMBOLS = ['NQ'] # 'ES', 'YM', 'RTY', 'GC', 'CL', 'ZB', 'ZW', 'ZS']
 
 # =============================================================================
 # CLOUD DEPLOYMENT
@@ -246,3 +236,4 @@ REPORT_DECIMAL_PLACES = 4
 PLOT_STYLE = 'seaborn'
 FIGURE_DPI = 300
 FIGURE_SIZE = (12, 8)
+
