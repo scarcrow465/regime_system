@@ -1,19 +1,9 @@
-# ---
-# jupyter:
-#   jupytext:
-#     formats: ipynb,py:percent
-#     text_representation:
-#       extension: .py
-#       format_name: percent
-#       format_version: '1.3'
-#       jupytext_version: 1.17.2
-#   kernelspec:
-#     display_name: Python 3 (ipykernel)
-#     language: python
-#     name: python3
-# ---
+#!/usr/bin/env python
+# coding: utf-8
 
-# %%
+# In[ ]:
+
+
 """
 Main entry point for the Regime System
 Demonstrates usage of the reorganized package structure
@@ -36,7 +26,7 @@ from core.indicators import calculate_all_indicators, validate_indicators
 from core.regime_classifier import RollingRegimeClassifier
 from config.settings import (
     DEFAULT_WINDOW_HOURS, OPTIMIZATION_ITERATIONS, 
-    RESULTS_DIR, LOG_FILE, SYMBOLS, TIMEFRAMES,
+    RESULTS_DIR, LOG_FILE, DEFAULT_SYMBOLS, TIMEFRAMES,
     WALK_FORWARD_WINDOWS, OBJECTIVE_WEIGHTS
 )
 
@@ -390,3 +380,4 @@ if __name__ == "__main__":
         example_usage()
     else:
         main()
+

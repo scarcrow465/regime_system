@@ -210,7 +210,7 @@ TIMEFRAMES = {
 }
 
 # Default symbols
-DEFAULT_SYMBOLS = ['NQ', 'ES', 'YM', 'RTY', 'GC', 'CL', 'ZB', 'ZW', 'ZS']
+DEFAULT_SYMBOLS = ['NQ'] # , 'ES', 'YM', 'RTY', 'GC', 'CL', 'ZB', 'ZW', 'ZS'
 
 # =============================================================================
 # CLOUD DEPLOYMENT
