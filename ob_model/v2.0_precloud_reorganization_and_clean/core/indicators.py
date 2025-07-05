@@ -12,7 +12,7 @@ Contains all 85+ indicators organized by dimension
 import pandas as pd
 import numpy as np
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Any
 import warnings
 warnings.filterwarnings('ignore')
 
