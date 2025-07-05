@@ -12,7 +12,7 @@ Regime System - Institutional Grade Trading Analysis
 A sophisticated regime classification and optimization system
 """
 
-# .gitignore 8
+# .gitignore 9
 
 __version__ = '1.0.0'
 __author__ = 'Regime System Team'
