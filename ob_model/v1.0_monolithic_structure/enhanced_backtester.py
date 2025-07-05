@@ -10,8 +10,6 @@
 # Preserves your working regime classification while improving performance
 # =============================================================================
 
-# Test 231456789
-
 import numpy as np
 import pandas as pd
 import logging
