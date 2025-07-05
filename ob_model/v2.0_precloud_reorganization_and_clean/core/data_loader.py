@@ -50,7 +50,7 @@ def load_csv_data(filepath: str,
                   date_column: str = 'Date',
                   timeframe: Optional[str] = None) -> pd.DataFrame:
     """
-    Load CSV data with automatic date parsing, column standardization, and reshaping from wide to long format
+    Load CSV data with automatic date parsing and column standardization
     
     Args:
         filepath: Path to CSV file
@@ -59,7 +59,7 @@ def load_csv_data(filepath: str,
         timeframe: Optional timeframe hint (e.g., '15min', '1H', 'Daily')
         
     Returns:
-        DataFrame with standardized columns and datetime index in long format
+        DataFrame with standardized columns and datetime index
     """
     try:
         logger.info(f"Loading data from: {filepath}")
@@ -80,37 +80,6 @@ def load_csv_data(filepath: str,
             df.set_index('date', inplace=True)
             if date_col != 'date':
                 df.drop(columns=[date_col], inplace=True)
-        
-        # Reshape wide-format data to long format
-        dfs = []
-        i = 0
-        while True:
-            suffix = f'.{i}' if i > 0 else ''
-            symbol_col = f'symbol{suffix}'
-            required_cols = [symbol_col, f'open{suffix}', f'high{suffix}', f'low{suffix}', f'close{suffix}']
-            if not all(col in df.columns for col in required_cols):
-                break
-            
-            temp_df = pd.DataFrame(index=df.index)
-            temp_df['symbol'] = df[symbol_col]
-            temp_df['open'] = df[f'open{suffix}']
-            temp_df['high'] = df[f'high{suffix}']
-            temp_df['low'] = df[f'low{suffix}']
-            temp_df['close'] = df[f'close{suffix}']
-            temp_df['volume'] = df[f'volume{suffix}'] if f'volume{suffix}' in df.columns else 0
-            temp_df['openinterest'] = df[f'openinterest{suffix}'] if f'openinterest{suffix}' in df.columns else 0
-            
-            # Drop rows where symbol is NaN
-            temp_df = temp_df.dropna(subset=['symbol'])
-            if not temp_df.empty:
-                dfs.append(temp_df)
-            
-            i += 1
-        
-        if dfs:
-            df = pd.concat(dfs, ignore_index=False)
-        else:
-            raise ValueError("No valid symbol data found after reshaping")
         
         # Sort by date
         df.sort_index(inplace=True)
