@@ -1,19 +1,9 @@
-# ---
-# jupyter:
-#   jupytext:
-#     formats: ipynb,py:percent
-#     text_representation:
-#       extension: .py
-#       format_name: percent
-#       format_version: '1.3'
-#       jupytext_version: 1.17.2
-#   kernelspec:
-#     display_name: Python 3
-#     language: python
-#     name: python3
-# ---
+#!/usr/bin/env python
+# coding: utf-8
 
-# %%
+# In[ ]:
+
+
 # ---
 # jupyter:
 #   jupytext:
@@ -29,7 +19,7 @@
 #     name: python3
 # ---
 
-# %%
+
 """
 Data loading and preprocessing functionality
 Handles CSV loading, data validation, and preprocessing
@@ -370,4 +360,9 @@ def check_data_quality(df: pd.DataFrame) -> Dict[str, any]:
         'quality_score': 1.0 - len(issues) / 10.0
     }
 
-# %%
+
+# In[ ]:
+
+
+
+
