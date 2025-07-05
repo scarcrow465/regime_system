@@ -5,152 +5,144 @@
 
 
 """
-Fixed script to combine CSV files and select a specific instrument
+Fixed combine script based on actual CSV format from project knowledge
+Handles wide format: Date + (Symbol.X, Open.X, High.X, Low.X, Close.X, Volume.X, OpenInterest.X) * N instruments
 """
 
 import pandas as pd
+import numpy as np
 import os
+import re
+from tqdm import tqdm
+
+def parse_symbol(symbol_str):
+    """Extract base symbol from futures contract notation (NQH25 -> NQ)"""
+    if not isinstance(symbol_str, str) or pd.isna(symbol_str):
+        return None
+    if len(symbol_str) < 3:
+        return symbol_str
+    year = symbol_str[-2:]
+    if year.isdigit():
+        month = symbol_str[-3]
+        valid_month_codes = {'F', 'G', 'H', 'J', 'K', 'M', 'N', 'Q', 'U', 'V', 'X', 'Z'}
+        if month in valid_month_codes:
+            return symbol_str[:-3]
+    return symbol_str
 
 def combine_csv_files(instrument='NQ'):
     """
-    Combine multiple CSV files and extract data for a specific instrument
-    
-    Args:
-        instrument: Which instrument to extract (default 'NQ')
+    Combine CSV files and extract specific instrument using project's data format
     """
-    
     print("CSV File Combiner for Regime System")
     print("="*50)
     print(f"Selected Instrument: {instrument}")
     
-    # Your data files
     file1 = r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\7.1 Master 15m Data - Updated - Nearest Unadjusted - 2014_01_01 - 2025_04_01 .csv"
     file2 = r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\7.2 Master 15m Data - Updated - Nearest Unadjusted - 2000_01_01 - 2013_12_31 .csv"
     
-    # Output file
     output_file = f"combined_{instrument}_15m_data.csv"
     
-    try:
-        # Load first file
-        print(f"\nLoading file 1...")
-        df1 = pd.read_csv(file1)
-        print(f"  Loaded {len(df1)} rows")
-        print(f"  Columns found: {df1.columns.tolist()[:10]}...")  # Show first 10 columns
+    all_data = []
+    
+    for file_num, csv_path in enumerate([file2, file1], 1):  # Process older file first
+        print(f"\nProcessing file {file_num}: {os.path.basename(csv_path)}")
         
-        # Load second file
-        print(f"\nLoading file 2...")
-        df2 = pd.read_csv(file2)
-        print(f"  Loaded {len(df2)} rows")
-        
-        # Function to extract data for specific instrument
-        def extract_instrument_data(df, instrument):
-            # Find columns that contain the instrument symbol
-            symbol_cols = [col for col in df.columns if 'symbol' in col.lower()]
+        try:
+            # Read CSV with proper options
+            chunk = pd.read_csv(
+                csv_path,
+                parse_dates=['Date'],
+                index_col='Date',
+                dtype={'Symbol': str},
+                low_memory=False
+            )
             
-            # Find which column set contains our instrument
-            instrument_data = None
-            col_suffix = ""
+            print(f"  Loaded {len(chunk)} rows")
             
-            # Check main columns first (no suffix)
-            if 'symbol' in df.columns and instrument in df['symbol'].values:
-                # Extract main columns
-                cols_to_keep = ['Date', 'date', 'DateTime', 'datetime', 'Time', 'time']
-                cols_to_keep += ['open', 'high', 'low', 'close', 'volume']
-                existing_cols = [col for col in cols_to_keep if col in df.columns]
-                instrument_data = df[df['symbol'] == instrument][existing_cols].copy()
-            else:
-                # Check numbered columns
-                for col in symbol_cols:
-                    if col == 'symbol':
-                        continue
-                    if instrument in df[col].values:
-                        # Extract the suffix number
-                        suffix = col.replace('symbol', '')
-                        
-                        # Get corresponding price columns
-                        cols_to_keep = ['Date', 'date', 'DateTime', 'datetime', 'Time', 'time']
-                        price_cols = [f'open{suffix}', f'high{suffix}', f'low{suffix}', 
-                                     f'close{suffix}', f'volume{suffix}']
-                        cols_to_keep += price_cols
-                        
-                        existing_cols = [col for col in cols_to_keep if col in df.columns]
-                        instrument_data = df[df[col] == instrument][existing_cols].copy()
-                        
-                        # Rename columns to standard names
-                        for col in price_cols:
-                            if col in instrument_data.columns:
-                                new_name = col.replace(suffix, '')
-                                instrument_data.rename(columns={col: new_name}, inplace=True)
-                        
-                        break
+            # Process each instrument column set
+            symbol_cols = [col for col in chunk.columns if re.match(r'Symbol(\.\d+)?$', col)]
+            print(f"  Found {len(symbol_cols)} instrument sets")
             
-            return instrument_data
-        
-        # Extract instrument data from both files
-        print(f"\nExtracting {instrument} data from file 1...")
-        inst_df1 = extract_instrument_data(df1, instrument)
-        if inst_df1 is None or len(inst_df1) == 0:
-            print(f"WARNING: No {instrument} data found in file 1")
-            inst_df1 = pd.DataFrame()
-        else:
-            print(f"  Found {len(inst_df1)} rows for {instrument}")
-        
-        print(f"\nExtracting {instrument} data from file 2...")
-        inst_df2 = extract_instrument_data(df2, instrument)
-        if inst_df2 is None or len(inst_df2) == 0:
-            print(f"WARNING: No {instrument} data found in file 2")
-            inst_df2 = pd.DataFrame()
-        else:
-            print(f"  Found {len(inst_df2)} rows for {instrument}")
-        
-        # Combine the instrument data
-        if len(inst_df1) > 0 and len(inst_df2) > 0:
-            print(f"\nCombining {instrument} data...")
-            combined = pd.concat([inst_df2, inst_df1], ignore_index=True)
-        elif len(inst_df1) > 0:
-            combined = inst_df1
-        elif len(inst_df2) > 0:
-            combined = inst_df2
-        else:
-            print(f"\nERROR: No data found for {instrument} in either file!")
-            return None
-        
-        # Standardize date column
-        date_cols = ['Date', 'date', 'DateTime', 'datetime', 'Time', 'time']
-        for col in date_cols:
-            if col in combined.columns:
-                combined['Date'] = pd.to_datetime(combined[col])
-                if col != 'Date':
-                    combined.drop(columns=[col], inplace=True)
-                break
-        
-        # Sort by date
-        if 'Date' in combined.columns:
-            combined = combined.sort_values('Date')
-            print(f"  Date range: {combined['Date'].min()} to {combined['Date'].max()}")
-        
-        # Ensure we have the required columns
-        required_cols = ['Date', 'open', 'high', 'low', 'close', 'volume']
-        final_cols = [col for col in required_cols if col in combined.columns]
-        combined = combined[final_cols]
-        
-        # Save combined file
-        print(f"\nSaving combined {instrument} data to {output_file}...")
-        combined.to_csv(output_file, index=False)
-        
-        print(f"\nSuccess! Combined {len(combined)} rows for {instrument}")
-        print(f"Output saved to: {os.path.abspath(output_file)}")
-        
-        return output_file
-        
-    except Exception as e:
-        print(f"\nError: {e}")
-        import traceback
-        traceback.print_exc()
+            found_instrument = False
+            
+            for symbol_col in symbol_cols:
+                # Extract suffix
+                suffix = symbol_col.replace('Symbol', '')
+                
+                # Get corresponding columns
+                col_names = {
+                    'symbol': f'Symbol{suffix}',
+                    'open': f'Open{suffix}',
+                    'high': f'High{suffix}',
+                    'low': f'Low{suffix}',
+                    'close': f'Close{suffix}',
+                    'volume': f'Volume{suffix}',
+                    'openinterest': f'OpenInterest{suffix}'
+                }
+                
+                # Check if all columns exist
+                if not all(col in chunk.columns for col in col_names.values()):
+                    continue
+                
+                # Extract data for this instrument set
+                sub_df = chunk[[col for col in col_names.values()]].copy()
+                sub_df.columns = ['symbol', 'open', 'high', 'low', 'close', 'volume', 'openinterest']
+                
+                # Clean numeric columns
+                for col in ['open', 'high', 'low', 'close', 'volume', 'openinterest']:
+                    sub_df[col] = sub_df[col].astype(str).str.replace(',', '', regex=False)
+                    sub_df[col] = pd.to_numeric(sub_df[col], errors='coerce', downcast='float')
+                
+                # Extract base symbol
+                sub_df['BaseSymbol'] = sub_df['symbol'].apply(lambda x: parse_symbol(x) if pd.notna(x) else None)
+                
+                # Filter for our instrument
+                instrument_data = sub_df[sub_df['BaseSymbol'] == instrument].copy()
+                
+                if len(instrument_data) > 0:
+                    print(f"  Found {len(instrument_data)} rows for {instrument} in column set {symbol_col}")
+                    found_instrument = True
+                    all_data.append(instrument_data)
+            
+            if not found_instrument:
+                print(f"  WARNING: No data found for {instrument} in this file")
+                
+        except Exception as e:
+            print(f"  ERROR processing file: {e}")
+            continue
+    
+    if not all_data:
+        print(f"\nERROR: No data found for {instrument} in any file!")
         return None
+    
+    # Combine all data
+    print(f"\nCombining all {instrument} data...")
+    combined = pd.concat(all_data)
+    
+    # Sort by index (Date)
+    combined = combined.sort_index()
+    
+    # Remove duplicates (keep first occurrence)
+    combined = combined[~combined.index.duplicated(keep='first')]
+    
+    # Reset index to have Date as a column
+    combined.reset_index(inplace=True)
+    
+    # Select final columns for regime system
+    final_columns = ['Date', 'symbol', 'open', 'high', 'low', 'close', 'volume']
+    combined = combined[final_columns]
+    
+    # Save
+    print(f"\nSaving to {output_file}...")
+    combined.to_csv(output_file, index=False)
+    
+    print(f"\nSuccess! Combined {len(combined)} rows for {instrument}")
+    print(f"Date range: {combined['Date'].min()} to {combined['Date'].max()}")
+    print(f"Output saved to: {os.path.abspath(output_file)}")
+    
+    return output_file
 
 if __name__ == "__main__":
-    # Ask user which instrument they want
     print("Available instruments: NQ, ES, YM, RTY, GC, CL, ZB, ZW, ZS")
     instrument = input("Enter instrument symbol (default NQ): ").strip().upper()
     
