@@ -10,8 +10,6 @@
 # Preserves your working regime classification while improving performance
 # =============================================================================
 
-# Morning 2
-
 import numpy as np
 import pandas as pd
 import logging
