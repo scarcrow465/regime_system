@@ -3,10 +3,10 @@
     "runOnSave.commands": [
         {
             "match": ".*\\.ipynb$",
-            "command": "jupyter nbconvert --to python \"${file}\" ; git add . ; git commit -m \"Auto-save-${fileBasenameNoExtension} $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')\"",
+            "command": "jupyter nbconvert --to python \"${file}\" ; git add . ; git commit -m \"Auto-save-${fileBasenameNoExtension}\"",
             "runIn": "terminal",
             "runningStatusMessage": "Converting and committing ${fileBasename}...",
-            "finishStatusMessage": "✅ Auto-saved ${fileBasename} with timestamp!"
+            "finishStatusMessage": "✅ Auto-saved ${fileBasename}!"
         }
     ]
 }
