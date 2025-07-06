@@ -154,3 +154,9 @@ if __name__ == "__main__":
         print(f"\nNow you can run:")
         print(f'python main.py analyze --data "{output}" --timeframe 15min')
 
+
+# In[ ]:
+
+
+
+
