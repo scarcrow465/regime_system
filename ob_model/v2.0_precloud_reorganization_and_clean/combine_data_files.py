@@ -9,8 +9,6 @@ Fixed combine script based on actual CSV format from project knowledge
 Handles wide format: Date + (Symbol.X, Open.X, High.X, Low.X, Close.X, Volume.X, OpenInterest.X) * N instruments
 """
 
-# TESTING IF THIS WORKS
-
 import pandas as pd
 import numpy as np
 import os
