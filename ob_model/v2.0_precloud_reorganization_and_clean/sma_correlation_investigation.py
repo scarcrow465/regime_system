@@ -32,7 +32,7 @@ data = load_csv_data(data_file, timeframe='15min')
 print(f"Loaded {len(data)} rows")
 
 # Use a subset for faster calculation
-subset_size = 10000
+subset_size = 100000
 if len(data) > subset_size:
     data = data.tail(subset_size)
     print(f"Using last {subset_size} rows for investigation")
