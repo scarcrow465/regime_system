@@ -62,9 +62,9 @@ def run_indicator_validation_real_data():
         print(f"Date range: {data.index[0]} to {data.index[-1]}")
         
         # Use a subset for faster testing (last 10,000 rows)
-        if len(data) > 10000:
+        if len(data) > 100000:
             print(f"\nUsing last 10,000 rows for validation (full dataset has {len(data)} rows)")
-            data = data.tail(10000)
+            data = data.tail(100000)
         
         print(f"Data shape: {data.shape}")
         print(f"Columns: {list(data.columns)}")
