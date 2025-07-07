@@ -450,49 +450,7 @@ def calculate_all_indicators(data: pd.DataFrame,
         
         df['DPO'] = calculate_dpo(close)
         df['KST'] = calculate_kst(close)
-
-        # ======================
-        # VOLATILITY INDICATORS (13+)
-        # ======================
-        if verbose: print("Calculating Volatility indicators (13+)...")
         
-        # ATR
-        atr = AverageTrueRange(high=high, low=low, close=close)
-        df['ATR'] = atr.average_true_range()
-        df['NATR'] = (df['ATR'] / close) * 100
-        
-        # Bollinger Bands
-        bb = BollingerBands(close=close)
-        df['BB_Upper'] = bb.bollinger_hband()
-        df['BB_Lower'] = bb.bollinger_lband()
-        df['BB_Middle'] = bb.bollinger_mavg()
-        df['BB_Width'] = bb.bollinger_wband()
-        df['BB_Percent'] = bb.bollinger_pband()
-        
-        # Keltner Channel
-        kc = KeltnerChannel(high=high, low=low, close=close)
-        df['KC_Upper'] = kc.keltner_channel_hband()
-        df['KC_Lower'] = kc.keltner_channel_lband()
-        df['KC_Middle'] = kc.keltner_channel_mband()
-        df['KC_Width'] = df['KC_Upper'] - df['KC_Lower']
-        
-        # Donchian Channel
-        dc = DonchianChannel(high=high, low=low, close=close)
-        df['DC_Upper'] = dc.donchian_channel_hband()
-        df['DC_Lower'] = dc.donchian_channel_lband()
-        df['DC_Middle'] = dc.donchian_channel_mband()
-        df['DC_Width'] = dc.donchian_channel_wband()
-        
-        # Ulcer Index
-        df['UI'] = UlcerIndex(close=close).ulcer_index()
-        
-        # Advanced Volatility Estimators
-        df['Historical_Vol'] = close.pct_change().rolling(20).std() * np.sqrt(252)
-        df['Parkinson'] = calculate_parkinson_estimator(high, low)
-        df['GarmanKlass'] = calculate_garman_klass(open_, high, low, close)
-        df['RogersSatchell'] = calculate_rogers_satchell(open_, high, low, close)
-        df['YangZhang'] = calculate_yang_zhang(open_, high, low, close)
-
         # ======================
         # TREND STRENGTH INDICATORS (15+)
         # ======================
@@ -534,6 +492,48 @@ def calculate_all_indicators(data: pd.DataFrame,
         # Acceleration and Jerk
         df['Acceleration'] = calculate_acceleration(close)
         df['Jerk'] = calculate_jerk(close)
+        
+        # ======================
+        # VOLATILITY INDICATORS (13+)
+        # ======================
+        if verbose: print("Calculating Volatility indicators (13+)...")
+        
+        # ATR
+        atr = AverageTrueRange(high=high, low=low, close=close)
+        df['ATR'] = atr.average_true_range()
+        df['NATR'] = (df['ATR'] / close) * 100
+        
+        # Bollinger Bands
+        bb = BollingerBands(close=close)
+        df['BB_Upper'] = bb.bollinger_hband()
+        df['BB_Lower'] = bb.bollinger_lband()
+        df['BB_Middle'] = bb.bollinger_mavg()
+        df['BB_Width'] = bb.bollinger_wband()
+        df['BB_Percent'] = bb.bollinger_pband()
+        
+        # Keltner Channel
+        kc = KeltnerChannel(high=high, low=low, close=close)
+        df['KC_Upper'] = kc.keltner_channel_hband()
+        df['KC_Lower'] = kc.keltner_channel_lband()
+        df['KC_Middle'] = kc.keltner_channel_mband()
+        df['KC_Width'] = df['KC_Upper'] - df['KC_Lower']
+        
+        # Donchian Channel
+        dc = DonchianChannel(high=high, low=low, close=close)
+        df['DC_Upper'] = dc.donchian_channel_hband()
+        df['DC_Lower'] = dc.donchian_channel_lband()
+        df['DC_Middle'] = dc.donchian_channel_mband()
+        df['DC_Width'] = dc.donchian_channel_wband()
+        
+        # Ulcer Index
+        df['UI'] = UlcerIndex(close=close).ulcer_index()
+        
+        # Advanced Volatility Estimators
+        df['Historical_Vol'] = close.pct_change().rolling(20).std() * np.sqrt(252)
+        df['Parkinson'] = calculate_parkinson_estimator(high, low)
+        df['GarmanKlass'] = calculate_garman_klass(open_, high, low, close)
+        df['RogersSatchell'] = calculate_rogers_satchell(open_, high, low, close)
+        df['YangZhang'] = calculate_yang_zhang(open_, high, low, close)
         
         # ======================
         # MICROSTRUCTURE INDICATORS (12+)

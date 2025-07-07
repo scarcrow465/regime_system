@@ -14,7 +14,7 @@ import json
 import pandas as pd
 import numpy as np
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
 import os
 import sys

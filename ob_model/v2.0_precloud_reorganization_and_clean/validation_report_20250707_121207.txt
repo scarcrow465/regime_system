@@ -1,0 +1,19 @@
+REGIME SYSTEM VALIDATION REPORT
+================================================================================
+Generated: 2025-07-07 12:12:07
+
+INDICATOR ANALYSIS:
+  Total Calculated: 2
+  Valid: 2
+  Problematic: 0
+  Missing Expected: 0
+
+CONFIDENCE SCORES:
+  All 1.0 Issue: No
+  Low Variance Issue: Yes
+
+CORRELATIONS:
+  High Correlation Pairs (>0.9): 454
+
+RECOMMENDATIONS:
+  - MEDIUM: Consider removing redundant indicators with correlation > 0.90

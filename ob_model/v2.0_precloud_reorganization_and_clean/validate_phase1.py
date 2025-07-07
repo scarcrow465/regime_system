@@ -5,8 +5,8 @@
 
 
 """
-Script to update indicators with full calculations and run validation
-Phase 1 - Step 1: Fix indicator calculations and validate
+Script to validate indicators using REAL market data
+Phase 1 - Testing with actual futures data
 """
 
 import pandas as pd
@@ -16,292 +16,287 @@ import os
 from datetime import datetime
 
 # Add regime_system to path
-sys.path.insert(0, 'regime_system')
+sys.path.insert(0, r'C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean')
 
-# First, backup the existing indicators.py
+# Import required modules
+from validation.indicator_analysis import IndicatorValidator
+from core.data_loader import load_csv_data
+from core.indicators import calculate_all_indicators
+from core.regime_classifier import RollingRegimeClassifier
+
 print("="*80)
-print("PHASE 1: INDICATOR RESTORATION AND VALIDATION")
+print("PHASE 1: VALIDATION WITH REAL MARKET DATA")
 print("="*80)
 print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-# Step 1: Backup existing file
-print("\nStep 1: Creating backup of existing indicators.py...")
-backup_path = f"regime_system/core/indicators_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.py"
-try:
-    import shutil
-    shutil.copy2('regime_system/core/indicators.py', backup_path)
-    print(f"✓ Backup created: {backup_path}")
-except Exception as e:
-    print(f"✗ Backup failed: {e}")
-
-# Step 2: Import the restored indicators from our artifact
-print("\nStep 2: Loading restored indicator calculations...")
-# In practice, you would copy the restored_indicators content to indicators.py
-# For now, let's validate what we have
-
-from regime_system.core.data_loader import load_csv_data
-from regime_system.core.indicators import calculate_all_indicators, validate_indicators
-from regime_system.core.regime_classifier import RollingRegimeClassifier
-
-# Step 3: Run indicator validation
-print("\nStep 3: Running indicator validation...")
-
-def run_indicator_validation(data_file: str = None):
-    """Run comprehensive indicator validation"""
+def run_indicator_validation_real_data():
+    """Run validation with real market data"""
     
-    # Load test data
-    if data_file and os.path.exists(data_file):
-        print(f"Loading data from: {data_file}")
+    # Path to your actual data file
+    # Update this path to your actual CSV file location
+    data_files = [
+        r"C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean\combined_NQ_15m_data.csv"
+    ]
+    
+    # Find the first existing file
+    data_file = None
+    for file_path in data_files:
+        if os.path.exists(file_path):
+            data_file = file_path
+            break
+    
+    if data_file is None:
+        print("\n⚠️ No data file found! Please update the path to your actual data file.")
+        print("Looking for files in these locations:")
+        for fp in data_files:
+            print(f"  - {fp}")
+        return None, None
+    
+    print(f"\n✓ Found data file: {data_file}")
+    
+    # Load the data
+    print("\nLoading real market data...")
+    try:
         data = load_csv_data(data_file, timeframe='15min')
-    else:
-        print("Generating synthetic test data...")
-        # Generate synthetic data for testing
-        dates = pd.date_range(start='2023-01-01', periods=1000, freq='15min')
-        data = pd.DataFrame({
-            'Date': dates,
-            'open': 100 + np.cumsum(np.random.randn(1000) * 0.5),
-            'high': 0,
-            'low': 0,
-            'close': 0,
-            'volume': np.random.randint(1000, 10000, 1000)
-        })
-        data['high'] = data['open'] + np.abs(np.random.randn(1000) * 0.3)
-        data['low'] = data['open'] - np.abs(np.random.randn(1000) * 0.3)
-        data['close'] = data['low'] + (data['high'] - data['low']) * np.random.rand(1000)
-        data.set_index('Date', inplace=True)
-    
-    print(f"Data shape: {data.shape}")
+        print(f"Loaded {len(data)} rows of data")
+        print(f"Date range: {data.index[0]} to {data.index[-1]}")
+        
+        # Use a subset for faster testing (last 10,000 rows)
+        if len(data) > 10000:
+            print(f"\nUsing last 10,000 rows for validation (full dataset has {len(data)} rows)")
+            data = data.tail(10000)
+        
+        print(f"Data shape: {data.shape}")
+        print(f"Columns: {list(data.columns)}")
+        print(f"Data types: {data.dtypes.value_counts()}")
+        
+        # Show any non-numeric columns
+        non_numeric = data.select_dtypes(exclude=[np.number]).columns.tolist()
+        if non_numeric:
+            print(f"Non-numeric columns found: {non_numeric}")
+        
+        # Check for required columns
+        required = ['open', 'high', 'low', 'close']
+        missing = [col for col in required if col not in data.columns]
+        if missing:
+            print(f"\n⚠️ Missing required columns: {missing}")
+            return None, None
+            
+    except Exception as e:
+        print(f"\n✗ Error loading data: {e}")
+        return None, None
     
     # Calculate indicators
-    print("\nCalculating indicators...")
+    print("\nCalculating indicators on real data...")
     try:
         data_with_indicators = calculate_all_indicators(data, verbose=True)
         indicator_count = len(data_with_indicators.columns) - len(data.columns)
         print(f"\n✓ Successfully calculated {indicator_count} indicators")
     except Exception as e:
         print(f"\n✗ Error calculating indicators: {e}")
-        return None
+        import traceback
+        traceback.print_exc()
+        return pd.DataFrame(), {'error': str(e)}
     
     # Validate indicators
     print("\nValidating indicators...")
-    validation_results = validate_indicators(data_with_indicators)
+    validator = IndicatorValidator()
+    validation_results = validator.validate_indicators(data_with_indicators)
     
     print("\nValidation Results:")
-    print(f"  Valid indicators: {len(validation_results['valid'])}")
-    print(f"  Missing indicators: {len(validation_results['missing'])}")
-    print(f"  All NaN indicators: {len(validation_results['all_nan'])}")
-    print(f"  Mostly NaN indicators: {len(validation_results['mostly_nan'])}")
-    print(f"  Constant indicators: {len(validation_results['constant'])}")
+    print(f"  Overall missing %: {validation_results['missing_data']['overall_missing_pct']:.2f}%")
+    print(f"  Quality score: {validation_results['data_quality']['quality_score']:.2f}")
+    print(f"  Range issues: {len(validation_results['indicator_ranges']['out_of_range'])}")
+    print(f"  Overall score: {validation_results['overall_score']:.2f}")
     
-    if validation_results['missing']:
-        print(f"\n  Missing: {validation_results['missing'][:5]}{'...' if len(validation_results['missing']) > 5 else ''}")
-    
-    if validation_results['all_nan']:
-        print(f"\n  All NaN: {validation_results['all_nan'][:5]}{'...' if len(validation_results['all_nan']) > 5 else ''}")
+    # Show indicator count by type
+    numeric_indicators = data_with_indicators.select_dtypes(include=[np.number]).columns
+    non_base_numeric = [col for col in numeric_indicators if col not in ['open', 'high', 'low', 'close', 'volume']]
+    print(f"\nIndicator Summary:")
+    print(f"  Numeric indicators: {len(non_base_numeric)}")
+    print(f"  Total columns: {len(data_with_indicators.columns)}")
     
     return data_with_indicators, validation_results
 
-def check_confidence_scores(data_with_indicators):
-    """Check if confidence scores are properly varied"""
-    print("\nStep 4: Testing regime classification confidence scores...")
+def check_confidence_scores_real_data(data_with_indicators):
+    """Check confidence scores with real market data"""
+    print("\n" + "="*60)
+    print("REGIME CLASSIFICATION WITH REAL DATA")
+    print("="*60)
     
-    # Create classifier
+    # Create classifier with 36-hour window (optimal for 15-min NQ)
     classifier = RollingRegimeClassifier(window_hours=36, timeframe='15min')
     
     # Classify regimes
     print("Classifying regimes...")
     regimes = classifier.classify_regimes(data_with_indicators, show_progress=True)
     
+    # Get regime statistics
+    stats = classifier.get_regime_statistics(regimes)
+    
+    # Print regime distributions
+    print("\nREGIME DISTRIBUTIONS:")
+    for dimension, dim_stats in stats.items():
+        if dimension != 'Composite' and 'percentages' in dim_stats:
+            print(f"\n{dimension} Dimension:")
+            for regime, pct in sorted(dim_stats['percentages'].items()):
+                if regime != 'Undefined':
+                    print(f"  {regime}: {pct:.1f}%")
+    
     # Check confidence scores
-    print("\nConfidence Score Analysis:")
+    print("\n" + "="*60)
+    print("CONFIDENCE SCORE ANALYSIS:")
+    print("="*60)
+    
+    confidence_summary = {}
+    
     for dim in ['Direction', 'TrendStrength', 'Velocity', 'Volatility', 'Microstructure']:
         conf_col = f'{dim}_Confidence'
         if conf_col in regimes.columns:
             conf_values = regimes[conf_col].dropna()
-            print(f"\n{dim} Confidence:")
-            print(f"  Mean: {conf_values.mean():.3f}")
-            print(f"  Std: {conf_values.std():.3f}")
-            print(f"  Min: {conf_values.min():.3f}")
-            print(f"  Max: {conf_values.max():.3f}")
-            print(f"  Unique values: {len(conf_values.unique())}")
             
-            # Check if all values are 1.0
-            if (conf_values == 1.0).all():
-                print(f"  ⚠️ WARNING: All confidence scores are 1.0!")
-            elif conf_values.std() < 0.01:
-                print(f"  ⚠️ WARNING: Very low variance in confidence scores!")
+            # Calculate statistics
+            stats_dict = {
+                'mean': conf_values.mean(),
+                'std': conf_values.std(),
+                'min': conf_values.min(),
+                'max': conf_values.max(),
+                'unique': len(conf_values.unique()),
+                'zeros': (conf_values == 0).sum(),
+                'ones': (conf_values == 1).sum()
+            }
+            
+            confidence_summary[dim] = stats_dict
+            
+            print(f"\n{dim} Confidence:")
+            print(f"  Mean: {stats_dict['mean']:.3f}")
+            print(f"  Std: {stats_dict['std']:.3f}")
+            print(f"  Min: {stats_dict['min']:.3f}")
+            print(f"  Max: {stats_dict['max']:.3f}")
+            print(f"  Unique values: {stats_dict['unique']}")
+            
+            # Check for issues
+            if stats_dict['mean'] == 0:
+                print(f"  ⚠️ WARNING: All zeros - no confident classifications!")
+            elif stats_dict['mean'] == 1:
+                print(f"  ⚠️ WARNING: All ones - perfect agreement (suspicious)!")
+            elif stats_dict['std'] < 0.01:
+                print(f"  ⚠️ WARNING: Very low variance!")
             else:
                 print(f"  ✓ Confidence scores show proper variation")
+            
+            # Show distribution
+            if stats_dict['unique'] <= 5:
+                print(f"  Distribution: {conf_values.value_counts().sort_index().to_dict()}")
     
-    return regimes
+    return regimes, confidence_summary
 
-def analyze_indicator_correlations(data_with_indicators):
-    """Analyze correlations between indicators"""
-    print("\nStep 5: Analyzing indicator correlations...")
+def analyze_correlations_focused(data_with_indicators):
+    """Analyze correlations with focus on problematic pairs"""
+    print("\n" + "="*60)
+    print("CORRELATION ANALYSIS")
+    print("="*60)
     
-    # Select only indicator columns (exclude OHLCV)
-    base_cols = ['open', 'high', 'low', 'close', 'volume']
-    indicator_cols = [col for col in data_with_indicators.columns if col not in base_cols]
+    # Select only indicator columns (numeric only)
+    base_cols = ['open', 'high', 'low', 'close', 'volume', 'Symbol', 'Date']
+    numeric_cols = data_with_indicators.select_dtypes(include=[np.number]).columns.tolist()
+    indicator_cols = [col for col in numeric_cols if col not in base_cols]
     
-    # Calculate correlation matrix
-    print(f"Calculating correlations for {len(indicator_cols)} indicators...")
-    corr_matrix = data_with_indicators[indicator_cols].corr()
+    # Additional check for any string columns that might have slipped through
+    indicator_cols = [col for col in indicator_cols if data_with_indicators[col].dtype in ['float64', 'int64', 'float32', 'int32']]
     
-    # Find highly correlated pairs
-    high_corr_threshold = 0.90
+    print(f"Analyzing correlations for {len(indicator_cols)} numeric indicators...")
+    
+    # Debug: Show first few indicators
+    print(f"First 5 indicators: {indicator_cols[:5]}")
+    
+    try:
+        corr_matrix = data_with_indicators[indicator_cols].corr()
+    except Exception as e:
+        print(f"\n⚠️ Error calculating correlations: {e}")
+        print("Checking for problematic columns...")
+        for col in indicator_cols:
+            try:
+                test = data_with_indicators[col].astype(float)
+            except:
+                print(f"  Problem column: {col} - {data_with_indicators[col].dtype}")
+        return None, [], []
+    
+    # Find perfect correlations (>0.99)
+    perfect_corr_pairs = []
     high_corr_pairs = []
     
     for i in range(len(indicator_cols)):
         for j in range(i+1, len(indicator_cols)):
             corr_value = abs(corr_matrix.iloc[i, j])
-            if corr_value > high_corr_threshold and not pd.isna(corr_value):
+            if corr_value > 0.99 and not pd.isna(corr_value):
+                perfect_corr_pairs.append({
+                    'indicator1': indicator_cols[i],
+                    'indicator2': indicator_cols[j],
+                    'correlation': corr_value
+                })
+            elif corr_value > 0.90 and not pd.isna(corr_value):
                 high_corr_pairs.append({
                     'indicator1': indicator_cols[i],
                     'indicator2': indicator_cols[j],
                     'correlation': corr_value
                 })
     
-    print(f"\nFound {len(high_corr_pairs)} indicator pairs with correlation > {high_corr_threshold}")
+    print(f"\nPerfect correlations (>0.99): {len(perfect_corr_pairs)}")
+    print(f"High correlations (0.90-0.99): {len(high_corr_pairs)}")
     
-    if high_corr_pairs:
-        # Sort by correlation
-        high_corr_pairs.sort(key=lambda x: x['correlation'], reverse=True)
-        print("\nTop 10 highly correlated pairs:")
-        for i, pair in enumerate(high_corr_pairs[:10]):
-            print(f"  {i+1}. {pair['indicator1']} <-> {pair['indicator2']}: {pair['correlation']:.3f}")
-        
-        # Group by indicator
-        redundant_indicators = {}
-        for pair in high_corr_pairs:
-            for ind in [pair['indicator1'], pair['indicator2']]:
-                if ind not in redundant_indicators:
-                    redundant_indicators[ind] = 0
-                redundant_indicators[ind] += 1
-        
-        # Find most redundant indicators
-        most_redundant = sorted(redundant_indicators.items(), key=lambda x: x[1], reverse=True)[:10]
-        print("\nMost redundant indicators (appear in many high-correlation pairs):")
-        for ind, count in most_redundant:
-            print(f"  {ind}: appears in {count} high-correlation pairs")
+    # Show perfect correlations
+    if perfect_corr_pairs:
+        print("\nPERFECT CORRELATIONS (Consider removing one from each pair):")
+        for pair in perfect_corr_pairs[:10]:
+            print(f"  - {pair['indicator1']} = {pair['indicator2']} ({pair['correlation']:.4f})")
     
-    return corr_matrix, high_corr_pairs
-
-def create_validation_report(validation_results, regimes, high_corr_pairs):
-    """Create a comprehensive validation report"""
-    print("\n" + "="*80)
-    print("VALIDATION REPORT")
-    print("="*80)
-    
-    report = {
-        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'indicators': {
-            'total_calculated': len(validation_results['valid']) + len(validation_results['all_nan']) + 
-                              len(validation_results['mostly_nan']) + len(validation_results['constant']),
-            'valid': len(validation_results['valid']),
-            'problematic': len(validation_results['all_nan']) + len(validation_results['mostly_nan']) + 
-                          len(validation_results['constant']),
-            'missing_expected': len(validation_results['missing'])
-        },
-        'confidence_scores': {
-            'all_ones_issue': False,
-            'low_variance_issue': False,
-            'dimensions_checked': 5
-        },
-        'correlations': {
-            'high_correlation_pairs': len(high_corr_pairs),
-            'threshold_used': 0.90
-        },
-        'recommendations': []
-    }
-    
-    # Check confidence score issues
-    for dim in ['Direction', 'TrendStrength', 'Velocity', 'Volatility', 'Microstructure']:
-        conf_col = f'{dim}_Confidence'
-        if conf_col in regimes.columns:
-            conf_values = regimes[conf_col].dropna()
-            if (conf_values == 1.0).all():
-                report['confidence_scores']['all_ones_issue'] = True
-            elif conf_values.std() < 0.01:
-                report['confidence_scores']['low_variance_issue'] = True
-    
-    # Generate recommendations
-    if report['confidence_scores']['all_ones_issue']:
-        report['recommendations'].append("CRITICAL: Update indicator calculations to use full formulas instead of simplified versions")
-    
-    if report['indicators']['problematic'] > 10:
-        report['recommendations'].append("HIGH: Review and fix indicators that are returning NaN or constant values")
-    
-    if report['correlations']['high_correlation_pairs'] > 20:
-        report['recommendations'].append("MEDIUM: Consider removing redundant indicators with correlation > 0.90")
-    
-    if report['indicators']['missing_expected'] > 0:
-        report['recommendations'].append("LOW: Some expected indicators are missing from calculations")
-    
-    # Print summary
-    print("\nSUMMARY:")
-    print(f"✓ Total indicators calculated: {report['indicators']['total_calculated']}")
-    print(f"{'✓' if not report['confidence_scores']['all_ones_issue'] else '✗'} Confidence scores: {'Properly varied' if not report['confidence_scores']['all_ones_issue'] else 'All showing 1.0 (needs fix)'}")
-    print(f"⚠️  High correlation pairs: {report['correlations']['high_correlation_pairs']}")
-    
-    print("\nRECOMMENDATIONS:")
-    for i, rec in enumerate(report['recommendations'], 1):
-        print(f"{i}. {rec}")
-    
-    # Save report
-    report_file = f"validation_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-    with open(report_file, 'w') as f:
-        f.write("REGIME SYSTEM VALIDATION REPORT\n")
-        f.write("="*80 + "\n")
-        f.write(f"Generated: {report['timestamp']}\n\n")
-        
-        f.write("INDICATOR ANALYSIS:\n")
-        f.write(f"  Total Calculated: {report['indicators']['total_calculated']}\n")
-        f.write(f"  Valid: {report['indicators']['valid']}\n")
-        f.write(f"  Problematic: {report['indicators']['problematic']}\n")
-        f.write(f"  Missing Expected: {report['indicators']['missing_expected']}\n\n")
-        
-        f.write("CONFIDENCE SCORES:\n")
-        f.write(f"  All 1.0 Issue: {'Yes' if report['confidence_scores']['all_ones_issue'] else 'No'}\n")
-        f.write(f"  Low Variance Issue: {'Yes' if report['confidence_scores']['low_variance_issue'] else 'No'}\n\n")
-        
-        f.write("CORRELATIONS:\n")
-        f.write(f"  High Correlation Pairs (>{report['correlations']['threshold_used']}): {report['correlations']['high_correlation_pairs']}\n\n")
-        
-        f.write("RECOMMENDATIONS:\n")
-        for rec in report['recommendations']:
-            f.write(f"  - {rec}\n")
-    
-    print(f"\n✓ Report saved to: {report_file}")
-    
-    return report
+    return corr_matrix, perfect_corr_pairs, high_corr_pairs
 
 # Main execution
 if __name__ == "__main__":
-    print("\nRunning comprehensive validation...")
+    print("\nRunning validation with REAL market data...")
     
-    # Step 1: Validate indicators
-    data_with_indicators, validation_results = run_indicator_validation()
+    # Step 1: Validate indicators with real data
+    data_with_indicators, validation_results = run_indicator_validation_real_data()
     
-    if data_with_indicators is not None:
+    if data_with_indicators is not None and not data_with_indicators.empty:
         # Step 2: Check confidence scores
-        regimes = check_confidence_scores(data_with_indicators)
+        regimes, confidence_summary = check_confidence_scores_real_data(data_with_indicators)
         
         # Step 3: Analyze correlations
-        corr_matrix, high_corr_pairs = analyze_indicator_correlations(data_with_indicators)
+        corr_matrix, perfect_corr_pairs, high_corr_pairs = analyze_correlations_focused(data_with_indicators)
         
-        # Step 4: Create report
-        report = create_validation_report(validation_results, regimes, high_corr_pairs)
-        
+        # Summary
         print("\n" + "="*80)
-        print("NEXT STEPS:")
+        print("SUMMARY - REAL DATA VALIDATION")
         print("="*80)
-        print("1. Replace regime_system/core/indicators.py with the full implementation")
-        print("2. Re-run this validation to confirm confidence scores are fixed")
-        print("3. Remove highly correlated indicators based on the analysis")
+        
+        # Check if Direction and Velocity improved
+        if 'Direction' in confidence_summary and confidence_summary['Direction']['mean'] > 0:
+            print("✓ Direction confidence improved with real data!")
+        else:
+            print("✗ Direction confidence still showing issues")
+            
+        if 'Velocity' in confidence_summary and confidence_summary['Velocity']['mean'] > 0:
+            print("✓ Velocity confidence improved with real data!")
+        else:
+            print("✗ Velocity confidence still showing issues")
+        
+        if corr_matrix is not None:
+            print(f"\n⚠️ Found {len(perfect_corr_pairs)} perfect correlations to remove")
+            print(f"⚠️ Found {len(high_corr_pairs)} high correlations to review")
+        else:
+            print("\n⚠️ Correlation analysis failed - check for non-numeric columns")
+        
+        print("\nNEXT STEPS:")
+        print("1. Review confidence score distributions")
+        print("2. Remove perfectly correlated indicators")
+        print("3. Test on different time periods")
         print("4. Proceed with regime distribution validation")
-        print("5. Run performance attribution analysis")
+        
     else:
-        print("\n✗ Validation failed - please check indicator calculations")
+        print("\n✗ Validation failed - please check data file path and format")
     
-    print(f"\nCompleted at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"\n\nCompleted at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 

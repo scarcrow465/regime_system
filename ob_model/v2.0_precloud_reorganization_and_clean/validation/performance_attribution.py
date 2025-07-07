@@ -32,7 +32,7 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 # Set plot style
-plt.style.use(PLOT_STYLE)
+plt.style.use('default')
 
 # =============================================================================
 # PERFORMANCE ATTRIBUTION ANALYZER
@@ -138,8 +138,7 @@ class PerformanceAttributionAnalyzer:
             if positions is not None:
                 regime_positions = positions[regime_mask]
                 metrics['avg_position'] = regime_positions.mean()
-                metrics['position_utilization'] = (regime_positions != 0).sum() / len(regime_positions)
-                                                  if len(regime_positions) > 0 else 0
+                metrics['position_utilization'] = (regime_positions != 0).sum() / len(regime_positions) if len(regime_positions) > 0 else 0
             
             regime_metrics[regime] = metrics
         

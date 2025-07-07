@@ -32,7 +32,7 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 # Set plot style
-plt.style.use(PLOT_STYLE)
+plt.style.use('default')
 
 # =============================================================================
 # REGIME DISTRIBUTION ANALYZER
