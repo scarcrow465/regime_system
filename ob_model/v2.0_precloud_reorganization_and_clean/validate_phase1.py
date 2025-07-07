@@ -225,22 +225,26 @@ def analyze_correlations_focused(data_with_indicators):
     # Find perfect correlations (>0.99)
     perfect_corr_pairs = []
     high_corr_pairs = []
+    seen_pairs = set()  # Track unique pairs
     
     for i in range(len(indicator_cols)):
         for j in range(i+1, len(indicator_cols)):
-            corr_value = abs(corr_matrix.iloc[i, j])
-            if corr_value > 0.99 and not pd.isna(corr_value):
-                perfect_corr_pairs.append({
-                    'indicator1': indicator_cols[i],
-                    'indicator2': indicator_cols[j],
-                    'correlation': corr_value
-                })
-            elif corr_value > 0.90 and not pd.isna(corr_value):
-                high_corr_pairs.append({
-                    'indicator1': indicator_cols[i],
-                    'indicator2': indicator_cols[j],
-                    'correlation': corr_value
-                })
+            pair = tuple(sorted([indicator_cols[i], indicator_cols[j]]))  # Ensure consistent ordering
+            if pair not in seen_pairs:
+                corr_value = abs(corr_matrix.iloc[i, j])
+                if corr_value > 0.99 and not pd.isna(corr_value):
+                    perfect_corr_pairs.append({
+                        'indicator1': indicator_cols[i],
+                        'indicator2': indicator_cols[j],
+                        'correlation': corr_value
+                    })
+                elif corr_value > 0.90 and not pd.isna(corr_value):
+                    high_corr_pairs.append({
+                        'indicator1': indicator_cols[i],
+                        'indicator2': indicator_cols[j],
+                        'correlation': corr_value
+                    })
+                seen_pairs.add(pair)
     
     print(f"\nPerfect correlations (>0.99): {len(perfect_corr_pairs)}")
     print(f"High correlations (0.90-0.99): {len(high_corr_pairs)}")
