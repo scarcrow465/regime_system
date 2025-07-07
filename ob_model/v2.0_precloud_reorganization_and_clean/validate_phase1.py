@@ -206,12 +206,20 @@ def analyze_correlations_focused(data_with_indicators):
     indicator_cols = [col for col in indicator_cols if data_with_indicators[col].dtype in ['float64', 'int64', 'float32', 'int32']]
     
     print(f"Analyzing correlations for {len(indicator_cols)} numeric indicators...")
+    print("Using returns/changes for correlation (not raw values)")
     
     # Debug: Show first few indicators
     print(f"First 5 indicators: {indicator_cols[:5]}")
     
     try:
-        corr_matrix = data_with_indicators[indicator_cols].corr()
+        # Calculate correlations on returns/changes instead of raw values
+        indicator_changes = data_with_indicators[indicator_cols].pct_change()
+        # For indicators that can be negative (like MACD), use diff instead
+        for col in indicator_cols:
+            if data_with_indicators[col].min() < 0:
+                indicator_changes[col] = data_with_indicators[col].diff()
+        
+        corr_matrix = indicator_changes.corr()
     except Exception as e:
         print(f"\n⚠️ Error calculating correlations: {e}")
         print("Checking for problematic columns...")
