@@ -225,46 +225,33 @@ def analyze_correlations_focused(data_with_indicators):
     # Find perfect correlations (>0.99)
     perfect_corr_pairs = []
     high_corr_pairs = []
-    seen_pairs = set()  # Track unique pairs
     
     for i in range(len(indicator_cols)):
         for j in range(i+1, len(indicator_cols)):
-            pair = tuple(sorted([indicator_cols[i], indicator_cols[j]]))  # Ensure consistent ordering
-            if pair not in seen_pairs:
-                corr_value = abs(corr_matrix.iloc[i, j])
-                if corr_value > 0.99 and not pd.isna(corr_value):
-                    perfect_corr_pairs.append({
-                        'indicator1': indicator_cols[i],
-                        'indicator2': indicator_cols[j],
-                        'correlation': corr_value
-                    })
-                elif corr_value > 0.90 and not pd.isna(corr_value):
-                    high_corr_pairs.append({
-                        'indicator1': indicator_cols[i],
-                        'indicator2': indicator_cols[j],
-                        'correlation': corr_value
-                    })
-                seen_pairs.add(pair)
+            corr_value = abs(corr_matrix.iloc[i, j])
+            if corr_value > 0.99 and not pd.isna(corr_value):
+                perfect_corr_pairs.append({
+                    'indicator1': indicator_cols[i],
+                    'indicator2': indicator_cols[j],
+                    'correlation': corr_value
+                })
+            elif corr_value > 0.90 and not pd.isna(corr_value):
+                high_corr_pairs.append({
+                    'indicator1': indicator_cols[i],
+                    'indicator2': indicator_cols[j],
+                    'correlation': corr_value
+                })
     
-    # Ensure unique pairs in output by sorting and deduplicating
-    unique_perfect_pairs = []
-    seen_output_pairs = set()
-    for pair in sorted(perfect_corr_pairs, key=lambda x: x['correlation'], reverse=True):
-        output_pair = tuple(sorted([pair['indicator1'], pair['indicator2']]))
-        if output_pair not in seen_output_pairs:
-            unique_perfect_pairs.append(pair)
-            seen_output_pairs.add(output_pair)
-    
-    print(f"\nPerfect correlations (>0.99): {len(unique_perfect_pairs)}")
+    print(f"\nPerfect correlations (>0.99): {len(perfect_corr_pairs)}")
     print(f"High correlations (0.90-0.99): {len(high_corr_pairs)}")
     
     # Show perfect correlations
-    if unique_perfect_pairs:
+    if perfect_corr_pairs:
         print("\nPERFECT CORRELATIONS (Consider removing one from each pair):")
-        for pair in unique_perfect_pairs[:10]:
+        for pair in perfect_corr_pairs[:10]:
             print(f"  - {pair['indicator1']} = {pair['indicator2']} ({pair['correlation']:.4f})")
     
-    return corr_matrix, unique_perfect_pairs, high_corr_pairs
+    return corr_matrix, perfect_corr_pairs, high_corr_pairs
 
 # Main execution
 if __name__ == "__main__":
