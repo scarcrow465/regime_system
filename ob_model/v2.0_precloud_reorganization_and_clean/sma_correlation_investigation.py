@@ -46,7 +46,7 @@ sma_columns = ['close', 'SMA_5', 'SMA_10', 'SMA_20', 'SMA_50', 'SMA_100', 'SMA_2
 available_smas = [col for col in sma_columns if col in data_with_indicators.columns]
 
 # Get 100 rows of data (skip first 200 to ensure all SMAs are calculated)
-start_row = 300
+start_row = 99,900
 end_row = start_row + 100
 
 print(f"\nShowing rows {start_row} to {end_row}:")
