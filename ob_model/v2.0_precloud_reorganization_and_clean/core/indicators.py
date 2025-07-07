@@ -459,13 +459,13 @@ def calculate_all_indicators(data: pd.DataFrame,
         # ATR
         atr = AverageTrueRange(high=high, low=low, close=close)
         df['ATR'] = atr.average_true_range()
-        df['NATR'] = (df['ATR'] / close) * 100
+        # df['NATR'] = (df['ATR'] / close) * 100 # Removed due to high correlation
         
         # Bollinger Bands
         bb = BollingerBands(close=close)
         df['BB_Upper'] = bb.bollinger_hband()
         df['BB_Lower'] = bb.bollinger_lband()
-        df['BB_Middle'] = bb.bollinger_mavg()
+        # df['BB_Middle'] = bb.bollinger_mavg()
         df['BB_Width'] = bb.bollinger_wband()
         df['BB_Percent'] = bb.bollinger_pband()
         
@@ -473,7 +473,7 @@ def calculate_all_indicators(data: pd.DataFrame,
         kc = KeltnerChannel(high=high, low=low, close=close)
         df['KC_Upper'] = kc.keltner_channel_hband()
         df['KC_Lower'] = kc.keltner_channel_lband()
-        df['KC_Middle'] = kc.keltner_channel_mband()
+        # df['KC_Middle'] = kc.keltner_channel_mband()
         df['KC_Width'] = df['KC_Upper'] - df['KC_Lower']
         
         # Donchian Channel
@@ -584,12 +584,12 @@ def calculate_all_indicators(data: pd.DataFrame,
         
         # Returns
         df['Returns'] = close.pct_change()
-        df['Log_Returns'] = np.log(close / close.shift(1))
+        # df['Log_Returns'] = np.log(close / close.shift(1)) # Removed due to high correlation
         df['Cumulative_Returns'] = (1 + df['Returns']).cumprod() - 1
         
         # Price features
         df['High_Low_Ratio'] = high / low
-        df['Close_Open_Ratio'] = close / open_
+        # df['Close_Open_Ratio'] = close / open_ # Removed due to high correlation
         df['Typical_Price'] = (high + low + close) / 3
         df['Weighted_Close'] = (high + low + close * 2) / 4
         
