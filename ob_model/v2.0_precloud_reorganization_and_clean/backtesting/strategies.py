@@ -4,6 +4,9 @@
 # In[ ]:
 
 
+#!/usr/bin/env python
+# coding: utf-8
+
 """
 Enhanced regime-based trading strategies
 Sophisticated backtesting with realistic trading logic
@@ -15,7 +18,8 @@ import logging
 from typing import Dict, List, Tuple, Any, Optional
 from dataclasses import dataclass
 import warnings
-warnings.filterwarnings('ignore')
+from tqdm import tqdm
+import time
 import os
 import sys
 
@@ -241,7 +245,8 @@ class EnhancedRegimeStrategyBacktester:
     def momentum_strategy_enhanced(self, data: pd.DataFrame, regime_mask: pd.Series,
                                  regime_data: pd.DataFrame) -> pd.Series:
         """Enhanced momentum strategy with multiple confirmation signals"""
-        
+        start_time = time.time()
+        logger.info("Starting momentum strategy backtest")
         try:
             returns = pd.Series(0.0, index=data.index)
             positions = pd.Series(0.0, index=data.index)
@@ -264,6 +269,7 @@ class EnhancedRegimeStrategyBacktester:
                 else:
                     rsi_signal = pd.Series(True, index=data.index)
             else:
+                logger.warning("Missing 'close' column in data")
                 return returns
             
             current_position = 0.0
@@ -271,91 +277,100 @@ class EnhancedRegimeStrategyBacktester:
             stop_loss = 0.0
             take_profit = 0.0
             
-            for i in range(max(config.momentum_slow_period, 20), len(data)):
-                if not regime_mask.iloc[i]:
-                    # Exit if not in favorable regime
-                    if current_position != 0:
-                        exit_return = current_position * data['close'].pct_change().iloc[i]
-                        costs = self.apply_transaction_costs(abs(current_position), 
-                                                            data['close'].iloc[i], config)
-                        returns.iloc[i] = exit_return + costs
-                        current_position = 0.0
-                    continue
+            with tqdm(total=len(data) - max(config.momentum_slow_period, 20), desc="Momentum Strategy", ncols=80, mininterval=1) as pbar:
+                for i in range(max(config.momentum_slow_period, 20), len(data)):
+                    if not regime_mask.iloc[i]:
+                        # Exit if not in favorable regime
+                        if current_position != 0:
+                            logger.debug(f"Exiting position at index {i} due to unfavorable regime")
+                            exit_return = current_position * data['close'].pct_change().iloc[i]
+                            costs = self.apply_transaction_costs(abs(current_position), 
+                                                                data['close'].iloc[i], config)
+                            returns.iloc[i] = exit_return + costs
+                            current_position = 0.0
+                        pbar.update(1)
+                        continue
                 
-                # Get regime confidence
-                regime_confidence = regime_data['Direction_Confidence'].iloc[i] if 'Direction_Confidence' in regime_data.columns else 0.5
+                    # Get regime confidence
+                    regime_confidence = regime_data['Direction_Confidence'].iloc[i] if 'Direction_Confidence' in regime_data.columns else 0.5
                 
-                # Entry logic
-                if current_position == 0:
-                    # Multiple confirmations required
-                    ma_cross = fast_ma.iloc[i] > slow_ma.iloc[i]
-                    ma_slope = fast_ma.iloc[i] > fast_ma.iloc[i-1]
+                    # Entry logic
+                    if current_position == 0:
+                        # Multiple confirmations required
+                        ma_cross = fast_ma.iloc[i] > slow_ma.iloc[i]
+                        ma_slope = fast_ma.iloc[i] > fast_ma.iloc[i-1]
                     
-                    if ma_cross and ma_slope and macd_signal.iloc[i] and rsi_signal.iloc[i]:
-                        # Calculate signal strength
-                        signal_strength = 0.25  # Base
-                        if fast_ma.iloc[i] > fast_ma.iloc[i-5]:  # 5-bar momentum
-                            signal_strength += 0.25
-                        if data['ADX'].iloc[i] > 25 if 'ADX' in data.columns else False:
-                            signal_strength += 0.25
-                        if regime_data['TrendStrength_Regime'].iloc[i] == 'Strong' if 'TrendStrength_Regime' in regime_data.columns else False:
-                            signal_strength += 0.25
+                        if ma_cross and ma_slope and macd_signal.iloc[i] and rsi_signal.iloc[i]:
+                            # Calculate signal strength
+                            signal_strength = 0.25  # Base
+                            if fast_ma.iloc[i] > fast_ma.iloc[i-5]:  # 5-bar momentum
+                                signal_strength += 0.25
+                            if data['ADX'].iloc[i] > 25 if 'ADX' in data.columns else False:
+                                signal_strength += 0.25
+                            if regime_data['TrendStrength_Regime'].iloc[i] == 'Strong' if 'TrendStrength_Regime' in regime_data.columns else False:
+                                signal_strength += 0.25
                         
-                        # Calculate position size
-                        position_size = self.calculate_position_size(
-                            data, i, config, regime_confidence, signal_strength
-                        )
+                            # Calculate position size
+                            position_size = self.calculate_position_size(
+                                data, i, config, regime_confidence, signal_strength
+                            )
                         
-                        # Enter position
-                        current_position = position_size
-                        entry_price = data['close'].iloc[i]
+                            # Enter position
+                            logger.debug(f"Entering position at index {i}, size: {position_size}")
+                            current_position = position_size
+                            entry_price = data['close'].iloc[i]
                         
-                        # Set stops
-                        if 'ATR' in data.columns:
-                            atr = data['ATR'].iloc[i]
-                            stop_loss = entry_price - (config.stop_loss_atr * atr)
-                            take_profit = entry_price + (config.take_profit_atr * atr)
+                            # Set stops
+                            if 'ATR' in data.columns:
+                                atr = data['ATR'].iloc[i]
+                                stop_loss = entry_price - (config.stop_loss_atr * atr)
+                                take_profit = entry_price + (config.take_profit_atr * atr)
                         
-                        # Apply entry costs
-                        returns.iloc[i] = self.apply_transaction_costs(
-                            position_size, entry_price, config
-                        )
+                            # Apply entry costs
+                            returns.iloc[i] = self.apply_transaction_costs(
+                                position_size, entry_price, config
+                            )
                 
-                # Exit logic
-                elif current_position > 0:
-                    current_price = data['close'].iloc[i]
+                    # Exit logic
+                    elif current_position > 0:
+                        current_price = data['close'].iloc[i]
                     
-                    # Check stop loss
-                    if current_price <= stop_loss:
-                        exit_return = current_position * ((stop_loss / data['close'].iloc[i-1]) - 1)
-                        costs = self.apply_transaction_costs(current_position, stop_loss, config)
-                        returns.iloc[i] = exit_return + costs
-                        current_position = 0.0
+                        # Check stop loss
+                        if current_price <= stop_loss:
+                            logger.debug(f"Stop loss hit at index {i}, price: {current_price}")
+                            exit_return = current_position * ((stop_loss / data['close'].iloc[i-1]) - 1)
+                            costs = self.apply_transaction_costs(current_position, stop_loss, config)
+                            returns.iloc[i] = exit_return + costs
+                            current_position = 0.0
                     
-                    # Check take profit
-                    elif current_price >= take_profit:
-                        exit_return = current_position * ((take_profit / data['close'].iloc[i-1]) - 1)
-                        costs = self.apply_transaction_costs(current_position, take_profit, config)
-                        returns.iloc[i] = exit_return + costs
-                        current_position = 0.0
+                        # Check take profit
+                        elif current_price >= take_profit:
+                            logger.debug(f"Take profit hit at index {i}, price: {current_price}")
+                            exit_return = current_position * ((take_profit / data['close'].iloc[i-1]) - 1)
+                            costs = self.apply_transaction_costs(current_position, take_profit, config)
+                            returns.iloc[i] = exit_return + costs
+                            current_position = 0.0
                     
-                    # Check momentum exit
-                    elif fast_ma.iloc[i] < slow_ma.iloc[i] or not macd_signal.iloc[i]:
-                        exit_return = current_position * data['close'].pct_change().iloc[i]
-                        costs = self.apply_transaction_costs(current_position, current_price, config)
-                        returns.iloc[i] = exit_return + costs
-                        current_position = 0.0
+                        # Check momentum exit
+                        elif fast_ma.iloc[i] < slow_ma.iloc[i] or not macd_signal.iloc[i]:
+                            logger.debug(f"Momentum exit at index {i}")
+                            exit_return = current_position * data['close'].pct_change().iloc[i]
+                            costs = self.apply_transaction_costs(current_position, current_price, config)
+                            returns.iloc[i] = exit_return + costs
+                            current_position = 0.0
                     
-                    # Trail stop
-                    elif 'ATR' in data.columns:
-                        trail_stop = current_price - (config.trailing_stop_atr * data['ATR'].iloc[i])
-                        stop_loss = max(stop_loss, trail_stop)
-                        returns.iloc[i] = current_position * data['close'].pct_change().iloc[i]
-                    else:
-                        returns.iloc[i] = current_position * data['close'].pct_change().iloc[i]
+                        # Trail stop
+                        elif 'ATR' in data.columns:
+                            trail_stop = current_price - (config.trailing_stop_atr * data['ATR'].iloc[i])
+                            stop_loss = max(stop_loss, trail_stop)
+                            returns.iloc[i] = current_position * data['close'].pct_change().iloc[i]
+                        else:
+                            returns.iloc[i] = current_position * data['close'].pct_change().iloc[i]
                 
-                positions.iloc[i] = current_position
+                    positions.iloc[i] = current_position
+                    pbar.update(1)
             
+            logger.info(f"Momentum strategy completed in {time.time() - start_time:.2f} seconds")
             return returns
             
         except Exception as e:
@@ -365,7 +380,8 @@ class EnhancedRegimeStrategyBacktester:
     def mean_reversion_strategy_enhanced(self, data: pd.DataFrame, regime_mask: pd.Series,
                                        regime_data: pd.DataFrame) -> pd.Series:
         """Enhanced mean reversion strategy for sideways markets"""
-        
+        start_time = time.time()
+        logger.info("Starting mean reversion strategy backtest")
         try:
             returns = pd.Series(0.0, index=data.index)
             positions = pd.Series(0.0, index=data.index)
@@ -383,87 +399,97 @@ class EnhancedRegimeStrategyBacktester:
                 # RSI
                 rsi = data['RSI']
             else:
+                logger.warning("Missing required columns ('close', 'RSI') in data")
                 return returns
             
             current_position = 0.0
             entry_price = 0.0
             
-            for i in range(config.bb_periods, len(data)):
-                if not regime_mask.iloc[i]:
-                    if current_position != 0:
-                        exit_return = current_position * data['close'].pct_change().iloc[i]
-                        costs = self.apply_transaction_costs(abs(current_position), 
-                                                            data['close'].iloc[i], config)
-                        returns.iloc[i] = exit_return + costs
-                        current_position = 0.0
-                    continue
+            with tqdm(total=len(data) - config.bb_periods, desc="Mean Reversion Strategy", ncols=80, mininterval=1) as pbar:
+                for i in range(config.bb_periods, len(data)):
+                    if not regime_mask.iloc[i]:
+                        if current_position != 0:
+                            logger.debug(f"Exiting position at index {i} due to unfavorable regime")
+                            exit_return = current_position * data['close'].pct_change().iloc[i]
+                            costs = self.apply_transaction_costs(abs(current_position), 
+                                                                data['close'].iloc[i], config)
+                            returns.iloc[i] = exit_return + costs
+                            current_position = 0.0
+                        pbar.update(1)
+                        continue
                 
-                regime_confidence = regime_data['Direction_Confidence'].iloc[i] if 'Direction_Confidence' in regime_data.columns else 0.5
+                    regime_confidence = regime_data['Direction_Confidence'].iloc[i] if 'Direction_Confidence' in regime_data.columns else 0.5
                 
-                # Entry logic
-                if current_position == 0:
-                    # Long entry - oversold conditions
-                    if (data['close'].iloc[i] < bb_lower.iloc[i] and 
-                        rsi.iloc[i] < config.rsi_oversold):
-                        
-                        signal_strength = min(1.0, (bb_middle.iloc[i] - data['close'].iloc[i]) / 
-                                            (bb_middle.iloc[i] - bb_lower.iloc[i]))
-                        
-                        position_size = self.calculate_position_size(
-                            data, i, config, regime_confidence, signal_strength
-                        )
-                        
-                        current_position = position_size
-                        entry_price = data['close'].iloc[i]
-                        returns.iloc[i] = self.apply_transaction_costs(
-                            position_size, entry_price, config
-                        )
-                    
-                    # Short entry - overbought conditions
-                    elif (data['close'].iloc[i] > bb_upper.iloc[i] and 
-                          rsi.iloc[i] > config.rsi_overbought):
-                        
-                        signal_strength = min(1.0, (data['close'].iloc[i] - bb_middle.iloc[i]) / 
-                                            (bb_upper.iloc[i] - bb_middle.iloc[i]))
-                        
-                        position_size = self.calculate_position_size(
-                            data, i, config, regime_confidence, signal_strength
-                        )
-                        
-                        current_position = -position_size
-                        entry_price = data['close'].iloc[i]
-                        returns.iloc[i] = self.apply_transaction_costs(
-                            position_size, entry_price, config
-                        )
-                
-                # Exit logic
-                else:
-                    exit_signal = False
-                    
-                    if current_position > 0:  # Long position
-                        # Exit at middle band or overbought
-                        if (data['close'].iloc[i] >= bb_middle.iloc[i] or 
-                            rsi.iloc[i] > config.rsi_overbought):
-                            exit_signal = True
-                    
-                    elif current_position < 0:  # Short position
-                        # Exit at middle band or oversold
-                        if (data['close'].iloc[i] <= bb_middle.iloc[i] or 
+                    # Entry logic
+                    if current_position == 0:
+                        # Long entry - oversold conditions
+                        if (data['close'].iloc[i] < bb_lower.iloc[i] and 
                             rsi.iloc[i] < config.rsi_oversold):
-                            exit_signal = True
+                        
+                            signal_strength = min(1.0, (bb_middle.iloc[i] - data['close'].iloc[i]) / 
+                                                (bb_middle.iloc[i] - bb_lower.iloc[i]))
+                        
+                            position_size = self.calculate_position_size(
+                                data, i, config, regime_confidence, signal_strength
+                            )
+                        
+                            logger.debug(f"Entering long position at index {i}, size: {position_size}")
+                            current_position = position_size
+                            entry_price = data['close'].iloc[i]
+                            returns.iloc[i] = self.apply_transaction_costs(
+                                position_size, entry_price, config
+                            )
                     
-                    if exit_signal:
-                        position_change = -current_position
-                        exit_return = current_position * data['close'].pct_change().iloc[i]
-                        costs = self.apply_transaction_costs(abs(position_change),
-                                                            data['close'].iloc[i], config)
-                        returns.iloc[i] = exit_return + costs
-                        current_position = 0.0
-                    else:
-                        returns.iloc[i] = current_position * data['close'].pct_change().iloc[i]
+                        # Short entry - overbought conditions
+                        elif (data['close'].iloc[i] > bb_upper.iloc[i] and 
+                              rsi.iloc[i] > config.rsi_overbought):
+                        
+                            signal_strength = min(1.0, (data['close'].iloc[i] - bb_middle.iloc[i]) / 
+                                                (bb_upper.iloc[i] - bb_middle.iloc[i]))
+                        
+                            position_size = self.calculate_position_size(
+                                data, i, config, regime_confidence, signal_strength
+                            )
+                        
+                            logger.debug(f"Entering short position at index {i}, size: {position_size}")
+                            current_position = -position_size
+                            entry_price = data['close'].iloc[i]
+                            returns.iloc[i] = self.apply_transaction_costs(
+                                position_size, entry_price, config
+                            )
                 
-                positions.iloc[i] = current_position
+                    # Exit logic
+                    else:
+                        exit_signal = False
+                    
+                        if current_position > 0:  # Long position
+                            # Exit at middle band or overbought
+                            if (data['close'].iloc[i] >= bb_middle.iloc[i] or 
+                                rsi.iloc[i] > config.rsi_overbought):
+                                exit_signal = True
+                                logger.debug(f"Exiting long position at index {i} (middle band or overbought)")
+                    
+                        elif current_position < 0:  # Short position
+                            # Exit at middle band or oversold
+                            if (data['close'].iloc[i] <= bb_middle.iloc[i] or 
+                                rsi.iloc[i] < config.rsi_oversold):
+                                exit_signal = True
+                                logger.debug(f"Exiting short position at index {i} (middle band or oversold)")
+                    
+                        if exit_signal:
+                            position_change = -current_position
+                            exit_return = current_position * data['close'].pct_change().iloc[i]
+                            costs = self.apply_transaction_costs(abs(position_change),
+                                                                data['close'].iloc[i], config)
+                            returns.iloc[i] = exit_return + costs
+                            current_position = 0.0
+                        else:
+                            returns.iloc[i] = current_position * data['close'].pct_change().iloc[i]
+                
+                    positions.iloc[i] = current_position
+                    pbar.update(1)
             
+            logger.info(f"Mean reversion strategy completed in {time.time() - start_time:.2f} seconds")
             return returns
             
         except Exception as e:
@@ -473,7 +499,8 @@ class EnhancedRegimeStrategyBacktester:
     def volatility_breakout_strategy_enhanced(self, data: pd.DataFrame, regime_mask: pd.Series,
                                             regime_data: pd.DataFrame) -> pd.Series:
         """Enhanced volatility breakout strategy"""
-        
+        start_time = time.time()
+        logger.info("Starting volatility breakout strategy backtest")
         try:
             returns = pd.Series(0.0, index=data.index)
             positions = pd.Series(0.0, index=data.index)
@@ -493,94 +520,105 @@ class EnhancedRegimeStrategyBacktester:
             entry_price = 0.0
             stop_loss = 0.0
             
-            for i in range(lookback, len(data)):
-                if not regime_mask.iloc[i]:
-                    if current_position != 0:
-                        position_change = -current_position
-                        exit_return = current_position * data['close'].pct_change().iloc[i]
-                        costs = self.apply_transaction_costs(position_change,
-                                                            data['close'].iloc[i], config)
-                        returns.iloc[i] = exit_return + costs
-                        current_position = 0.0
-                    continue
+            with tqdm(total=len(data) - lookback, desc="Volatility Breakout Strategy", ncols=80, mininterval=1) as pbar:
+                for i in range(lookback, len(data)):
+                    if not regime_mask.iloc[i]:
+                        if current_position != 0:
+                            logger.debug(f"Exiting position at index {i} due to unfavorable regime")
+                            position_change = -current_position
+                            exit_return = current_position * data['close'].pct_change().iloc[i]
+                            costs = self.apply_transaction_costs(position_change,
+                                                                data['close'].iloc[i], config)
+                            returns.iloc[i] = exit_return + costs
+                            current_position = 0.0
+                        pbar.update(1)
+                        continue
                 
-                regime_confidence = regime_data['Volatility_Confidence'].iloc[i] if 'Volatility_Confidence' in regime_data.columns else 0.5
+                    regime_confidence = regime_data['Volatility_Confidence'].iloc[i] if 'Volatility_Confidence' in regime_data.columns else 0.5
                 
-                # Entry logic
-                if current_position == 0:
-                    # Breakout detection
-                    if data['close'].iloc[i] > rolling_high.iloc[i-1]:
-                        # Upside breakout
-                        if 'ATR' in data.columns and data['ATR'].iloc[i] > 0:
-                            signal_strength = min((data['close'].iloc[i] - rolling_high.iloc[i-1]) / 
-                                                data['ATR'].iloc[i], 1.0)
-                        else:
-                            signal_strength = 0.5
+                    # Entry logic
+                    if current_position == 0:
+                        # Breakout detection
+                        if data['close'].iloc[i] > rolling_high.iloc[i-1]:
+                            # Upside breakout
+                            if 'ATR' in data.columns and data['ATR'].iloc[i] > 0:
+                                signal_strength = min((data['close'].iloc[i] - rolling_high.iloc[i-1]) / 
+                                                    data['ATR'].iloc[i], 1.0)
+                            else:
+                                signal_strength = 0.5
                         
-                        position_size = self.calculate_position_size(
-                            data, i, config, regime_confidence, signal_strength
-                        )
+                            position_size = self.calculate_position_size(
+                                data, i, config, regime_confidence, signal_strength
+                            )
                         
-                        current_position = position_size
-                        entry_price = data['close'].iloc[i]
+                            logger.debug(f"Entering long position at index {i}, size: {position_size}")
+                            current_position = position_size
+                            entry_price = data['close'].iloc[i]
                         
-                        if 'ATR' in data.columns:
-                            stop_loss = entry_price - (config.stop_loss_atr * data['ATR'].iloc[i])
+                            if 'ATR' in data.columns:
+                                stop_loss = entry_price - (config.stop_loss_atr * data['ATR'].iloc[i])
                         
-                        returns.iloc[i] = self.apply_transaction_costs(
-                            position_size, entry_price, config
-                        )
+                            returns.iloc[i] = self.apply_transaction_costs(
+                                position_size, entry_price, config
+                            )
                     
-                    elif data['close'].iloc[i] < rolling_low.iloc[i-1]:
-                        # Downside breakout
-                        if 'ATR' in data.columns and data['ATR'].iloc[i] > 0:
-                            signal_strength = min((rolling_low.iloc[i-1] - data['close'].iloc[i]) / 
-                                                data['ATR'].iloc[i], 1.0)
-                        else:
-                            signal_strength = 0.5
+                        elif data['close'].iloc[i] < rolling_low.iloc[i-1]:
+                            # Downside breakout
+                            if 'ATR' in data.columns and data['ATR'].iloc[i] > 0:
+                                signal_strength = min((rolling_low.iloc[i-1] - data['close'].iloc[i]) / 
+                                                    data['ATR'].iloc[i], 1.0)
+                            else:
+                                signal_strength = 0.5
                         
-                        position_size = self.calculate_position_size(
-                            data, i, config, regime_confidence, signal_strength
-                        )
+                            position_size = self.calculate_position_size(
+                                data, i, config, regime_confidence, signal_strength
+                            )
                         
-                        current_position = -position_size
-                        entry_price = data['close'].iloc[i]
+                            logger.debug(f"Entering short position at index {i}, size: {position_size}")
+                            current_position = -position_size
+                            entry_price = data['close'].iloc[i]
                         
-                        if 'ATR' in data.columns:
-                            stop_loss = entry_price + (config.stop_loss_atr * data['ATR'].iloc[i])
+                            if 'ATR' in data.columns:
+                                stop_loss = entry_price + (config.stop_loss_atr * data['ATR'].iloc[i])
                         
-                        returns.iloc[i] = self.apply_transaction_costs(
-                            position_size, entry_price, config
-                        )
+                            returns.iloc[i] = self.apply_transaction_costs(
+                                position_size, entry_price, config
+                            )
                 
-                # Exit logic
-                else:
-                    exit_signal = False
-                    
-                    if current_position > 0:  # Long position
-                        if data['close'].iloc[i] <= stop_loss:
-                            exit_signal = True
-                        elif data['close'].iloc[i] < rolling_low.iloc[i]:
-                            exit_signal = True
-                    
-                    elif current_position < 0:  # Short position
-                        if stop_loss > 0 and data['close'].iloc[i] >= stop_loss:
-                            exit_signal = True
-                        elif data['close'].iloc[i] > rolling_high.iloc[i]:
-                            exit_signal = True
-                    
-                    if exit_signal:
-                        position_change = -current_position
-                        exit_return = current_position * data['close'].pct_change().iloc[i]
-                        costs = self.apply_transaction_costs(abs(position_change),
-                                                            data['close'].iloc[i], config)
-                        returns.iloc[i] = exit_return + costs
-                        current_position = 0.0
+                    # Exit logic
                     else:
-                        returns.iloc[i] = current_position * data['close'].pct_change().iloc[i]
+                        exit_signal = False
+                    
+                        if current_position > 0:  # Long position
+                            if data['close'].iloc[i] <= stop_loss:
+                                exit_signal = True
+                                logger.debug(f"Stop loss hit at index {i}, price: {data['close'].iloc[i]}")
+                            elif data['close'].iloc[i] < rolling_low.iloc[i]:
+                                exit_signal = True
+                                logger.debug(f"Exit long position at index {i} (below rolling low)")
+                    
+                        elif current_position < 0:  # Short position
+                            if stop_loss > 0 and data['close'].iloc[i] >= stop_loss:
+                                exit_signal = True
+                                logger.debug(f"Stop loss hit at index {i}, price: {data['close'].iloc[i]}")
+                            elif data['close'].iloc[i] > rolling_high.iloc[i]:
+                                exit_signal = True
+                                logger.debug(f"Exit short position at index {i} (above rolling high)")
+                    
+                        if exit_signal:
+                            position_change = -current_position
+                            exit_return = current_position * data['close'].pct_change().iloc[i]
+                            costs = self.apply_transaction_costs(abs(position_change),
+                                                                data['close'].iloc[i], config)
+                            returns.iloc[i] = exit_return + costs
+                            current_position = 0.0
+                        else:
+                            returns.iloc[i] = current_position * data['close'].pct_change().iloc[i]
                 
-                positions.iloc[i] = current_position
+                    positions.iloc[i] = current_position
+                    pbar.update(1)
             
+            logger.info(f"Volatility breakout strategy completed in {time.time() - start_time:.2f} seconds")
             return returns
             
         except Exception as e:
@@ -589,7 +627,8 @@ class EnhancedRegimeStrategyBacktester:
     
     def adaptive_regime_strategy_enhanced(self, data: pd.DataFrame, regimes: pd.DataFrame) -> pd.Series:
         """Enhanced adaptive strategy with sophisticated regime-based allocation"""
-        
+        start_time = time.time()
+        logger.info("Starting adaptive strategy backtest")
         try:
             total_returns = pd.Series(0.0, index=data.index)
             
@@ -604,53 +643,62 @@ class EnhancedRegimeStrategyBacktester:
                 else:
                     regime_scores[f'{dim.lower()}_score'] = 0.5
             
-            # Define sophisticated regime strategy mapping
-            for i in range(len(data)):
-                allocation = {}
+            with tqdm(total=len(data), desc="Adaptive Strategy", ncols=80, mininterval=1) as pbar:
+                for i in range(len(data)):
+                    allocation = {}
                 
-                # Get current regimes
-                direction = regimes['Direction_Regime'].iloc[i] if 'Direction_Regime' in regimes.columns else 'Undefined'
-                trend_strength = regimes['TrendStrength_Regime'].iloc[i] if 'TrendStrength_Regime' in regimes.columns else 'Undefined'
-                volatility = regimes['Volatility_Regime'].iloc[i] if 'Volatility_Regime' in regimes.columns else 'Undefined'
-                
-                # Determine strategy allocation based on regime combination
-                if direction in ['Up_Trending', 'Down_Trending'] and trend_strength == 'Strong':
-                    # Strong trending market - momentum strategy
-                    momentum_mask = pd.Series(False, index=data.index)
-                    momentum_mask.iloc[i] = True
-                    momentum_return = self.momentum_strategy_enhanced(
-                        data.iloc[:i+1], momentum_mask, regimes.iloc[:i+1]
-                    ).iloc[-1]
-                    allocation['momentum'] = (0.8, momentum_return)
-                
-                elif direction == 'Sideways' and volatility in ['Low_Vol', 'Medium_Vol']:
-                    # Range-bound market - mean reversion
-                    mr_mask = pd.Series(False, index=data.index)
-                    mr_mask.iloc[i] = True
-                    mr_return = self.mean_reversion_strategy_enhanced(
-                        data.iloc[:i+1], mr_mask, regimes.iloc[:i+1]
-                    ).iloc[-1]
-                    allocation['mean_reversion'] = (0.7, mr_return)
-                
-                elif volatility in ['High_Vol', 'Extreme_Vol']:
-                    # High volatility - breakout strategy
-                    vol_mask = pd.Series(False, index=data.index)
-                    vol_mask.iloc[i] = True
-                    vol_return = self.volatility_breakout_strategy_enhanced(
-                        data.iloc[:i+1], vol_mask, regimes.iloc[:i+1]
-                    ).iloc[-1]
-                    allocation['volatility'] = (0.5, vol_return)
-                
-                # Calculate weighted return
-                if allocation:
-                    weights = [w for w, _ in allocation.values()]
-                    returns = [r for _, r in allocation.values()]
-                    total_weight = sum(weights)
+                    # Get current regimes
+                    direction = regimes['Direction_Regime'].iloc[i] if 'Direction_Regime' in regimes.columns else 'Undefined'
+                    trend_strength = regimes['TrendStrength_Regime'].iloc[i] if 'TrendStrength_Regime' in regimes.columns else 'Undefined'
+                    volatility = regimes['Volatility_Regime'].iloc[i] if 'Volatility_Regime' in regimes.columns else 'Undefined'
                     
-                    if total_weight > 0:
-                        weighted_return = sum(w * r for w, r in allocation.values()) / total_weight
-                        total_returns.iloc[i] = weighted_return * min(1.0, total_weight)
+                    logger.debug(f"Processing index {i}, Direction: {direction}, TrendStrength: {trend_strength}, Volatility: {volatility}")
+                
+                    # Determine strategy allocation based on regime combination
+                    if direction in ['Up_Trending', 'Down_Trending'] and trend_strength == 'Strong':
+                        # Strong trending market - momentum strategy
+                        momentum_mask = pd.Series(False, index=data.index)
+                        momentum_mask.iloc[i] = True
+                        logger.debug(f"Calling momentum strategy at index {i}")
+                        momentum_return = self.momentum_strategy_enhanced(
+                            data.iloc[:i+1], momentum_mask, regimes.iloc[:i+1]
+                        ).iloc[-1]
+                        allocation['momentum'] = (0.8, momentum_return)
+                
+                    elif direction == 'Sideways' and volatility in ['Low_Vol', 'Medium_Vol']:
+                        # Range-bound market - mean reversion
+                        mr_mask = pd.Series(False, index=data.index)
+                        mr_mask.iloc[i] = True
+                        logger.debug(f"Calling mean reversion strategy at index {i}")
+                        mr_return = self.mean_reversion_strategy_enhanced(
+                            data.iloc[:i+1], mr_mask, regimes.iloc[:i+1]
+                        ).iloc[-1]
+                        allocation['mean_reversion'] = (0.7, mr_return)
+                
+                    elif volatility in ['High_Vol', 'Extreme_Vol']:
+                        # High volatility - breakout strategy
+                        vol_mask = pd.Series(False, index=data.index)
+                        vol_mask.iloc[i] = True
+                        logger.debug(f"Calling volatility breakout strategy at index {i}")
+                        vol_return = self.volatility_breakout_strategy_enhanced(
+                            data.iloc[:i+1], vol_mask, regimes.iloc[:i+1]
+                        ).iloc[-1]
+                        allocation['volatility'] = (0.5, vol_return)
+                
+                    # Calculate weighted return
+                    if allocation:
+                        weights = [w for w, _ in allocation.values()]
+                        returns = [r for _, r in allocation.values()]
+                        total_weight = sum(weights)
+                    
+                        if total_weight > 0:
+                            weighted_return = sum(w * r for w, r in allocation.values()) / total_weight
+                            total_returns.iloc[i] = weighted_return * min(1.0, total_weight)
+                            logger.debug(f"Allocated return at index {i}: {weighted_return}")
+                    
+                    pbar.update(1)
             
+            logger.info(f"Adaptive strategy completed in {time.time() - start_time:.2f} seconds")
             return total_returns
             
         except Exception as e:
@@ -682,9 +730,12 @@ def compare_strategies(data: pd.DataFrame, regimes: pd.DataFrame) -> pd.DataFram
     }
     
     for name, strategy_func in strategies.items():
+        logger.info(f"Comparing strategy: {name}")
+        start_time = time.time()
         returns = strategy_func()
         metrics = backtester.calculate_performance_metrics(returns)
         results[name] = metrics
+        logger.info(f"Comparison for {name} completed in {time.time() - start_time:.2f} seconds")
     
     # Create comparison DataFrame
     comparison = pd.DataFrame({
@@ -705,12 +756,11 @@ def optimize_strategy_parameters(data: pd.DataFrame, regimes: pd.DataFrame,
                                strategy_type: str = 'momentum') -> Dict[str, float]:
     """Optimize strategy parameters for a specific regime"""
     
+    logger.info(f"Optimizing {strategy_type} strategy parameters...")
+    
     # This is a placeholder for more sophisticated parameter optimization
     # In practice, would use grid search or Bayesian optimization
     
-    logger.info(f"Optimizing {strategy_type} strategy parameters...")
-    
-    # Default optimized parameters
     optimized_params = {
         'momentum': {
             'fast_period': 10,
