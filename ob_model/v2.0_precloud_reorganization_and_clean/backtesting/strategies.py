@@ -255,7 +255,7 @@ class EnhancedRegimeStrategyBacktester:
                 slow_ma = data['close'].rolling(config.momentum_slow_period).mean()
                 
                 if 'MACD' in data.columns:
-                    macd_signal = data['MACD'] > data['MACD_Signal_Line']
+                    macd_signal = data['MACD'] > data['MACD_Signal']
                 else:
                     macd_signal = pd.Series(True, index=data.index)
                 
