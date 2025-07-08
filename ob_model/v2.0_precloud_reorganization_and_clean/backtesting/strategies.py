@@ -681,6 +681,41 @@ class EnhancedRegimeStrategyBacktester:
         
         return returns
 
+def compare_strategies(data: pd.DataFrame, regimes: pd.DataFrame) -> pd.DataFrame:
+    backtester = EnhancedRegimeStrategyBacktester()
+    results = {}
+    strategies = {
+        'Momentum': lambda: backtester.momentum_strategy_enhanced(
+            data, regimes['Direction_Regime'].isin(['Up_Trending', 'Down_Trending']), regimes
+        ),
+        'Mean Reversion': lambda: backtester.mean_reversion_strategy_enhanced(
+            data, regimes['Direction_Regime'] == 'Sideways', regimes
+        ),
+        'Volatility Breakout': lambda: backtester.volatility_breakout_strategy_enhanced(
+            data, regimes['Volatility_Regime'].isin(['High_Vol', 'Extreme_Vol']), regimes
+        ),
+        'Adaptive': lambda: backtester.adaptive_regime_strategy_enhanced(data, regimes)
+    }
+    for name, strategy_func in strategies.items():
+        logger.info(f"Comparing strategy: {name}")
+        start_time = time.time()
+        returns = strategy_func()
+        metrics = backtester.calculate_performance_metrics(returns)
+        results[name] = metrics
+        logger.info(f"Comparison for {name} completed in {time.time() - start_time:.2f} seconds")
+    comparison = pd.DataFrame({
+        name: {
+            'Total Return': metrics['total_return'],
+            'Sharpe Ratio': metrics['sharpe_ratio'],
+            'Max Drawdown': metrics['max_drawdown'],
+            'Win Rate': metrics['win_rate'],
+            'Calmar Ratio': metrics['calmar_ratio'],
+            'Sortino Ratio': metrics['sortino_ratio']
+        }
+        for name, metrics in results.items()
+    }).T
+    return comparison
+
 # Additional helper functions for strategy analysis
 
 def test_strategy_in_regime(data: pd.DataFrame, regimes: pd.DataFrame, 
