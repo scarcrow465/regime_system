@@ -41,8 +41,8 @@ with tqdm(total=1, desc="Loading Data", ncols=80, mininterval=1) as pbar:
 print(f"Loaded {len(data)} rows in {time.time() - start_time:.2f} seconds")
 
 # Use last 100,000 rows for meaningful but manageable analysis
-if len(data) > 10000:
-    data = data.tail(10000)
+if len(data) > 100000:
+    data = data.tail(100000)
     print(f"Using last {len(data)} rows for strategy analysis")
 
 # Calculate indicators
