@@ -17,6 +17,7 @@ from datetime import datetime
 from typing import Dict, List, Tuple
 import time
 from tqdm import tqdm
+import pandas_ta as ta
 
 # Add regime_system to path
 sys.path.insert(0, r'C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean')
@@ -25,6 +26,52 @@ from core.data_loader import load_csv_data
 from core.indicators import calculate_all_indicators
 from core.regime_classifier import RollingRegimeClassifier
 from backtesting.strategies import EnhancedRegimeStrategyBacktester
+
+def preprocess_data(data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ensure all required columns for strategies are present.
+    Adds RSI, MACD, ATR, ADX, and Bollinger Bands if missing.
+    """
+    try:
+        data = data.copy()
+        if 'close' not in data.columns:
+            raise ValueError("Input data must contain 'close' column")
+        
+        # Calculate RSI if missing
+        if 'RSI' not in data.columns:
+            data['RSI'] = ta.rsi(data['close'], length=14)
+        
+        # Calculate MACD if missing
+        if 'MACD' not in data.columns or 'MACD_signal' not in data.columns:
+            macd = ta.macd(data['close'], fast=12, slow=26, signal=9)
+            data['MACD'] = macd['MACD_12_26_9']
+            data['MACD_signal'] = macd['MACDs_12_26_9']
+        
+        # Calculate ATR if missing
+        if 'ATR' not in data.columns:
+            if 'high' in data.columns and 'low' in data.columns:
+                data['ATR'] = ta.atr(data['high'], data['low'], data['close'], length=14)
+            else:
+                data['ATR'] = data['close'].rolling(14).std()  # Fallback
+        
+        # Calculate ADX if missing
+        if 'ADX' not in data.columns:
+            if 'high' in data.columns and 'low' in data.columns:
+                adx = ta.adx(data['high'], data['low'], data['close'], length=14)
+                data['ADX'] = adx['ADX_14']
+            else:
+                data['ADX'] = pd.Series(0, index=data.index)  # Fallback
+        
+        # Calculate Bollinger Bands if missing
+        if 'BB_lower' not in data.columns:
+            bb = ta.bbands(data['close'], length=20, std=2.0)
+            data['BB_lower'] = bb['BBL_20_2.0']
+            data['BB_middle'] = bb['BBM_20_2.0']
+            data['BB_upper'] = bb['BBU_20_2.0']
+        
+        return data
+    except Exception as e:
+        raise ValueError(f"Error in preprocessing data: {e}")
 
 print("="*80)
 print("REGIME-STRATEGY PERFORMANCE MAPPING")
@@ -45,13 +92,14 @@ if len(data) > 100000:
     data = data.tail(100000)
     print(f"Using last {len(data)} rows for strategy analysis")
 
-# Calculate indicators
+# Calculate indicators and preprocess
 print("\nCalculating indicators...")
 start_time = time.time()
 with tqdm(total=1, desc="Calculating Indicators", ncols=80, mininterval=1) as pbar:
     data_with_indicators = calculate_all_indicators(data, verbose=False)
+    data_with_indicators = preprocess_data(data_with_indicators)
     pbar.update(1)
-print(f"Indicators calculated in {time.time() - start_time:.2f} seconds")
+print(f"Indicators calculated and preprocessed in {time.time() - start_time:.2f} seconds")
 
 # Classify regimes
 print("\nClassifying regimes...")
@@ -90,9 +138,9 @@ def test_strategy_in_regime(data, regimes, strategy_type, regime_filter):
         if col_name in regimes.columns:
             mask &= (regimes[col_name] == regime_value)
     
-    if mask.sum() < 100:  # Need at least 100 periods
+    if mask.sum() < 50:  # Reduced from 100
         print(f"Skipping {strategy_type} in {regime_filter}: Insufficient periods ({mask.sum()})")
-        return None
+        return None, f"Regime {regime_filter} has insufficient periods: {mask.sum()}"
     
     # Run strategy
     if strategy_type == 'momentum':
@@ -131,18 +179,17 @@ def test_strategy_in_regime(data, regimes, strategy_type, regime_filter):
     
     else:
         print(f"Invalid strategy type: {strategy_type}")
-        return None
+        return None, f"Invalid strategy type: {strategy_type}"
     
     # Calculate performance metrics
-    if returns is not None and len(returns[returns != 0]) > 20:
+    if returns is not None and len(returns[returns != 0]) > 10:  # Reduced from 20
         metrics = backtester.calculate_performance_metrics(returns)
         metrics['periods_in_regime'] = mask.sum()
         metrics['pct_time_in_regime'] = mask.sum() / len(mask) * 100
         print(f"Completed {strategy_type} in {regime_filter} in {time.time() - start_time:.2f} seconds")
-        return metrics
+        return metrics, None
     
-    print(f"No valid returns for {strategy_type} in {regime_filter}")
-    return None
+    return None, f"No valid returns for {strategy_type} in {regime_filter}"
 
 # Test each strategy in major regime combinations
 regime_combinations = [
@@ -181,8 +228,8 @@ with tqdm(total=total_iterations, desc="Testing Strategies", ncols=80, mininterv
         regime_name = '_'.join([f"{k}={v}" for k, v in regime_filter.items()])
         
         for strategy_name, strategy_desc in strategies.items():
-            metrics = test_strategy_in_regime(data_with_indicators, regimes, 
-                                            strategy_name, regime_filter)
+            metrics, error_msg = test_strategy_in_regime(data_with_indicators, regimes, 
+                                                       strategy_name, regime_filter)
             
             if metrics is not None:
                 results.append({
@@ -195,6 +242,8 @@ with tqdm(total=total_iterations, desc="Testing Strategies", ncols=80, mininterv
                     'periods_in_regime': metrics['periods_in_regime'],
                     'pct_time_in_regime': metrics['pct_time_in_regime']
                 })
+            else:
+                print(error_msg)
             pbar.update(1)
 print(f"Strategy testing completed in {time.time() - start_time:.2f} seconds")
 
