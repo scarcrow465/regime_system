@@ -15,6 +15,8 @@ import sys
 import os
 from datetime import datetime
 from typing import Dict, List, Tuple
+import time
+from tqdm import tqdm
 
 # Add regime_system to path
 sys.path.insert(0, r'C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean')
@@ -32,8 +34,11 @@ print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 # Load data
 data_file = r'combined_NQ_15m_data.csv'
 print(f"\nLoading data from: {data_file}")
-data = load_csv_data(data_file, timeframe='15min')
-print(f"Loaded {len(data)} rows")
+start_time = time.time()
+with tqdm(total=1, desc="Loading Data", ncols=80, mininterval=1) as pbar:
+    data = load_csv_data(data_file, timeframe='15min')
+    pbar.update(1)
+print(f"Loaded {len(data)} rows in {time.time() - start_time:.2f} seconds")
 
 # Use last 100,000 rows for meaningful but manageable analysis
 if len(data) > 100000:
@@ -42,12 +47,20 @@ if len(data) > 100000:
 
 # Calculate indicators
 print("\nCalculating indicators...")
-data_with_indicators = calculate_all_indicators(data, verbose=False)
+start_time = time.time()
+with tqdm(total=1, desc="Calculating Indicators", ncols=80, mininterval=1) as pbar:
+    data_with_indicators = calculate_all_indicators(data, verbose=False)
+    pbar.update(1)
+print(f"Indicators calculated in {time.time() - start_time:.2f} seconds")
 
 # Classify regimes
 print("\nClassifying regimes...")
+start_time = time.time()
 classifier = RollingRegimeClassifier(window_hours=36, timeframe='15min')
-regimes = classifier.classify_regimes(data_with_indicators, show_progress=True)
+with tqdm(total=1, desc="Classifying Regimes", ncols=80, mininterval=1) as pbar:
+    regimes = classifier.classify_regimes(data_with_indicators, show_progress=True)
+    pbar.update(1)
+print(f"Regimes classified in {time.time() - start_time:.2f} seconds")
 
 # Initialize backtester
 backtester = EnhancedRegimeStrategyBacktester()
@@ -67,6 +80,8 @@ print("="*80)
 # Function to test a specific strategy in specific regime conditions
 def test_strategy_in_regime(data, regimes, strategy_type, regime_filter):
     """Test a strategy when specific regime conditions are met"""
+    start_time = time.time()
+    print(f"\nTesting {strategy_type} in regime {regime_filter}")
     
     # Create mask for when regime conditions are met
     mask = pd.Series(True, index=regimes.index)
@@ -76,6 +91,7 @@ def test_strategy_in_regime(data, regimes, strategy_type, regime_filter):
             mask &= (regimes[col_name] == regime_value)
     
     if mask.sum() < 100:  # Need at least 100 periods
+        print(f"Skipping {strategy_type} in {regime_filter}: Insufficient periods ({mask.sum()})")
         return None
     
     # Run strategy
@@ -114,6 +130,7 @@ def test_strategy_in_regime(data, regimes, strategy_type, regime_filter):
         returns = returns * mask
     
     else:
+        print(f"Invalid strategy type: {strategy_type}")
         return None
     
     # Calculate performance metrics
@@ -121,8 +138,10 @@ def test_strategy_in_regime(data, regimes, strategy_type, regime_filter):
         metrics = backtester.calculate_performance_metrics(returns)
         metrics['periods_in_regime'] = mask.sum()
         metrics['pct_time_in_regime'] = mask.sum() / len(mask) * 100
+        print(f"Completed {strategy_type} in {regime_filter} in {time.time() - start_time:.2f} seconds")
         return metrics
     
+    print(f"No valid returns for {strategy_type} in {regime_filter}")
     return None
 
 # Test each strategy in major regime combinations
@@ -154,24 +173,30 @@ results = []
 print("\nTesting strategies in different regime combinations...")
 print("(This may take a few minutes...)\n")
 
-for regime_filter in regime_combinations:
-    regime_name = '_'.join([f"{k}={v}" for k, v in regime_filter.items()])
-    
-    for strategy_name, strategy_desc in strategies.items():
-        metrics = test_strategy_in_regime(data_with_indicators, regimes, 
-                                        strategy_name, regime_filter)
+# Calculate total iterations for progress bar
+total_iterations = len(regime_combinations) * len(strategies)
+start_time = time.time()
+with tqdm(total=total_iterations, desc="Testing Strategies", ncols=80, mininterval=1) as pbar:
+    for regime_filter in regime_combinations:
+        regime_name = '_'.join([f"{k}={v}" for k, v in regime_filter.items()])
         
-        if metrics is not None:
-            results.append({
-                'regime': regime_name,
-                'strategy': strategy_name,
-                'sharpe_ratio': metrics['sharpe_ratio'],
-                'total_return': metrics['total_return'],
-                'max_drawdown': metrics['max_drawdown'],
-                'win_rate': metrics['win_rate'],
-                'periods_in_regime': metrics['periods_in_regime'],
-                'pct_time_in_regime': metrics['pct_time_in_regime']
-            })
+        for strategy_name, strategy_desc in strategies.items():
+            metrics = test_strategy_in_regime(data_with_indicators, regimes, 
+                                            strategy_name, regime_filter)
+            
+            if metrics is not None:
+                results.append({
+                    'regime': regime_name,
+                    'strategy': strategy_name,
+                    'sharpe_ratio': metrics['sharpe_ratio'],
+                    'total_return': metrics['total_return'],
+                    'max_drawdown': metrics['max_drawdown'],
+                    'win_rate': metrics['win_rate'],
+                    'periods_in_regime': metrics['periods_in_regime'],
+                    'pct_time_in_regime': metrics['pct_time_in_regime']
+                })
+            pbar.update(1)
+print(f"Strategy testing completed in {time.time() - start_time:.2f} seconds")
 
 # Convert to DataFrame for analysis
 results_df = pd.DataFrame(results)
