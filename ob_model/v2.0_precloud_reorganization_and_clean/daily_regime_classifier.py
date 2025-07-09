@@ -64,8 +64,8 @@ class NQDailyRegimeClassifier:
         self.lookback_days = lookback_days
 
         self.thresholds = {
-            'direction_strong': 0.3,  # Threshold for Strong Uptrend/Downtrend
-            'direction_neutral': 0.1, # Threshold for Neutral Sideways
+            'direction_strong': 0.35,  # Threshold for Strong Uptrend/Downtrend
+            'direction_neutral': 0.5, # Threshold for Neutral Sideways
             'strength_strong': 0.25,   # Threshold for Strong
             'strength_moderate': 0.15, # Threshold for Moderate
             'vol_low': 35,
