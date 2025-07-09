@@ -193,7 +193,7 @@ class MarketCharacterizer:
         best_sharpe = -999
         best_period = 1
         
-        for period in [1, 3, 5, 8]: # , 20, 50, 75, 100, 125, 150, 200, 250, 300
+        for period in [1, 5, 10, 20, 50, 75, 100, 125, 150, 200, 250, 300]:
             if period > len(data) / 10:  # Skip if period too large for data
                 continue
                 

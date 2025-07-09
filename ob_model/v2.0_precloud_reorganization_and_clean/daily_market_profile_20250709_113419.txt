@@ -1,0 +1,39 @@
+Daily NQ Market Characterization Results
+==================================================
+
+
+Full History:
+  Behavior: mean_reverting
+  Direction: long
+  Long Edge: 2.260
+  Optimal Hold: 8 days
+
+Last 10 Years:
+  Behavior: trending
+  Direction: long
+  Long Edge: 4.070
+  Optimal Hold: 8 days
+
+Last 5 Years:
+  Behavior: trending
+  Direction: long
+  Long Edge: 4.650
+  Optimal Hold: 8 days
+
+Last 3 Years:
+  Behavior: trending
+  Direction: long
+  Long Edge: 2.528
+  Optimal Hold: 8 days
+
+2020-2023 (COVID Era):
+  Behavior: trending
+  Direction: long
+  Long Edge: 3.748
+  Optimal Hold: 8 days
+
+2008-2009 (Financial Crisis):
+  Behavior: mean_reverting
+  Direction: neutral
+  Long Edge: 0.093
+  Optimal Hold: 8 days
