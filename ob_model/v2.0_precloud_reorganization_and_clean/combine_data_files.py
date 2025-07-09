@@ -44,7 +44,7 @@ def combine_csv_files(instrument='NQ'):
     
     all_data = []
     
-    for file_num, csv_path in enumerate([file1], 1):  # Process older file first # Add more files as needed
+    for file_num, csv_path in enumerate([file2,file1], 1):  # Process older file first # Add more files as needed
         print(f"\nProcessing file {file_num}: {os.path.basename(csv_path)}")
         
         try:
