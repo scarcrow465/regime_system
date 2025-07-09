@@ -26,6 +26,11 @@ from core.indicators import calculate_all_indicators
 from core.regime_classifier import RollingRegimeClassifier
 from backtesting.strategies import EnhancedRegimeStrategyBacktester
 
+# Add with other imports at the top
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from market_characterizer import MarketCharacterizer
+
 print("="*80)
 print("REGIME-STRATEGY PERFORMANCE MAPPING")
 print("="*80)
@@ -50,6 +55,52 @@ print("\nCalculating indicators...")
 start_time = time.time()
 with tqdm(total=1, desc="Calculating Indicators", ncols=80, mininterval=1) as pbar:
     data_with_indicators = calculate_all_indicators(data, verbose=False)
+    # Market characterization:
+    print("\n" + "="*80)
+    print("MARKET CHARACTERIZATION")
+    print("="*80)
+
+    # Characterize the market first
+    characterizer = MarketCharacterizer(transaction_cost=0.0001)
+    market_profile = characterizer.characterize_market(
+        data_with_indicators, 
+        instrument='NQ',
+        timeframe='15min'
+    )
+
+    print(f"\nMarket Profile Summary:")
+    print(f"  Primary Behavior: {market_profile.primary_behavior.upper()}")
+    print(f"  Directional Bias: {market_profile.directional_bias.upper()}")
+    print(f"  Minimum Sharpe to Beat: {max(market_profile.random_long_sharpe, market_profile.random_short_sharpe) + 0.2:.3f}")
+
+    # Decide which strategies to test based on market type
+    if market_profile.primary_behavior == 'trending':
+        print("\n✓ Testing MOMENTUM strategies for trending market")
+        strategies = {
+            'momentum': 'Momentum strategy for trending markets',
+            'adaptive': 'Adaptive strategy that adjusts to regimes'
+        }
+    elif market_profile.primary_behavior == 'mean_reverting':
+        print("\n✓ Testing MEAN REVERSION strategies for mean reverting market")
+        strategies = {
+            'mean_reversion': 'Mean reversion strategy for range-bound markets',
+            'adaptive': 'Adaptive strategy that adjusts to regimes'
+        }
+    else:
+        print("\n✓ Testing VOLATILITY strategies for breakout market")
+        strategies = {
+            'volatility_breakout': 'Volatility breakout strategy',
+            'adaptive': 'Adaptive strategy that adjusts to regimes'
+        }
+
+    # Set performance threshold
+    min_performance_threshold = max(
+        market_profile.random_long_sharpe + 0.2,
+        market_profile.random_short_sharpe + 0.2,
+        0.3
+    )
+    print(f"\n📊 Strategies must achieve Sharpe > {min_performance_threshold:.3f} to be viable")
+
     # Diagnostic: Check available columns
     print("\n" + "="*80)
     print("COLUMN DIAGNOSTIC")
