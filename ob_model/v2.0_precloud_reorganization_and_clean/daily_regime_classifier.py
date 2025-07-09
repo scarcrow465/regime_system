@@ -71,8 +71,8 @@ class NQDailyRegimeClassifier:
             'vol_low': 25,
             'vol_normal': 75,
             'vol_high': 90,
-            'efficiency_trending': 0.25,  # Efficiency ratio for trending
-            'efficiency_ranging': 0.2,   # Efficiency ratio for ranging
+            'efficiency_trending': 0.15,  # Efficiency ratio for trending
+            'efficiency_ranging': 0.1,   # Efficiency ratio for ranging
             'min_regime_days': 3,
             'smoothing_days': 12,
         }
