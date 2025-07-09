@@ -62,19 +62,19 @@ class NQDailyRegimeClassifier:
             lookback_days: Days for rolling calculations (default 252 = 1 year)
         """
         self.lookback_days = lookback_days
-        
-        # NQ-specific thresholds (based on our analysis)
+
         self.thresholds = {
-            'trend_strong': 0.5,
-            'trend_weak': 0.2,
-            'trend_neutral': 0.1,
+            'direction_strong': 0.4,
+            'direction_neutral': 0.1,
+            'strength_strong': 0.4,   # Threshold for Strong
+            'strength_moderate': 0.1, # Threshold for Moderate
             'vol_low': 25,
             'vol_normal': 75,
             'vol_high': 90,
-            'efficiency_trending': 0.4,
+            'efficiency_trending': 0.35,
             'efficiency_ranging': 0.3,
             'min_regime_days': 3,
-            'smoothing_days': 10,
+            'smoothing_days': 12,
         }
         
         # Define regime mappings
@@ -253,9 +253,9 @@ class NQDailyRegimeClassifier:
             df['direction_score'] = direction_score
         
         # Classify based on score
-        df.loc[df['direction_score'] > self.thresholds['trend_strong'], 'direction_regime'] = 'Uptrend'
-        df.loc[df['direction_score'] < -self.thresholds['trend_strong'], 'direction_regime'] = 'Downtrend'
-        df.loc[abs(df['direction_score']) < self.thresholds['trend_neutral'], 'direction_regime'] = 'Sideways'
+        df.loc[df['direction_score'] > self.thresholds['direction_strong'], 'direction_regime'] = 'Uptrend'
+        df.loc[df['direction_score'] < -self.thresholds['direction_strong'], 'direction_regime'] = 'Downtrend'
+        df.loc[abs(df['direction_score']) < self.thresholds['direction_neutral'], 'direction_regime'] = 'Sideways'
         
         return df
     
@@ -287,9 +287,9 @@ class NQDailyRegimeClassifier:
         if signal_count > 0:
             df['strength_score'] = strength_score
             
-        df.loc[df['strength_score'] > 0.5, 'strength_regime'] = 'Strong'
-        df.loc[(df['strength_score'] > 0.2) & (df['strength_score'] <= 0.5), 'strength_regime'] = 'Moderate'
-        df.loc[df['strength_score'] <= 0.2, 'strength_regime'] = 'Weak'
+        df.loc[df['strength_score'] > self.thresholds['strength_strong'], 'strength_regime'] = 'Strong'
+        df.loc[(df['strength_score'] > self.thresholds['strength_moderate']) & (df['strength_score'] <= self.thresholds['strength_strong']), 'strength_regime'] = 'Moderate'
+        df.loc[df['strength_score'] <= self.thresholds['strength_moderate'], 'strength_regime'] = 'Weak'
         
         return df
     
