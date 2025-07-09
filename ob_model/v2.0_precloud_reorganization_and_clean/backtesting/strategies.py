@@ -247,98 +247,185 @@ class EnhancedRegimeStrategyBacktester:
         }
     
     def momentum_strategy_enhanced(self, data: pd.DataFrame, regime_mask: pd.Series,
-                                 regime_data: pd.DataFrame) -> pd.Series:
+                                regime_data: pd.DataFrame) -> pd.Series:
+        """
+        Improved momentum strategy with:
+        - Multiple confirmation signals
+        - Regime-specific filters
+        - Dynamic position sizing
+        """
         start_time = time.time()
-        logger.info("Starting momentum strategy backtest")
+        logger.info("Starting enhanced momentum strategy backtest")
+        
+        # Normalize columns
+        data = self._normalize_columns(data)
+        
         try:
             returns = pd.Series(0.0, index=data.index)
             positions = pd.Series(0.0, index=data.index)
-            config = self.regime_configs.get('Up_Trending', self.default_config)
-            if 'close' in data.columns:
-                fast_ma = data['close'].rolling(config.momentum_fast_period).mean()
-                slow_ma = data['close'].rolling(config.momentum_slow_period).mean()
-                macd_signal = data['MACD'] > data['MACD_signal'] if 'MACD' in data.columns else pd.Series(True, index=data.index)
-                rsi_signal = (data['RSI'] > 30) & (data['RSI'] < 70) if 'RSI' in data.columns else pd.Series(True, index=data.index)
+            
+            # Get regime-specific config
+            current_regime = self._identify_current_regime(regime_data)
+            config = self.regime_configs.get(current_regime, self.default_config)
+            
+            # Calculate indicators with regime-specific parameters
+            fast_ma = data['close'].rolling(config.momentum_fast_period).mean()
+            slow_ma = data['close'].rolling(config.momentum_slow_period).mean()
+            
+            # Multiple signal confirmations
+            price_momentum = (data['close'] - data['close'].shift(config.lookback_period)) / data['close'].shift(config.lookback_period)
+            
+            # Volume confirmation (if available)
+            if 'Volume' in data.columns:
+                volume_ma = data['Volume'].rolling(20).mean()
+                volume_signal = data['Volume'] > volume_ma * 1.2  # Above average volume
             else:
-                logger.warning("Missing 'close' column in data")
-                return returns
+                volume_signal = True  # Default to true if no volume
+            
+            # RSI filter - avoid overbought/oversold
+            if 'RSI' in data.columns:
+                rsi_filter = (data['RSI'] > config.rsi_oversold) & (data['RSI'] < config.rsi_overbought)
+            else:
+                rsi_filter = True
+            
+            # MACD confirmation
+            if 'MACD' in data.columns and 'MACD_signal' in data.columns:
+                macd_signal = data['MACD'] > data['MACD_signal']
+            else:
+                macd_signal = True
+            
+            # ATR for position sizing and stops
+            if 'ATR' in data.columns:
+                atr = data['ATR']
+            else:
+                atr = (data['High'] - data['Low']).rolling(14).mean()
+            
+            # Generate signals with multiple confirmations
+            long_signal = (
+                (fast_ma > slow_ma) &                              # Basic MA crossover
+                (price_momentum > config.momentum_threshold) &      # Positive momentum
+                (data['close'] > fast_ma) &                        # Price above fast MA
+                rsi_filter &                                        # Not overbought
+                macd_signal &                                       # MACD confirmation
+                volume_signal &                                     # Volume confirmation
+                regime_mask                                         # In target regime
+            )
+            
+            short_signal = (
+                (fast_ma < slow_ma) &                              # MA crossdown
+                (price_momentum < -config.momentum_threshold) &     # Negative momentum
+                (data['close'] < fast_ma) &                        # Price below fast MA
+                rsi_filter &                                        # Not oversold
+                (~macd_signal) &                                    # MACD confirms
+                volume_signal &                                     # Volume confirmation
+                regime_mask                                         # In target regime
+            )
+            
+            # Position management with dynamic sizing
             current_position = 0.0
             entry_price = 0.0
             stop_loss = 0.0
             take_profit = 0.0
             trade_count = 0
-            with tqdm(total=len(data) - max(config.momentum_slow_period, 20), desc="Momentum Strategy", ncols=80, mininterval=1) as pbar:
-                for i in range(max(config.momentum_slow_period, 20), len(data)):
-                    if i % 1000 == 0:
-                        logger.info(f"Momentum strategy at index {i}, trades: {trade_count}")
-                    if not regime_mask.iloc[i]:
-                        if current_position != 0:
-                            exit_return = current_position * data['close'].pct_change().iloc[i]
-                            costs = self.apply_transaction_costs(abs(current_position), 
-                                                                data['close'].iloc[i], config)
-                            returns.iloc[i] = exit_return + costs
+            
+            for i in range(config.momentum_slow_period, len(data)):
+                if not regime_mask.iloc[i]:
+                    # Exit if regime changes
+                    if current_position != 0:
+                        exit_return = current_position * (data['close'].iloc[i] / entry_price - 1)
+                        returns.iloc[i] = exit_return - self.transaction_cost
+                        current_position = 0.0
+                        trade_count += 1
+                    continue
+                    
+                # Check stops
+                if current_position != 0:
+                    current_price = data['close'].iloc[i]
+                    
+                    # Trailing stop based on ATR
+                    if current_position > 0:
+                        new_stop = current_price - (config.atr_multiplier * atr.iloc[i])
+                        stop_loss = max(stop_loss, new_stop)
+                        
+                        if current_price <= stop_loss or current_price >= take_profit:
+                            exit_return = current_position * (current_price / entry_price - 1)
+                            returns.iloc[i] = exit_return - self.transaction_cost
+                            positions.iloc[i] = 0
                             current_position = 0.0
                             trade_count += 1
-                        pbar.update(1)
-                        continue
-                    regime_confidence = regime_data['Direction_Confidence'].iloc[i] if 'Direction_Confidence' in regime_data.columns else 0.5
-                    if current_position == 0:
-                        ma_cross = fast_ma.iloc[i] > slow_ma.iloc[i]
-                        ma_slope = fast_ma.iloc[i] > fast_ma.iloc[i-1]
-                        if ma_cross and ma_slope and macd_signal.iloc[i] and rsi_signal.iloc[i]:
-                            signal_strength = 0.25
-                            if fast_ma.iloc[i] > fast_ma.iloc[i-5]:
-                                signal_strength += 0.25
-                            if data['ADX'].iloc[i] > 25 if 'ADX' in data.columns else False:
-                                signal_strength += 0.25
-                            if regime_data['TrendStrength_Regime'].iloc[i] == 'Strong' if 'TrendStrength_Regime' in regime_data.columns else False:
-                                signal_strength += 0.25
-                            position_size = self.calculate_position_size(
-                                data, i, config, regime_confidence, signal_strength
-                            )
-                            current_position = position_size
-                            entry_price = data['close'].iloc[i]
-                            if 'ATR' in data.columns:
-                                atr = data['ATR'].iloc[i]
-                                stop_loss = entry_price - (config.stop_loss_atr * atr)
-                                take_profit = entry_price + (config.take_profit_atr * atr)
-                            returns.iloc[i] = self.apply_transaction_costs(
-                                position_size, entry_price, config
-                            )
-                            trade_count += 1
-                    elif current_position > 0:
-                        current_price = data['close'].iloc[i]
-                        if current_price <= stop_loss:
-                            exit_return = current_position * ((stop_loss / data['close'].iloc[i-1]) - 1)
-                            costs = self.apply_transaction_costs(current_position, stop_loss, config)
-                            returns.iloc[i] = exit_return + costs
-                            current_position = 0.0
-                            trade_count += 1
-                        elif current_price >= take_profit:
-                            exit_return = current_position * ((take_profit / data['close'].iloc[i-1]) - 1)
-                            costs = self.apply_transaction_costs(current_position, take_profit, config)
-                            returns.iloc[i] = exit_return + costs
-                            current_position = 0.0
-                            trade_count += 1
-                        elif fast_ma.iloc[i] < slow_ma.iloc[i] or not macd_signal.iloc[i]:
-                            exit_return = current_position * data['close'].pct_change().iloc[i]
-                            costs = self.apply_transaction_costs(current_position, current_price, config)
-                            returns.iloc[i] = exit_return + costs
-                            current_position = 0.0
-                            trade_count += 1
-                        elif 'ATR' in data.columns:
-                            trail_stop = current_price - (config.trailing_stop_atr * data['ATR'].iloc[i])
-                            stop_loss = max(stop_loss, trail_stop)
-                            returns.iloc[i] = current_position * data['close'].pct_change().iloc[i]
-                        else:
-                            returns.iloc[i] = current_position * data['close'].pct_change().iloc[i]
+                            continue
+                    
+                    # Update position
                     positions.iloc[i] = current_position
-                    pbar.update(1)
-            logger.info(f"Momentum strategy completed in {time.time() - start_time:.2f} seconds, trades: {trade_count}")
+                    
+                # New entries
+                if current_position == 0:
+                    if long_signal.iloc[i]:
+                        # Dynamic position sizing based on ATR
+                        position_size = min(
+                            config.regime_position_scalar,
+                            1.0 / (atr.iloc[i] / data['close'].iloc[i] * 100)  # Inverse volatility
+                        )
+                        position_size = min(position_size, config.max_position_size)
+                        
+                        current_position = position_size
+                        entry_price = data['close'].iloc[i]
+                        stop_loss = entry_price - (config.atr_multiplier * atr.iloc[i])
+                        take_profit = entry_price + (config.atr_multiplier * 2 * atr.iloc[i])
+                        positions.iloc[i] = current_position
+                        returns.iloc[i] = -self.transaction_cost
+                        
+                    elif short_signal.iloc[i] and self.allow_shorting:
+                        # Short position
+                        position_size = min(
+                            config.regime_position_scalar * 0.8,  # Reduce short size
+                            0.8 / (atr.iloc[i] / data['close'].iloc[i] * 100)
+                        )
+                        position_size = min(position_size, config.max_position_size * 0.8)
+                        
+                        current_position = -position_size
+                        entry_price = data['close'].iloc[i]
+                        stop_loss = entry_price + (config.atr_multiplier * atr.iloc[i])
+                        take_profit = entry_price - (config.atr_multiplier * 2 * atr.iloc[i])
+                        positions.iloc[i] = current_position
+                        returns.iloc[i] = -self.transaction_cost
+            
+            # Calculate returns from positions
+            price_returns = data['close'].pct_change()
+            for i in range(1, len(returns)):
+                if returns.iloc[i] == 0 and positions.iloc[i-1] != 0:
+                    returns.iloc[i] = positions.iloc[i-1] * price_returns.iloc[i]
+            
+            logger.info(f"Enhanced momentum strategy completed in {time.time() - start_time:.2f} seconds, trades: {trade_count}")
             return returns
+            
         except Exception as e:
-            logger.error(f"Enhanced momentum strategy error: {e}")
-            return pd.Series(0, index=data.index)
+            logger.error(f"Error in enhanced momentum strategy: {e}")
+            return pd.Series(0.0, index=data.index)
+        
+    def _identify_current_regime(self, regime_data: pd.DataFrame) -> str:
+        """Identify the most specific current regime from regime data."""
+        if regime_data.empty:
+            return 'default'
+        
+        # Priority: combined regimes > single dimension regimes
+        regime_cols = [col for col in regime_data.columns if '_Regime' in col]
+        
+        # Look for combined regimes first
+        if 'Direction_Regime' in regime_data.columns and 'TrendStrength_Regime' in regime_data.columns:
+            direction = regime_data['Direction_Regime'].iloc[-1]
+            strength = regime_data['TrendStrength_Regime'].iloc[-1]
+            combined = f"{direction}_{strength}"
+            if combined in self.regime_configs:
+                return combined
+        
+        # Fall back to single dimension
+        for col in regime_cols:
+            regime = regime_data[col].iloc[-1]
+            if regime in self.regime_configs:
+                return regime
+        
+        return 'default'
     
     def _normalize_columns(self, data: pd.DataFrame) -> pd.DataFrame:
         """Normalize column names for strategy compatibility."""
