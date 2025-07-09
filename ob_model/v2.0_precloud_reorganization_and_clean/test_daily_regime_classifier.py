@@ -40,7 +40,7 @@ print(f"Loaded {len(data)} daily bars")
 print(f"Date range: {data.index[0]} to {data.index[-1]}")
 
 # Focus on recent 5 years for testing
-data = data.tail(252 * 10)  # Last 5 years
+data = data.tail(252 * 5)  # Last 5 years
 print(f"\nUsing last 5 years: {data.index[0]} to {data.index[-1]}")
 
 # Calculate indicators
