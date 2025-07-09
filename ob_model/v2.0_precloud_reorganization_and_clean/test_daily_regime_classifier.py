@@ -175,12 +175,28 @@ char_colors = {'Trending': 'purple', 'Ranging': 'gray', 'Volatile': 'red', 'Tran
 # Plot price with regime colors
 ax = axes[0]
 ax.plot(data_with_indicators.index, data_with_indicators['close'], 'k-', linewidth=0.5, alpha=0.7)
-for regime, color in direction_colors.items():
-    mask = regime_data['direction_regime'] == regime
-    ax.fill_between(regime_data.index[mask], 
-                   data_with_indicators['close'].min() * 0.9,
-                   data_with_indicators['close'].max() * 1.1,
-                   alpha=0.3, color=color, label=regime)
+
+regime_changes = regime_data['direction_regime'] != regime_data['direction_regime'].shift(1)
+regime_changes.iloc[0] = True  # Ensure first point is included
+change_indices = regime_data.index[regime_changes]
+change_indices = regime_data['direction_regime'][regime_changes]
+
+for i in range(len(change_indices) - 1):
+    start_idx = change_indices.index[i]
+    end_idx = change_indices.index[i + 1]
+    regime = change_indices.iloc[i]
+    mask = (regime_data.index >= start_idx) & (regime_data.index < end_idx)
+    ax.fill_between(
+        regime_data.index[mask],
+        data_with_indicators['close'].min() * 0.9,
+        data_with_indicators['close'].max() * 1.1,
+        alpha=0.3,
+        color=direction_colors[regime],
+        label=regime if i == 0 or regime not in ax.get_legend_handles_labels()[1] else ""
+    )
+
+    
+
 ax.set_ylabel('Price')
 ax.set_title('NQ Daily Price with Direction Regimes')
 ax.legend(loc='upper left')
