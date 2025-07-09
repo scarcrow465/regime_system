@@ -74,7 +74,7 @@ class NQDailyRegimeClassifier:
             'efficiency_trending': 0.15,  # Efficiency ratio for trending
             'efficiency_ranging': 0.1,   # Efficiency ratio for ranging
             'min_regime_days': 3,
-            'smoothing_days': 12,
+            'smoothing_days': 3,
         }
         
         # Define regime mappings
