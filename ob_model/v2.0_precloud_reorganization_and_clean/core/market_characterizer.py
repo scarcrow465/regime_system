@@ -105,31 +105,33 @@ class MarketCharacterizer:
         logger.info(f"Directional bias: {bias} (Long: {long_sharpe:.3f}, Short: {short_sharpe:.3f})")
         return long_sharpe, short_sharpe, bias
     
-    def _simulate_strategy(self, data: pd.DataFrame, long_entries: List[pd.Timestamp], 
-                          short_entries: List[pd.Timestamp], holding_period: int) -> float:
-        """Simulate a strategy with fixed holding periods"""
+    def _simulate_strategy(self, data, long_entries, short_entries, holding_period):
         positions = pd.Series(0, index=data.index)
-        
         for entry_date in long_entries:
             if entry_date in data.index:
                 exit_idx = min(data.index.get_loc(entry_date) + holding_period, len(data) - 1)
                 exit_date = data.index[exit_idx]
                 positions.loc[entry_date:exit_date] += 1
-        
         for entry_date in short_entries:
             if entry_date in data.index:
                 exit_idx = min(data.index.get_loc(entry_date) + holding_period, len(data) - 1)
                 exit_date = data.index[exit_idx]
                 positions.loc[entry_date:exit_date] -= 1
-        
+
         returns = positions.shift(1).fillna(0) * data['close'].pct_change()
-        entries = pd.Series(1, index=long_entries + short_entries, name='entries').reindex(data.index, fill_value=0)
+        
+        # Combine long and short entries and count occurrences
+        all_entries = list(long_entries) + list(short_entries)
+        if all_entries:
+            entries_count = pd.Series(all_entries).value_counts()
+            entries = entries_count.reindex(data.index, fill_value=0)
+        else:
+            entries = pd.Series(0, index=data.index)
+        
         transaction_costs = entries * self.transaction_cost
         net_returns = returns - transaction_costs
         
-        sharpe = self._calculate_sharpe(net_returns)
-        logger.info(f"Trades executed: {len(long_entries) + len(short_entries)}")
-        return sharpe
+        return net_returns.mean() / net_returns.std() if net_returns.std() != 0 else 0
     
     def _test_trend_persistence(self, data: pd.DataFrame) -> float:
         """Test trend persistence with configurable SMA period"""
