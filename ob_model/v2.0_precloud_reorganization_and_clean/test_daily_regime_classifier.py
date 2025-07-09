@@ -24,6 +24,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from core.data_loader import load_csv_data
 from core.indicators import calculate_all_indicators
 from daily_regime_classifier import NQDailyRegimeClassifier, DailyRegime
+# Verify imports
+print("Imported NQDailyRegimeClassifier:", NQDailyRegimeClassifier)
+print("Imported DailyRegime:", DailyRegime)
 
 print("="*80)
 print("NQ DAILY REGIME CLASSIFIER TEST")
