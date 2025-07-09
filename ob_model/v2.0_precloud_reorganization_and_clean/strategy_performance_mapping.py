@@ -50,6 +50,35 @@ print("\nCalculating indicators...")
 start_time = time.time()
 with tqdm(total=1, desc="Calculating Indicators", ncols=80, mininterval=1) as pbar:
     data_with_indicators = calculate_all_indicators(data, verbose=False)
+    # Diagnostic: Check available columns
+    print("\n" + "="*80)
+    print("COLUMN DIAGNOSTIC")
+    print("="*80)
+
+    # Check for close/price columns
+    price_cols = [col for col in data_with_indicators.columns if 'close' in col.lower() or 'price' in col.lower()]
+    print(f"\nPrice-related columns found: {price_cols}")
+
+    # Check for RSI columns
+    rsi_cols = [col for col in data_with_indicators.columns if 'rsi' in col.lower()]
+    print(f"RSI-related columns found: {rsi_cols}")
+
+    # Check for other key indicators
+    print("\nKey indicators check:")
+    key_patterns = ['MACD', 'ATR', 'BB_', 'SMA', 'EMA', 'Volume']
+    for pattern in key_patterns:
+        matching = [col for col in data_with_indicators.columns if pattern in col]
+        print(f"  {pattern}: {len(matching)} columns found")
+
+    # Sample first few columns
+    print(f"\nFirst 20 columns: {sorted(data_with_indicators.columns.tolist())[:20]}")
+    print(f"Total columns: {len(data_with_indicators.columns)}")
+
+    # Check data types
+    print("\nData types of key columns:")
+    for col in ['Open', 'High', 'Low', 'Close', 'Volume', 'close', 'RSI', 'RSI_14']:
+        if col in data_with_indicators.columns:
+            print(f"  {col}: {data_with_indicators[col].dtype}")
     pbar.update(1)
 print(f"Indicators calculated in {time.time() - start_time:.2f} seconds")
 
