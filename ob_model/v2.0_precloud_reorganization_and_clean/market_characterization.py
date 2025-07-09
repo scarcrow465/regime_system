@@ -6,7 +6,7 @@
 
 """
 Market Behavioral Fingerprint System
-Level 6-7 in your hierarchy - determines intrinsic market behavior
+Save this as: market_characterizer.py
 """
 
 import pandas as pd
@@ -15,6 +15,8 @@ from typing import Dict, Tuple
 from dataclasses import dataclass
 import logging
 
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -144,15 +146,15 @@ class MarketCharacterizer:
     def _test_mean_reversion(self, data: pd.DataFrame) -> float:
         """Test if market mean reverts"""
         # Simple mean reversion: buy when RSI < 30, sell when RSI > 70
-        if 'RSI_14' not in data.columns:
+        if 'RSI_14' in data.columns:
+            rsi = data['RSI_14']
+        else:
             # Calculate RSI if not present
             delta = data['close'].diff()
             gain = (delta.where(delta > 0, 0)).rolling(14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
             rs = gain / loss
             rsi = 100 - (100 / (1 + rs))
-        else:
-            rsi = data['RSI_14']
         
         # Generate signals
         long_signal = (rsi < 30).astype(int)
@@ -168,8 +170,13 @@ class MarketCharacterizer:
     def _test_volatility_expansion(self, data: pd.DataFrame) -> float:
         """Test if volatility breakouts work"""
         # Simple breakout: buy on 20-bar high, sell on 20-bar low
-        high_20 = data['high'].rolling(20).max()
-        low_20 = data['low'].rolling(20).min()
+        if 'high' in data.columns and 'low' in data.columns:
+            high_20 = data['high'].rolling(20).max()
+            low_20 = data['low'].rolling(20).min()
+        else:
+            # Use close if high/low not available
+            high_20 = data['close'].rolling(20).max()
+            low_20 = data['close'].rolling(20).min()
         
         long_signal = (data['close'] > high_20.shift(1)).astype(int)
         short_signal = (data['close'] < low_20.shift(1)).astype(int)
@@ -187,6 +194,9 @@ class MarketCharacterizer:
         best_period = 1
         
         for period in [1, 5, 10, 20, 50, 100, 200]:
+            if period > len(data) / 10:  # Skip if period too large for data
+                continue
+                
             # Test buy/sell and hold for 'period' bars
             if bias == 'long' or bias == 'neutral':
                 signal = data['close'] > data['close'].shift(period)
@@ -207,11 +217,14 @@ class MarketCharacterizer:
     def _test_edge_decay(self, data: pd.DataFrame, behavior: str) -> int:
         """Test how quickly edge decays over time"""
         # Split data into chunks and test strategy performance
-        chunk_size = len(data) // 10
+        chunk_size = max(1000, len(data) // 10)  # At least 1000 bars per chunk
         sharpes = []
         
-        for i in range(10):
+        for i in range(min(10, len(data) // chunk_size)):
             chunk = data.iloc[i*chunk_size:(i+1)*chunk_size]
+            if len(chunk) < 100:  # Skip tiny chunks
+                continue
+                
             if behavior == 'trending':
                 sharpe = self._test_trend_persistence(chunk)
             elif behavior == 'mean_reverting':
@@ -220,14 +233,17 @@ class MarketCharacterizer:
                 sharpe = self._test_volatility_expansion(chunk)
             sharpes.append(sharpe)
         
+        if not sharpes:
+            return len(data) // 2  # Default to half the data
+        
         # Find where performance drops 50%
         peak_sharpe = max(sharpes)
         half_sharpe = peak_sharpe / 2
         
-        half_life_chunks = 10  # Default if no decay
+        half_life_chunks = len(sharpes)  # Default if no decay
         for i, sharpe in enumerate(sharpes):
             if sharpe < half_sharpe:
-                half_life_chunks = i
+                half_life_chunks = i + 1
                 break
         
         half_life_bars = half_life_chunks * chunk_size
@@ -259,14 +275,11 @@ class MarketCharacterizer:
             return -999
         
         clean_returns = returns.replace([np.inf, -np.inf], np.nan).dropna()
-        if len(clean_returns) == 0:
+        if len(clean_returns) == 0 or clean_returns.std() == 0:
             return -999
         
-        if clean_returns.std() == 0:
-            return 0
-        
-        # Annualized Sharpe
-        periods_per_year = 252 * 26  # For 15-min bars
+        # Annualized Sharpe for 15-min bars
+        periods_per_year = 252 * 26  # 26 fifteen-minute periods per day
         sharpe = clean_returns.mean() / clean_returns.std() * np.sqrt(periods_per_year)
         return sharpe
     
@@ -278,24 +291,4 @@ class MarketCharacterizer:
         
         confidence = sample_factor * score_factor
         return confidence
-
-
-# Integration with existing regime system
-def enhance_regime_with_market_profile(regime_classifier, market_profile: MarketProfile):
-    """Enhance regime classifier with market profile knowledge"""
-    
-    # Add market profile as context
-    regime_classifier.market_profile = market_profile
-    
-    # Adjust regime thresholds based on market behavior
-    if market_profile.primary_behavior == 'trending':
-        # Make trend regimes more sensitive
-        regime_classifier.direction_thresholds = [0.3, 0.7]  # Easier to classify as trending
-    elif market_profile.primary_behavior == 'mean_reverting':
-        # Make sideways regime more prominent
-        regime_classifier.direction_thresholds = [0.4, 0.6]  # Harder to classify as trending
-    
-    logger.info(f"Enhanced regime classifier with {market_profile.primary_behavior} market profile")
-    
-    return regime_classifier
 
