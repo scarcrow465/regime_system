@@ -284,7 +284,7 @@ class EnhancedRegimeStrategyBacktester:
             
             # RSI filter - avoid overbought/oversold
             if 'RSI' in data.columns:
-                rsi_filter = (data['RSI'] > config.rsi_oversold) & (data['RSI'] < config.rsi_overbought)
+                rsi_filter = (data['RSI_14'] > config.rsi_oversold) & (data['RSI_14'] < config.rsi_overbought)
             else:
                 rsi_filter = True
             
@@ -461,7 +461,7 @@ class EnhancedRegimeStrategyBacktester:
         data = self._normalize_columns(data)
         
         # Check if required columns exist
-        required_cols = ['close', 'RSI']
+        required_cols = ['close', 'RSI_14']
         missing_cols = [col for col in required_cols if col not in data.columns]
         
         if missing_cols:
@@ -481,7 +481,7 @@ class EnhancedRegimeStrategyBacktester:
                 bb_std = data['close'].rolling(config.bb_periods).std()
                 bb_upper = bb_middle + (config.bb_std * bb_std)
                 bb_lower = bb_middle - (config.bb_std * bb_std)
-                rsi = data['RSI']
+                rsi = data['RSI_14']
             else:
                 logger.warning("Missing required columns ('close', 'RSI') in data")
                 return returns
