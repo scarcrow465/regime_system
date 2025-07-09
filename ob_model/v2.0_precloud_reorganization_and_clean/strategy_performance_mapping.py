@@ -1,266 +1,303 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 """
-Strategy performance mapping across market regimes
+Strategy Mapping Analysis - Which strategies work best in which regimes?
+Tests multiple strategy types across different regime combinations
 """
 
 import pandas as pd
 import numpy as np
-import logging
-from typing import Dict, List, Tuple, Optional
-import time
-from datetime import datetime
-import os
 import sys
+import os
+from datetime import datetime
+from typing import Dict, List, Tuple
+import time
+from tqdm import tqdm
 
+# Add regime_system to path
 sys.path.insert(0, r'C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean')
 
-from config.settings import INDICATOR_WEIGHTS
-from backtesting.strategies import EnhancedRegimeStrategyBacktester, compare_strategies
+from core.data_loader import load_csv_data
+from core.indicators import calculate_all_indicators
+from core.regime_classifier import RollingRegimeClassifier
+from backtesting.strategies import EnhancedRegimeStrategyBacktester
 
-logger = logging.getLogger(__name__)
+print("="*80)
+print("REGIME-STRATEGY PERFORMANCE MAPPING")
+print("="*80)
+print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-def calculate_all_indicators(data: pd.DataFrame) -> pd.DataFrame:
-    try:
-        import pandas_ta as ta
-        data = data.copy()
-        # Attempt to compute all indicators listed in INDICATOR_WEIGHTS
-        for indicator in INDICATOR_WEIGHTS.keys():
-            if indicator == 'RSI':
-                data['RSI'] = ta.rsi(data['close'], length=14)
-            elif indicator == 'MACD':
-                data['MACD'], data['MACD_signal'], _ = ta.macd(data['close'], fast=12, slow=26, signal=9)
-            elif indicator == 'ATR':
-                data['ATR'] = ta.atr(data['high'], data['low'], data['close'], length=14)
-            elif indicator == 'ADX':
-                data['ADX'] = ta.adx(data['high'], data['low'], data['close'], length=14)['ADX_14']
-            elif indicator == 'BBANDS':
-                bb = ta.bbands(data['close'], length=20, std=2.0)
-                data['BB_lower'] = bb['BBL_20_2.0']
-                data['BB_middle'] = bb['BBM_20_2.0']
-                data['BB_upper'] = bb['BBU_20_2.0']
-            # Add other indicators from INDICATOR_WEIGHTS (e.g., SMA, EMA, etc.)
-            # This likely includes all 87 indicators, but some may fail or overwrite columns
-        return data
-    except Exception as e:
-        logger.error(f"Error calculating indicators: {e}")
-        return data
+# Load data
+data_file = r'combined_NQ_15m_data.csv'
+print(f"\nLoading data from: {data_file}")
+start_time = time.time()
+with tqdm(total=1, desc="Loading Data", ncols=80, mininterval=1) as pbar:
+    data = load_csv_data(data_file, timeframe='15min')
+    pbar.update(1)
+print(f"Loaded {len(data)} rows in {time.time() - start_time:.2f} seconds")
 
-def identify_regimes(data: pd.DataFrame) -> pd.DataFrame:
-    try:
-        regimes = pd.DataFrame(index=data.index)
-        # Simplified regime identification for example
-        if 'close' in data.columns:
-            regimes['Direction_Regime'] = np.where(
-                data['close'].pct_change(20).rolling(20).mean() > 0, 'Up_Trending',
-                np.where(data['close'].pct_change(20).rolling(20).mean() < 0, 'Down_Trending', 'Sideways')
-            )
-            regimes['TrendStrength_Regime'] = np.where(
-                data['ADX'] > 25 if 'ADX' in data.columns else False, 'Strong', 'Weak'
-            )
-            regimes['Volatility_Regime'] = np.where(
-                data['ATR'] > data['ATR'].rolling(20).mean() * 1.5 if 'ATR' in data.columns else False, 'High_Vol',
-                np.where(data['ATR'] < data['ATR'].rolling(20).mean() * 0.5, 'Low_Vol', 'Medium_Vol')
-            )
-            regimes['Direction_Confidence'] = 0.5  # Placeholder
-            regimes['Volatility_Confidence'] = 0.5  # Placeholder
-        else:
-            logger.warning("Missing 'close' column for regime identification")
-            regimes['Direction_Regime'] = 'Undefined'
-            regimes['TrendStrength_Regime'] = 'Undefined'
-            regimes['Volatility_Regime'] = 'Undefined'
-            regimes['Direction_Confidence'] = 0.5
-            regimes['Volatility_Confidence'] = 0.5
-        return regimes
-    except Exception as e:
-        logger.error(f"Error identifying regimes: {e}")
-        return pd.DataFrame(index=data.index)
+# Use last 100,000 rows for meaningful but manageable analysis
+if len(data) > 100000:
+    data = data.tail(100000)
+    print(f"Using last {len(data)} rows for strategy analysis")
 
-def test_strategy_in_regime(data: pd.DataFrame, regimes: pd.DataFrame, strategy_name: str, 
-                           regime_name: str, regime_mask: pd.Series) -> Tuple[Optional[Dict], Optional[str]]:
-    try:
-        backtester = EnhancedRegimeStrategyBacktester()
-        strategy_func = {
-            'momentum': backtester.momentum_strategy_enhanced,
-            'mean_reversion': backtester.mean_reversion_strategy_enhanced,
-            'volatility_breakout': backtester.volatility_breakout_strategy_enhanced,
-            'adaptive': backtester.adaptive_regime_strategy_enhanced
-        }.get(strategy_name.lower())
-        
-        if strategy_func is None:
-            return None, f"Unknown strategy: {strategy_name}"
-        
-        logger.info(f"Testing {strategy_name} in regime {regime_name}")
-        if strategy_name.lower() == 'adaptive':
-            returns = strategy_func(data, regimes)
-        else:
-            returns = strategy_func(data, regime_mask, regimes)
-        
-        if returns is None or returns.empty or returns.isna().all():
-            return None, f"No valid returns for {strategy_name} in {regime_name}"
-        
-        if regime_mask.sum() < 100:
-            return None, f"Regime {regime_name} has insufficient periods: {regime_mask.sum()}"
-        
-        if len(returns[returns != 0]) <= 20:
-            return None, f"No valid returns for {strategy_name} in {regime_name}"
-        
-        metrics = backtester.calculate_performance_metrics(returns[regime_mask])
-        metrics['periods_in_regime'] = regime_mask.sum()
-        metrics['pct_time_in_regime'] = regime_mask.sum() / len(regime_mask) * 100
-        return metrics, None
-    except Exception as e:
-        logger.error(f"Error testing {strategy_name} in regime {regime_name}: {e}")
-        return None, str(e)
+# Calculate indicators
+print("\nCalculating indicators...")
+start_time = time.time()
+with tqdm(total=1, desc="Calculating Indicators", ncols=80, mininterval=1) as pbar:
+    data_with_indicators = calculate_all_indicators(data, verbose=False)
+    pbar.update(1)
+print(f"Indicators calculated in {time.time() - start_time:.2f} seconds")
 
-def map_strategy_performance(data: pd.DataFrame) -> pd.DataFrame:
+# Classify regimes
+print("\nClassifying regimes...")
+start_time = time.time()
+classifier = RollingRegimeClassifier(window_hours=36, timeframe='15min')
+with tqdm(total=1, desc="Classifying Regimes", ncols=80, mininterval=1) as pbar:
+    regimes = classifier.classify_regimes(data_with_indicators, show_progress=True)
+    pbar.update(1)
+print(f"Regimes classified in {time.time() - start_time:.2f} seconds")
+
+# Initialize backtester
+backtester = EnhancedRegimeStrategyBacktester()
+
+# Define strategies to test
+strategies = {
+    'momentum': 'Trend following - buys strength, sells weakness',
+    'mean_reversion': 'Counter-trend - buys oversold, sells overbought',
+    'volatility_breakout': 'Trades range expansions',
+    'adaptive': 'Switches strategy based on regime'
+}
+
+print("\n" + "="*80)
+print("TESTING STRATEGIES ACROSS REGIMES")
+print("="*80)
+
+# Function to test a specific strategy in specific regime conditions
+def test_strategy_in_regime(data, regimes, strategy_type, regime_filter):
+    """Test a strategy when specific regime conditions are met"""
     start_time = time.time()
-    logger.info("Starting strategy performance mapping")
+    print(f"\nTesting {strategy_type} in regime {regime_filter}")
     
-    # Calculate indicators
-    data = calculate_all_indicators(data)
+    # Create mask for when regime conditions are met
+    mask = pd.Series(True, index=regimes.index)
+    for dim, regime_value in regime_filter.items():
+        col_name = f'{dim}_Regime'
+        if col_name in regimes.columns:
+            mask &= (regimes[col_name] == regime_value)
     
-    # Classify regimes
-    regimes = identify_regimes(data)
+    if mask.sum() < 100:  # Need at least 100 periods
+        print(f"Skipping {strategy_type} in {regime_filter}: Insufficient periods ({mask.sum()})")
+        return None
     
-    # Define regime combinations
-    regime_combinations = [
-        {'Direction': 'Up_Trending'},
-        {'Direction': 'Down_Trending'},
-        {'Direction': 'Sideways'},
-        {'Volatility': 'Low_Vol'},
-        {'Volatility': 'High_Vol'},
-        {'Volatility': 'Extreme_Vol'},
-        {'TrendStrength': 'Strong'},
-        {'TrendStrength': 'Weak'},
-        {'Direction': 'Up_Trending', 'TrendStrength': 'Strong'},
-        {'Direction': 'Up_Trending', 'TrendStrength': 'Weak'},
-        {'Direction': 'Down_Trending', 'TrendStrength': 'Strong'},
-        {'Direction': 'Down_Trending', 'TrendStrength': 'Weak'},
-        {'Direction': 'Sideways', 'Volatility': 'High_Vol'},
-        {'TrendStrength': 'Strong', 'Volatility': 'High_Vol'},
-        {'TrendStrength': 'Strong', 'Volatility': 'Low_Vol'}
-    ]
+    # Run strategy
+    if strategy_type == 'momentum':
+        # Enhanced momentum strategy
+        direction_up = regimes['Direction_Regime'] == 'Up_Trending'
+        direction_down = regimes['Direction_Regime'] == 'Down_Trending'
+        returns = backtester.momentum_strategy_enhanced(
+            data, 
+            (direction_up | direction_down) & mask, 
+            regimes
+        )
     
-    strategies = ['momentum', 'mean_reversion', 'volatility_breakout', 'adaptive']
-    results = []
+    elif strategy_type == 'mean_reversion':
+        # Mean reversion in sideways markets
+        sideways = regimes['Direction_Regime'] == 'Sideways'
+        returns = backtester.mean_reversion_strategy_enhanced(
+            data, 
+            sideways & mask, 
+            regimes
+        )
     
-    for regime in regime_combinations:
-        regime_name = '_'.join(f"{k}={v}" for k, v in regime.items())
-        regime_mask = pd.Series(True, index=data.index)
-        for key, value in regime.items():
-            regime_mask = regime_mask & (regimes[f"{key}_Regime"] == value)
+    elif strategy_type == 'volatility_breakout':
+        # Volatility breakout strategy
+        high_vol = regimes['Volatility_Regime'].isin(['High_Vol', 'Extreme_Vol'])
+        returns = backtester.volatility_breakout_strategy_enhanced(
+            data, 
+            high_vol & mask, 
+            regimes
+        )
+    
+    elif strategy_type == 'adaptive':
+        # Use the full adaptive strategy
+        returns = backtester.adaptive_regime_strategy_enhanced(data, regimes)
+        # Apply mask to returns
+        returns = returns * mask
+    
+    else:
+        print(f"Invalid strategy type: {strategy_type}")
+        return None
+    
+    # Calculate performance metrics
+    if returns is not None and len(returns[returns != 0]) > 20:
+        metrics = backtester.calculate_performance_metrics(returns)
+        metrics['periods_in_regime'] = mask.sum()
+        metrics['pct_time_in_regime'] = mask.sum() / len(mask) * 100
+        print(f"Completed {strategy_type} in {regime_filter} in {time.time() - start_time:.2f} seconds")
+        return metrics
+    
+    print(f"No valid returns for {strategy_type} in {regime_filter}")
+    return None
+
+# Test each strategy in major regime combinations
+regime_combinations = [
+    # Single dimension focus
+    {'Direction': 'Up_Trending'},
+    {'Direction': 'Down_Trending'},
+    {'Direction': 'Sideways'},
+    {'Volatility': 'Low_Vol'},
+    {'Volatility': 'High_Vol'},
+    {'Volatility': 'Extreme_Vol'},
+    {'TrendStrength': 'Strong'},
+    {'TrendStrength': 'Weak'},
+    
+    # Useful combinations
+    {'Direction': 'Up_Trending', 'TrendStrength': 'Strong'},
+    {'Direction': 'Up_Trending', 'TrendStrength': 'Weak'},
+    {'Direction': 'Down_Trending', 'TrendStrength': 'Strong'},
+    {'Direction': 'Down_Trending', 'TrendStrength': 'Weak'},
+    {'Direction': 'Sideways', 'Volatility': 'Low_Vol'},
+    {'Direction': 'Sideways', 'Volatility': 'High_Vol'},
+    {'TrendStrength': 'Strong', 'Volatility': 'Low_Vol'},
+    {'TrendStrength': 'Strong', 'Volatility': 'High_Vol'},
+]
+
+# Store results
+results = []
+
+print("\nTesting strategies in different regime combinations...")
+print("(This may take a few minutes...)\n")
+
+# Calculate total iterations for progress bar
+total_iterations = len(regime_combinations) * len(strategies)
+start_time = time.time()
+with tqdm(total=total_iterations, desc="Testing Strategies", ncols=80, mininterval=1) as pbar:
+    for regime_filter in regime_combinations:
+        regime_name = '_'.join([f"{k}={v}" for k, v in regime_filter.items()])
         
-        for strategy in strategies:
-            metrics, error = test_strategy_in_regime(data, regimes, strategy, regime_name, regime_mask)
-            if error:
-                logger.warning(error)
-                continue
-            result = {
-                'Regime': regime_name,
-                'Strategy': strategy,
-                'Sharpe_Ratio': metrics['sharpe_ratio'],
-                'Total_Return': metrics['total_return'],
-                'Max_Drawdown': metrics['max_drawdown'],
-                'Win_Rate': metrics['win_rate'],
-                'Time_in_Regime': metrics['pct_time_in_regime'] / 100
-            }
-            results.append(result)
-    
-    results_df = pd.DataFrame(results)
-    
-    # Generate summary
-    best_strategies = results_df.groupby('Regime').apply(
-        lambda x: x.loc[x['Sharpe_Ratio'].idxmax()]
-    ).reset_index(drop=True)
-    
-    # Overall strategy performance
-    performance_summary = compare_strategies(data, regimes)
-    
-    # Save results
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    output_file = f'regime_strategy_mapping_{timestamp}.csv'
-    results_df.to_csv(output_file, index=False)
-    
-    # Log results
-    logger.info(f"Strategy testing completed in {time.time() - start_time:.2f} seconds")
-    logger.info("="*80)
-    logger.info("BEST STRATEGY BY REGIME")
-    logger.info("="*80)
-    for _, row in best_strategies.iterrows():
-        logger.info(f"\n{row['Regime']}:")
-        logger.info(f"  Best Strategy: {row['Strategy'].upper()}")
-        logger.info(f"  Sharpe Ratio: {row['Sharpe_Ratio']:.3f}")
-        logger.info(f"  Total Return: {row['Total_Return']*100:.2f}%")
-        logger.info(f"  Max Drawdown: {row['Max_Drawdown']*100:.2f}%")
-        logger.info(f"  Win Rate: {row['Win_Rate']*100:.2f}%")
-        logger.info(f"  Time in Regime: {row['Time_in_Regime']*100:.1f}%")
-    
-    logger.info("\n" + "="*80)
-    logger.info("STRATEGY PERFORMANCE SUMMARY")
-    logger.info("="*80)
-    logger.info("\nAverage performance across all regimes:")
-    logger.info(performance_summary.to_string())
-    
-    logger.info("\n" + "="*80)
-    logger.info("KEY INSIGHTS & RECOMMENDATIONS")
-    logger.info("="*80)
-    
-    for strategy in strategies:
-        strategy_results = results_df[results_df['Strategy'] == strategy]
-        if len(strategy_results) > 0:
-            best_regimes = strategy_results.nlargest(3, 'Sharpe_Ratio')
-            worst_regimes = strategy_results.nsmallest(3, 'Sharpe_Ratio')
-            logger.info(f"\n{strategy.upper()} Strategy:")
-            logger.info("  Best regimes:")
-            for _, row in best_regimes.iterrows():
-                logger.info(f"    - {row['Regime']} (Sharpe: {row['Sharpe_Ratio']:.3f})")
-            logger.info("  Worst regimes:")
-            for _, row in worst_regimes.iterrows():
-                logger.info(f"    - {row['Regime']} (Sharpe: {row['Sharpe_Ratio']:.3f})")
-    
-    logger.info("\n" + "="*80)
-    logger.info("MOST PROFITABLE REGIME COMBINATIONS")
-    logger.info("="*80)
-    profitable_regimes = results_df[results_df['Sharpe_Ratio'] > 0.5].groupby('Regime').agg({
-        'Sharpe_Ratio': 'max',
-        'Strategy': lambda x: x.iloc[x.values.argmax()]
-    }).sort_values('Sharpe_Ratio', ascending=False).head(10)
-    logger.info("\nTop 10 profitable regime-strategy combinations:")
-    for regime, row in profitable_regimes.iterrows():
-        logger.info(f"  {regime} → {row['Strategy']} (Sharpe: {row['Sharpe_Ratio']:.3f})")
-    
-    challenging_regimes = results_df.groupby('Regime')['Sharpe_Ratio'].max()
-    challenging_regimes = challenging_regimes[challenging_regimes < 0].sort_values()
-    if len(challenging_regimes) > 0:
-        logger.info("\n" + "="*80)
-        logger.info("CHALLENGING REGIMES (Avoid or use defensive strategies)")
-        logger.info("="*80)
-        for regime, best_sharpe in challenging_regimes.items():
-            logger.info(f"  {regime} (Best Sharpe: {best_sharpe:.3f})")
-    
-    logger.info(f"\n✓ Detailed results saved to: {output_file}")
-    
-    logger.info("\n" + "="*80)
-    logger.info("SUGGESTED STRATEGY ALLOCATION RULES")
-    logger.info("="*80)
-    logger.info("\n1. PRIMARY RULES (Single dimension):")
-    logger.info("   - Direction = Up_Trending → MOMENTUM")
-    logger.info("   - Direction = Down_Trending → MOMENTUM (short)")
-    logger.info("   - Direction = Sideways → MEAN REVERSION")
-    logger.info("   - Volatility = High/Extreme → VOLATILITY BREAKOUT")
-    logger.info("   - Volatility = Low → MEAN REVERSION")
-    logger.info("\n2. ENHANCED RULES (Multi-dimensional):")
-    logger.info("   - Strong Trend + Low Volatility → MOMENTUM (high confidence)")
-    logger.info("   - Weak Trend + High Volatility → REDUCE POSITION SIZE")
-    logger.info("   - Sideways + Low Volatility → MEAN REVERSION (high confidence)")
-    logger.info("   - Any + Extreme Volatility → VOLATILITY BREAKOUT or CASH")
-    
-    logger.info(f"\nCompleted at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    
-    return results_df
+        for strategy_name, strategy_desc in strategies.items():
+            metrics = test_strategy_in_regime(data_with_indicators, regimes, 
+                                            strategy_name, regime_filter)
+            
+            if metrics is not None:
+                results.append({
+                    'regime': regime_name,
+                    'strategy': strategy_name,
+                    'sharpe_ratio': metrics['sharpe_ratio'],
+                    'total_return': metrics['total_return'],
+                    'max_drawdown': metrics['max_drawdown'],
+                    'win_rate': metrics['win_rate'],
+                    'periods_in_regime': metrics['periods_in_regime'],
+                    'pct_time_in_regime': metrics['pct_time_in_regime']
+                })
+            pbar.update(1)
+print(f"Strategy testing completed in {time.time() - start_time:.2f} seconds")
+
+# Convert to DataFrame for analysis
+results_df = pd.DataFrame(results)
+
+# Find best strategy for each regime
+print("="*80)
+print("BEST STRATEGY BY REGIME")
+print("="*80)
+
+best_by_regime = results_df.loc[results_df.groupby('regime')['sharpe_ratio'].idxmax()]
+
+for _, row in best_by_regime.iterrows():
+    print(f"\n{row['regime']}:")
+    print(f"  Best Strategy: {row['strategy'].upper()}")
+    print(f"  Sharpe Ratio: {row['sharpe_ratio']:.3f}")
+    print(f"  Total Return: {row['total_return']:.2%}")
+    print(f"  Max Drawdown: {row['max_drawdown']:.2%}")
+    print(f"  Win Rate: {row['win_rate']:.2%}")
+    print(f"  Time in Regime: {row['pct_time_in_regime']:.1f}%")
+
+# Strategy performance summary
+print("\n" + "="*80)
+print("STRATEGY PERFORMANCE SUMMARY")
+print("="*80)
+
+strategy_summary = results_df.groupby('strategy').agg({
+    'sharpe_ratio': ['mean', 'std', 'min', 'max'],
+    'total_return': 'mean',
+    'win_rate': 'mean'
+}).round(3)
+
+print("\nAverage performance across all regimes:")
+print(strategy_summary)
+
+# Key insights
+print("\n" + "="*80)
+print("KEY INSIGHTS & RECOMMENDATIONS")
+print("="*80)
+
+# Find which regimes favor each strategy
+for strategy in strategies.keys():
+    strategy_results = results_df[results_df['strategy'] == strategy]
+    if len(strategy_results) > 0:
+        best_regimes = strategy_results.nlargest(3, 'sharpe_ratio')
+        worst_regimes = strategy_results.nsmallest(3, 'sharpe_ratio')
+        
+        print(f"\n{strategy.upper()} Strategy:")
+        print("  Best regimes:")
+        for _, row in best_regimes.iterrows():
+            print(f"    - {row['regime']} (Sharpe: {row['sharpe_ratio']:.3f})")
+        print("  Worst regimes:")
+        for _, row in worst_regimes.iterrows():
+            print(f"    - {row['regime']} (Sharpe: {row['sharpe_ratio']:.3f})")
+
+# Identify regime combinations that are particularly profitable
+print("\n" + "="*80)
+print("MOST PROFITABLE REGIME COMBINATIONS")
+print("="*80)
+
+profitable_regimes = results_df[results_df['sharpe_ratio'] > 0.5].groupby('regime').agg({
+    'sharpe_ratio': 'max',
+    'strategy': lambda x: x.iloc[x.values.argmax()]
+}).sort_values('sharpe_ratio', ascending=False).head(10)
+
+print("\nTop 10 profitable regime-strategy combinations:")
+for regime, row in profitable_regimes.iterrows():
+    print(f"  {regime} → {row['strategy']} (Sharpe: {row['sharpe_ratio']:.3f})")
+
+# Identify challenging regimes
+challenging_regimes = results_df.groupby('regime')['sharpe_ratio'].max()
+challenging_regimes = challenging_regimes[challenging_regimes < 0].sort_values()
+
+if len(challenging_regimes) > 0:
+    print("\n" + "="*80)
+    print("CHALLENGING REGIMES (Avoid or use defensive strategies)")
+    print("="*80)
+    for regime, best_sharpe in challenging_regimes.items():
+        print(f"  {regime} (Best Sharpe: {best_sharpe:.3f})")
+
+# Save detailed results
+output_file = f"regime_strategy_mapping_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+results_df.to_csv(output_file, index=False)
+print(f"\n✓ Detailed results saved to: {output_file}")
+
+# Create strategy allocation rules
+print("\n" + "="*80)
+print("SUGGESTED STRATEGY ALLOCATION RULES")
+print("="*80)
+
+print("\n1. PRIMARY RULES (Single dimension):")
+print("   - Direction = Up_Trending → MOMENTUM")
+print("   - Direction = Down_Trending → MOMENTUM (short)")
+print("   - Direction = Sideways → MEAN REVERSION")
+print("   - Volatility = High/Extreme → VOLATILITY BREAKOUT")
+print("   - Volatility = Low → MEAN REVERSION")
+
+print("\n2. ENHANCED RULES (Multi-dimensional):")
+print("   - Strong Trend + Low Volatility → MOMENTUM (high confidence)")
+print("   - Weak Trend + High Volatility → REDUCE POSITION SIZE")
+print("   - Sideways + Low Volatility → MEAN REVERSION (high confidence)")
+print("   - Any + Extreme Volatility → VOLATILITY BREAKOUT or CASH")
+
+print(f"\nCompleted at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
