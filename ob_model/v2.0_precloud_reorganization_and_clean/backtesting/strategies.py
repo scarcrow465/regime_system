@@ -63,7 +63,7 @@ class StrategyConfig:
 
 class EnhancedRegimeStrategyBacktester:
     def __init__(self):
-        regime_configs = {
+        self.regime_configs = {
             # Trending regimes - favor momentum
             'Up_Trending': StrategyConfig(
                 momentum_fast_period=10,      # Faster response
