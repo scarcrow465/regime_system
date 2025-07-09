@@ -40,7 +40,7 @@ def combine_csv_files(instrument='NQ'):
     file1 = r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\5.2 Master Daily Data - Updated - Nearest Unadjusted - Top Column Removed.csv"
     # file2 = r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\7.2 Master 15m Data - Updated - Nearest Unadjusted - 2000_01_01 - 2013_12_31 .csv"
     
-    output_file = f"combined_{instrument}_15m_data.csv"
+    output_file = f"combined_{instrument}_Daily_data.csv"
     
     all_data = []
     
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     output = combine_csv_files(instrument)
     if output:
         print(f"\nNow you can run:")
-        print(f'python main.py analyze --data "{output}" --timeframe 15min')
+        print(f'python main.py analyze --data "{output}" --timeframe Daily')
 
 
 # In[ ]:
