@@ -66,7 +66,7 @@ class NQDailyRegimeClassifier:
         # NQ-specific thresholds (based on our analysis)
         self.thresholds = {
             'trend_strong': 0.5,
-            'trend_weak': 0.3,
+            'trend_weak': 0.2,
             'trend_neutral': 0.1,
             'vol_low': 25,
             'vol_normal': 75,
