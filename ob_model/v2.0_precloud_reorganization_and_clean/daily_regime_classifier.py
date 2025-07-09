@@ -68,7 +68,7 @@ class NQDailyRegimeClassifier:
             'direction_neutral': 0.1, # Threshold for Neutral Sideways
             'strength_strong': 0.25,   # Threshold for Strong
             'strength_moderate': 0.15, # Threshold for Moderate
-            'vol_low': 25,
+            'vol_low': 35,
             'vol_normal': 75,
             'vol_high': 90,
             'efficiency_trending': 0.15,  # Efficiency ratio for trending
