@@ -250,7 +250,7 @@ class NQDailyRegimeClassifier:
         
         # Normalize score
         if signal_count > 0:
-            df['direction_score'] = direction_score / signal_count
+            df['direction_score'] = direction_score
         
         # Classify based on score
         df.loc[df['direction_score'] > self.thresholds['trend_strong'], 'direction_regime'] = 'Uptrend'
@@ -285,7 +285,7 @@ class NQDailyRegimeClassifier:
         
         # Normalize and classify
         if signal_count > 0:
-            df['strength_score'] = strength_score / signal_count
+            df['strength_score'] = strength_score
             
         df.loc[df['strength_score'] > 0.6, 'strength_regime'] = 'Strong'
         df.loc[(df['strength_score'] > 0.3) & (df['strength_score'] <= 0.6), 'strength_regime'] = 'Moderate'
