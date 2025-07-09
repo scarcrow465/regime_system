@@ -66,7 +66,7 @@ class NQDailyRegimeClassifier:
         self.thresholds = {
             'direction_strong': 0.3,  # Threshold for Strong Uptrend/Downtrend
             'direction_neutral': 0.1, # Threshold for Neutral Sideways
-            'strength_strong': 0.25,   # Threshold for Strong
+            'strength_strong': 0.3,   # Threshold for Strong
             'strength_moderate': 0.2, # Threshold for Moderate
             'vol_low': 35,
             'vol_normal': 75,
