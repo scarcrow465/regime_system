@@ -1,0 +1,6 @@
+1-Hour Market Profile
+==================================================
+Primary Behavior: breakout
+Directional Bias: neutral
+Best Strategy Score: -0.001
+Optimal Holding: 5 hours
