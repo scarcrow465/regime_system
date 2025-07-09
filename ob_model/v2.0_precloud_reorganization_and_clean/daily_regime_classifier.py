@@ -65,23 +65,24 @@ class NQDailyRegimeClassifier:
         
         # NQ-specific thresholds (based on our analysis)
         self.thresholds = {
-            # Direction thresholds
-            'trend_strong': 0.6,      # Strong trend
-            'trend_weak': 0.3,        # Weak trend
-            'trend_neutral': 0.1,     # Sideways
-            
-            # Volatility percentiles
+            'trend_strong': 0.6,
+            'trend_weak': 0.3,
+            'trend_neutral': 0.1,
             'vol_low': 25,
             'vol_normal': 75,
             'vol_high': 90,
-            
-            # Efficiency ratio for ranging vs trending
             'efficiency_trending': 0.5,
             'efficiency_ranging': 0.3,
-            
-            # Regime persistence (days)
-            'min_regime_days': 3,     # Minimum days to confirm regime
-            'smoothing_days': 5,      # Smoothing window
+            'min_regime_days': 3,
+            'smoothing_days': 5,
+        }
+        
+        # Define regime mappings
+        self.regime_maps = {
+            'direction_regime': {'Uptrend': 0, 'Downtrend': 1, 'Sideways': 2},
+            'strength_regime': {'Strong': 0, 'Moderate': 1, 'Weak': 2},
+            'volatility_regime': {'Low': 0, 'Normal': 1, 'High': 2, 'Extreme': 3},
+            'character_regime': {'Trending': 0, 'Ranging': 1, 'Volatile': 2, 'Transitioning': 3}
         }
         
         # Store regime history
@@ -355,17 +356,29 @@ class NQDailyRegimeClassifier:
         """Apply smoothing to prevent regime whipsaws"""
         
         smooth_window = self.thresholds['smoothing_days']
+        temp_cols = []
         
         for col in ['direction_regime', 'strength_regime', 'volatility_regime', 'character_regime']:
-            # Use mode over smoothing window
-            df[f'{col}_smooth'] = df[col].rolling(
-                window=smooth_window, 
-                min_periods=1
-            ).apply(lambda x: x.mode()[0] if len(x.mode()) > 0 else x.iloc[-1])
+            # Get forward and inverse mappings
+            col_map = self.regime_maps[col]
+            inv_map = {v: k for k, v in col_map.items()}
             
-            # Replace original with smoothed
-            df[col] = df[f'{col}_smooth']
-            df.drop(f'{col}_smooth', axis=1, inplace=True)
+            # Map strings to integers
+            df[f'{col}_int'] = df[col].map(col_map)
+            temp_cols.append(f'{col}_int')
+            
+            # Apply rolling mode on integers
+            df[f'{col}_smooth_int'] = df[f'{col}_int'].rolling(
+                window=smooth_window,
+                min_periods=1
+            ).apply(lambda x: pd.Series(x).mode()[0] if not pd.Series(x).mode().empty else x.iloc[-1])
+            temp_cols.append(f'{col}_smooth_int')
+            
+            # Map integers back to strings
+            df[col] = df[f'{col}_smooth_int'].map(inv_map)
+        
+        # Drop temporary columns
+        df.drop(temp_cols, axis=1, inplace=True)
         
         return df
     
