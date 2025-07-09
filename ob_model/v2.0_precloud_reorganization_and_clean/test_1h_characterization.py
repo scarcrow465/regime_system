@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from core.data_loader import load_csv_data
 from core.indicators import calculate_all_indicators
-from market_characterizer import MarketCharacterizer
+from core.market_characterizer import MarketCharacterizer
 
 print("="*80)
 print("1-HOUR NQ MARKET CHARACTERIZATION")
