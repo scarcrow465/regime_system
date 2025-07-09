@@ -168,7 +168,7 @@ class MarketCharacterizer:
         """Find optimal holding period with focus on short-term"""
         best_sharpe = -999
         best_period = 1
-        test_periods = [1, 2, 3, 5, 10, 20, 50, 75, 100]
+        test_periods = [1, 2, 3, 5]
         
         for period in test_periods:
             if period > len(data) / 10:
