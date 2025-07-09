@@ -63,38 +63,99 @@ class StrategyConfig:
 
 class EnhancedRegimeStrategyBacktester:
     def __init__(self):
-        self.regime_configs = {
+        regime_configs = {
+            # Trending regimes - favor momentum
             'Up_Trending': StrategyConfig(
-                momentum_fast_period=8,
-                momentum_slow_period=21,
-                position_size_method='volatility',
-                regime_position_scalar=1.2,
-                stop_loss_atr=1.5,
-                take_profit_atr=4.0
+                momentum_fast_period=10,      # Faster response
+                momentum_slow_period=30,      # vs 50
+                momentum_threshold=0.001,     # More sensitive
+                ma_distance_threshold=0.002,
+                rsi_oversold=35,             # Less extreme
+                rsi_overbought=65,
+                bb_std=2.0,
+                atr_multiplier=1.5,          # Tighter stops
+                lookback_period=20,
+                position_size_method='volatility_scaled',
+                regime_position_scalar=1.2,   # Increase size in favorable regime
+                max_position_size=1.0
             ),
+            
             'Down_Trending': StrategyConfig(
-                momentum_fast_period=8,
-                momentum_slow_period=21,
-                position_size_method='volatility',
-                regime_position_scalar=1.2,
-                stop_loss_atr=1.5,
-                take_profit_atr=4.0
+                momentum_fast_period=8,       # Even faster for shorts
+                momentum_slow_period=25,
+                momentum_threshold=0.001,
+                ma_distance_threshold=0.002,
+                rsi_oversold=40,
+                rsi_overbought=60,
+                bb_std=2.0,
+                atr_multiplier=1.2,          # Tighter stops for shorts
+                lookback_period=20,
+                position_size_method='volatility_scaled',
+                regime_position_scalar=0.8,   # Reduce size for shorts
+                max_position_size=0.8
             ),
+            
             'Sideways': StrategyConfig(
-                rsi_oversold=25,
+                momentum_fast_period=20,
+                momentum_slow_period=50,
+                momentum_threshold=0.002,
+                ma_distance_threshold=0.003,
+                rsi_oversold=25,             # More extreme for mean reversion
                 rsi_overbought=75,
-                bb_std=2.5,
+                bb_std=2.5,                  # Wider bands
+                atr_multiplier=2.5,
+                lookback_period=50,
                 position_size_method='fixed',
                 regime_position_scalar=0.7,
                 max_position_size=0.5
             ),
+            
+            # Volatility-based regimes
             'High_Vol': StrategyConfig(
-                atr_multiplier=3.0,
-                position_size_method='volatility',
-                regime_position_scalar=0.5,
-                max_position_size=0.3,
-                stop_loss_atr=3.0
-            )
+                momentum_fast_period=5,       # Very responsive
+                momentum_slow_period=15,
+                momentum_threshold=0.002,
+                ma_distance_threshold=0.005,  # Wider due to volatility
+                rsi_oversold=20,
+                rsi_overbought=80,
+                bb_std=3.0,                  # Wider bands
+                atr_multiplier=3.0,          # Wider stops
+                lookback_period=30,
+                position_size_method='volatility_scaled',
+                regime_position_scalar=0.5,   # Reduce size in high vol
+                max_position_size=0.5
+            ),
+            
+            'Low_Vol': StrategyConfig(
+                momentum_fast_period=20,
+                momentum_slow_period=60,
+                momentum_threshold=0.0005,    # More sensitive in low vol
+                ma_distance_threshold=0.001,
+                rsi_oversold=35,
+                rsi_overbought=65,
+                bb_std=1.5,                  # Tighter bands
+                atr_multiplier=1.0,          # Tighter stops
+                lookback_period=40,
+                position_size_method='fixed',
+                regime_position_scalar=1.5,   # Increase size in low vol
+                max_position_size=1.2
+            ),
+            
+            # Combined regimes - most specific
+            'Up_Trending_Strong': StrategyConfig(
+                momentum_fast_period=12,
+                momentum_slow_period=35,
+                momentum_threshold=0.0008,
+                ma_distance_threshold=0.0015,
+                rsi_oversold=40,
+                rsi_overbought=70,
+                bb_std=2.0,
+                atr_multiplier=1.8,
+                lookback_period=25,
+                position_size_method='volatility_scaled',
+                regime_position_scalar=1.5,   # Maximum confidence
+                max_position_size=1.5
+            ),
         }
         self.default_config = StrategyConfig(
             position_size_method='fixed',
@@ -279,10 +340,51 @@ class EnhancedRegimeStrategyBacktester:
             logger.error(f"Enhanced momentum strategy error: {e}")
             return pd.Series(0, index=data.index)
     
+    def _normalize_columns(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Normalize column names for strategy compatibility."""
+        data = data.copy()
+        
+        # Handle close/Close
+        if 'Close' in data.columns and 'close' not in data.columns:
+            data['close'] = data['Close']
+        elif 'price' in data.columns and 'close' not in data.columns:
+            data['close'] = data['price']
+        
+        # Handle RSI variants
+        if 'RSI_14' in data.columns and 'RSI' not in data.columns:
+            data['RSI'] = data['RSI_14']
+        elif 'rsi' in data.columns and 'RSI' not in data.columns:
+            data['RSI'] = data['rsi']
+        
+        # Handle MACD variants (if still needed)
+        if 'MACD_Signal' in data.columns and 'MACD_signal' not in data.columns:
+            data['MACD_signal'] = data['MACD_Signal']
+        
+        # Add any other column mappings as needed
+        
+        return data
+
+    # Then modify mean_reversion_strategy_enhanced to use it:
     def mean_reversion_strategy_enhanced(self, data: pd.DataFrame, regime_mask: pd.Series,
-                                       regime_data: pd.DataFrame) -> pd.Series:
+                                    regime_data: pd.DataFrame) -> pd.Series:
         start_time = time.time()
         logger.info("Starting mean reversion strategy backtest")
+        
+        # Normalize columns first
+        data = self._normalize_columns(data)
+        
+        # Check if required columns exist
+        required_cols = ['close', 'RSI']
+        missing_cols = [col for col in required_cols if col not in data.columns]
+        
+        if missing_cols:
+            # More informative error message
+            available_price_cols = [c for c in data.columns if 'close' in c.lower() or 'price' in c.lower()]
+            available_rsi_cols = [c for c in data.columns if 'rsi' in c.lower()]
+            logger.warning(f"Missing required columns {missing_cols}. Available: price={available_price_cols}, RSI={available_rsi_cols}")
+            return pd.Series(0.0, index=data.index)
+        
+        # Continue with existing logic...
         try:
             returns = pd.Series(0.0, index=data.index)
             positions = pd.Series(0.0, index=data.index)
