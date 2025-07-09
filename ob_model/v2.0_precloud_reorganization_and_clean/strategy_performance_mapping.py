@@ -25,11 +25,7 @@ from core.data_loader import load_csv_data
 from core.indicators import calculate_all_indicators
 from core.regime_classifier import RollingRegimeClassifier
 from backtesting.strategies import EnhancedRegimeStrategyBacktester
-
-# Add with other imports at the top
-import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from market_characterizer import MarketCharacterizer
+from core.market_characterizer import MarketCharacterizer
 
 print("="*80)
 print("REGIME-STRATEGY PERFORMANCE MAPPING")
@@ -46,9 +42,9 @@ with tqdm(total=1, desc="Loading Data", ncols=80, mininterval=1) as pbar:
 print(f"Loaded {len(data)} rows in {time.time() - start_time:.2f} seconds")
 
 # Use last 100,000 rows for meaningful but manageable analysis
-if len(data) > 100000:
-    data = data.tail(100000)
-    print(f"Using last {len(data)} rows for strategy analysis")
+# if len(data) > 100000:
+    # data = data.tail(100000)
+    # print(f"Using last {len(data)} rows for strategy analysis")
 
 # Calculate indicators
 print("\nCalculating indicators...")

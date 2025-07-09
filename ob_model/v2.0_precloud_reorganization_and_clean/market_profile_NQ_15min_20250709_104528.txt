@@ -1,0 +1,8 @@
+Market Profile for NQ 15min
+==================================================
+Primary Behavior: trending
+Directional Bias: neutral
+Long Edge: 0.300
+Short Edge: -0.300
+Optimal Holding: 20 bars
+Minimum Target Sharpe: 0.300
