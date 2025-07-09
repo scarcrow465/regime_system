@@ -37,14 +37,18 @@ def combine_csv_files(instrument='NQ'):
     print("="*50)
     print(f"Selected Instrument: {instrument}")
     
-    file1 = r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\7.1 Master 15m Data - Updated - Nearest Unadjusted - 2014_01_01 - 2025_04_01 .csv"
-    file2 = r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\7.2 Master 15m Data - Updated - Nearest Unadjusted - 2000_01_01 - 2013_12_31 .csv"
+    # 1 hour data files
+    file1 = r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\6. Master Hourly Data - Nearest Unadjusted.csv"
     
-    output_file = f"combined_{instrument}_15m_data.csv"
+    # 15 minute data files
+    # file1 = r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\7.1 Master 15m Data - Updated - Nearest Unadjusted - 2014_01_01 - 2025_04_01 .csv"
+    # file2 = r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\7.2 Master 15m Data - Updated - Nearest Unadjusted - 2000_01_01 - 2013_12_31 .csv"
+    
+    output_file = f"combined_{instrument}_1h_data.csv"
     
     all_data = []
     
-    for file_num, csv_path in enumerate([file2,file1], 1):  # Process older file first # Add more files as needed
+    for file_num, csv_path in enumerate([file1], 1):  # Process older file first - ([file2, file1], 1)]
         print(f"\nProcessing file {file_num}: {os.path.basename(csv_path)}")
         
         try:
@@ -152,7 +156,7 @@ if __name__ == "__main__":
     output = combine_csv_files(instrument)
     if output:
         print(f"\nNow you can run:")
-        print(f'python main.py analyze --data "{output}" --timeframe 15m')
+        print(f'python main.py analyze --data "{output}" --timeframe 1h')
 
 
 # In[ ]:
