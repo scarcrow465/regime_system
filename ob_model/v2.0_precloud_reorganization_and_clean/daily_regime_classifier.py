@@ -65,16 +65,16 @@ class NQDailyRegimeClassifier:
         
         # NQ-specific thresholds (based on our analysis)
         self.thresholds = {
-            'trend_strong': 0.6,
+            'trend_strong': 0.5,
             'trend_weak': 0.3,
             'trend_neutral': 0.1,
             'vol_low': 25,
             'vol_normal': 75,
             'vol_high': 90,
-            'efficiency_trending': 0.5,
+            'efficiency_trending': 0.4,
             'efficiency_ranging': 0.3,
             'min_regime_days': 3,
-            'smoothing_days': 5,
+            'smoothing_days': 10,
         }
         
         # Define regime mappings
@@ -287,9 +287,9 @@ class NQDailyRegimeClassifier:
         if signal_count > 0:
             df['strength_score'] = strength_score
             
-        df.loc[df['strength_score'] > 0.6, 'strength_regime'] = 'Strong'
-        df.loc[(df['strength_score'] > 0.3) & (df['strength_score'] <= 0.6), 'strength_regime'] = 'Moderate'
-        df.loc[df['strength_score'] <= 0.3, 'strength_regime'] = 'Weak'
+        df.loc[df['strength_score'] > 0.5, 'strength_regime'] = 'Strong'
+        df.loc[(df['strength_score'] > 0.2) & (df['strength_score'] <= 0.5), 'strength_regime'] = 'Moderate'
+        df.loc[df['strength_score'] <= 0.2, 'strength_regime'] = 'Weak'
         
         return df
     
