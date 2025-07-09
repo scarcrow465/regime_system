@@ -21,13 +21,7 @@ sys.path.insert(0, r'C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_preclou
 # Import your existing modules
 from core.data_loader import load_csv_data
 from core.indicators import calculate_all_indicators
-
-# Add the current directory to path for market_characterizer
-import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-# Import the new market characterizer
-from market_characterizer import MarketCharacterizer
+from core.market_characterizer import MarketCharacterizer
 
 print("="*80)
 print("MARKET CHARACTERIZATION TEST")
