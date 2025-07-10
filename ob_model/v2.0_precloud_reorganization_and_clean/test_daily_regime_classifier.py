@@ -53,6 +53,8 @@ classifier = NQDailyRegimeClassifier(lookback_days=252)
 # Classify regimes
 print("\nClassifying daily regimes...")
 regime_data = classifier.classify_regimes(data_with_indicators)
+assert regime_data.index.equals(data_with_indicators.index), "Index mismatch between regime_data and data_with_indicators"
+
 
 # Get current regime
 current_regime = classifier.get_current_regime(data_with_indicators)
@@ -140,12 +142,19 @@ for regime in regime_data['direction_regime'].unique():
     regime_returns = regime_data.loc[mask, 'returns']
     
     if len(regime_returns) > 0:
-        avg_return = regime_returns.mean() * 252 * 100  # Annualized
+        regime_returns = regime_data.loc[mask, 'returns']
+        regime_returns = regime_returns.dropna()
+        annualized_return = (1 + regime_returns).prod() ** (252 / len(regime_returns)) - 1
+        annualized_return *= 100  # Convert to percentage
         volatility = regime_returns.std() * np.sqrt(252) * 100
-        sharpe = avg_return / volatility if volatility > 0 else 0
+        sharpe = annualized_return / volatility if volatility > 0 else 0
+    else:
+        annualized_return = 0
+        volatility = 0
+        sharpe = 0
         
         print(f"  {regime}:")
-        print(f"    Avg Return: {avg_return:.1f}% annualized")
+        print(f"    Avg Return: {annualized_return:.1f}% annualized")
         print(f"    Volatility: {volatility:.1f}%")
         print(f"    Sharpe: {sharpe:.3f}")
 
@@ -157,11 +166,17 @@ for regime, count in top_regimes.items():
     regime_returns = regime_data.loc[mask, 'returns']
     
     if len(regime_returns) > 20:  # Only if enough data
-        avg_return = regime_returns.mean() * 252 * 100
-        sharpe = avg_return / (regime_returns.std() * np.sqrt(252) * 100) if regime_returns.std() > 0 else 0
+        regime_returns = regime_data.loc[mask, 'returns']
+        regime_returns = regime_returns.dropna()
+        annualized_return = (1 + regime_returns).prod() ** (252 / len(regime_returns)) - 1
+        annualized_return *= 100  # Convert to percentage
+        sharpe = annualized_return / (regime_returns.std() * np.sqrt(252) * 100) if regime_returns.std() > 0 else 0
+    else:
+        annualized_return = 0
+        sharpe = 0
         
         print(f"  {regime}: {count} days")
-        print(f"    Return: {avg_return:.1f}% ann., Sharpe: {sharpe:.3f}")
+        print(f"    Return: {annualized_return:.1f}% ann., Sharpe: {sharpe:.3f}")
 
 # Create visualizations
 print("\nCreating regime visualizations...")
