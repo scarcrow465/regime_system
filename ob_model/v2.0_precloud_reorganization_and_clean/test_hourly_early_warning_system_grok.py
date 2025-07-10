@@ -67,7 +67,7 @@ daily_with_indicators = calculate_all_indicators(daily_data, verbose=False)
 daily_classifier = NQDailyRegimeClassifier(lookback_days=args.lookback_days)
 daily_regimes = daily_classifier.classify_regimes(daily_with_indicators)
 
-thresh = daily_classifier.config['thresholds']  # Assuming thresh is defined in classifier config; if not, add this line if needed
+thresh = daily_classifier.thresholds  # Use thresholds dict from classifier
 
 if args.tuning_verbose:
     print("\n============================================================\nTHRESHOLD DIAGNOSTICS FOR TUNING\n============================================================")
