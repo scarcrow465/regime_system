@@ -65,7 +65,7 @@ class LowerTimeframeEarlyWarningSystem:
         # Default config (scalable by multiplier where needed)
         self.config = {
             'thresholds': {
-                'direction_strong': 0.2,
+                'direction_strong': 0.25,
                 'direction_neutral': 0.1,
                 'strength_strong': 0.35,
                 'strength_moderate': 0.2,
