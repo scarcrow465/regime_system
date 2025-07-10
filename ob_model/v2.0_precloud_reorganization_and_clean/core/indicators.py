@@ -413,6 +413,11 @@ def calculate_all_indicators(data: pd.DataFrame,
         df['MACD_histogram'] = macd.macd_diff()
         
         # ADX
+        # Fill NaN in high/low/close before ADX
+        high = df['high'].fillna(method='ffill').fillna(0)  # or dropna if preferred
+        low = df['low'].fillna(method='ffill').fillna(0)
+        close = df['close'].fillna(method='ffill').fillna(0)
+
         adx = ADXIndicator(high=high, low=low, close=close)
         df['ADX'] = adx.adx()
         df['DI_plus'] = adx.adx_pos()
