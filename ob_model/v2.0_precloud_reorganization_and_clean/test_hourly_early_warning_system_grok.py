@@ -59,6 +59,7 @@ daily_regimes = daily_classifier.classify_regimes(daily_with_indicators)
 
 # Run for multiple timeframes and ensemble
 ensemble_divergences = []
+divergences_dict = {}  # Store per TF for optional use
 for tf in args.timeframes:
     print(f"\nProcessing {tf} timeframe...")
     ews = LowerTimeframeEarlyWarningSystem(daily_classifier, timeframe=tf)
@@ -68,6 +69,7 @@ for tf in args.timeframes:
     
     divergences = ews.detect_divergences(daily_regimes, ltf_with_indicators)
     ensemble_divergences.append(divergences['divergence_score'])
+    divergences_dict[tf] = divergences  # Store for later
     
     # Save per TF
     divergences.to_csv(f'{tf}_divergences_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
@@ -77,9 +79,8 @@ avg_divergence = pd.concat(ensemble_divergences, axis=1).mean(axis=1)
 print("\nEnsemble Average Divergence Score (across TFs):")
 print(avg_divergence.tail())
 
-# Use divergences from '1H' or avg for analysis/visualization (adjust as needed)
-# For simplicity, use the first TF's divergences for detailed analysis
-divergences = ews.detect_divergences(daily_regimes, ltf_with_indicators)  # Reuse last one or average if preferred
+# Use the last TF's divergences for detailed analysis (or replace with your preferred, e.g., divergences_dict['1H'])
+divergences = divergences_dict[args.timeframes[-1]]  # Or avg_divergence for composite only
 
 # Analyze divergence patterns
 print("\n" + "="*80)
