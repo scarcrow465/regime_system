@@ -125,6 +125,10 @@ class HourlyEarlyWarningSystem:
         # Calculate hourly regimes
         hourly_regimes = self.calculate_hourly_regimes(hourly_data)
         
+        # Ensure the index has a name for consistent column creation
+        if hourly_regimes.index.name is None:
+            hourly_regimes.index.name = 'datetime'
+        
         # Reset index to avoid ambiguity with 'date' column
         hourly_regimes = hourly_regimes.reset_index()
         
@@ -134,12 +138,16 @@ class HourlyEarlyWarningSystem:
                 return dt.date() + pd.Timedelta(days=1)
             return dt.date()
         
-        # Use 'index' as the column name after reset_index, assuming it contains datetime values
-        hourly_regimes['date'] = hourly_regimes['index'].apply(get_trading_session_date)
+        # Use the index column name (default to 'datetime' based on set index name)
+        hourly_regimes['date'] = hourly_regimes['datetime'].apply(get_trading_session_date)
+        
+        # Ensure daily_regimes index has a name
+        if daily_regimes.index.name is None:
+            daily_regimes.index.name = 'datetime'
         
         # Create a copy of daily regimes with date as a regular column
         daily_for_merge = daily_regimes.copy().reset_index()
-        daily_for_merge['date'] = daily_for_merge['index'].dt.date
+        daily_for_merge['date'] = daily_for_merge['datetime'].dt.date
         
         # Merge to compare
         merged = hourly_regimes.merge(
@@ -150,8 +158,8 @@ class HourlyEarlyWarningSystem:
             suffixes=('_hourly', '_daily')
         )
         
-        # Set index back to the original datetime column
-        merged.set_index('index', inplace=True)
+        # Set index back to the datetime column
+        merged.set_index('datetime', inplace=True)
         
         # Calculate divergences
         divergences = pd.DataFrame(index=merged.index)
