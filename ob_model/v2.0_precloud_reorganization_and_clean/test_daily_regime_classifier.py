@@ -53,6 +53,7 @@ classifier = NQDailyRegimeClassifier(lookback_days=252)
 # Classify regimes
 print("\nClassifying daily regimes...")
 regime_data = classifier.classify_regimes(data_with_indicators)
+validation_results = classifier.validate_regimes(regime_data)
 assert regime_data.index.equals(data_with_indicators.index), "Index mismatch between regime_data and data_with_indicators"
 
 
