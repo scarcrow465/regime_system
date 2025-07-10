@@ -296,18 +296,43 @@ class LowerTimeframeEarlyWarningSystem:
         return warnings
     
     def _generate_warning_message(self, div_type: str, level: str, 
-                                  div_pct: float, ltf: str, daily: str,
-                                  persistence: int) -> str:
-        if pd.isna(daily) or not isinstance(daily, str):
+                                div_pct: float, ltf: str, daily: str,
+                                persistence: int) -> str:
+        """Generate human-readable warning message"""
+        
+        # Handle cases where daily or ltf regime is NaN
+        if not isinstance(daily, str) or pd.isna(daily):
             daily = "Unknown"
-        if pd.isna(ltf) or not isinstance(ltf, str):
+        if not isinstance(ltf, str) or pd.isna(ltf):
             ltf = "Unknown"
         
-        # Similar to original, abbreviated for space
         messages = {
-            'direction': { 'WEAK': f"Early direction div: LTF {ltf.split('_')[1]} vs daily {daily.split('_')[1]}", ... },  # Fill as per original
-            # (Omit full dict for brevity; copy from your original and adjust)
+            'direction': {
+                'WEAK': f"Early direction divergence: LTF showing {ltf.split('_')[1] if '_' in ltf else ltf} while daily remains {daily.split('_')[1] if '_' in daily else daily}",
+                'MODERATE': f"Growing direction divergence: {div_pct*100:.0f}% of periods conflicting with daily trend",
+                'STRONG': f"Strong direction warning: LTF trend shift persisting {persistence} periods",
+                'CRITICAL': f"CRITICAL direction change: Daily regime likely shifting to {ltf.split('_')[1] if '_' in ltf else ltf} soon"
+            },
+            'strength': {
+                'WEAK': f"Trend strength diverging: LTF {ltf.split('_')[0] if '_' in ltf else ltf} vs daily {daily.split('_')[0] if '_' in daily else daily}",
+                'MODERATE': f"Trend strength weakening/strengthening: {div_pct*100:.0f}% divergence",
+                'STRONG': f"Significant strength change developing over {persistence} periods",
+                'CRITICAL': f"Trend strength regime change imminent"
+            },
+            'volatility': {
+                'WEAK': f"Volatility regime shifting on LTF",
+                'MODERATE': f"Volatility divergence: {div_pct*100:.0f}% of periods differ from daily",
+                'STRONG': f"Major volatility shift detected over {persistence} periods",
+                'CRITICAL': f"Volatility regime change imminent - adjust position sizing"
+            },
+            'character': {
+                'WEAK': f"Market character starting to shift",
+                'MODERATE': f"Character divergence: LTF {ltf} vs daily {daily}",
+                'STRONG': f"Market behavior changing significantly",
+                'CRITICAL': f"Complete character regime change likely"
+            }
         }
+        
         return messages.get(div_type, {}).get(level, "Divergence detected")
     
     def _calculate_ltf_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -358,6 +383,113 @@ class LowerTimeframeEarlyWarningSystem:
         df.loc[df['direction_score'] > thresh['direction_strong'], 'direction_regime'] = 'Uptrend'
         df.loc[df['direction_score'] < -thresh['direction_strong'], 'direction_regime'] = 'Downtrend'
         df.loc[abs(df['direction_score']) < thresh['direction_neutral'], 'direction_regime'] = 'Sideways'
+        
+        return df
+    
+    def _classify_ltf_strength(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Classify strength with LTF thresholds"""
+        
+        thresh = self.config['thresholds']
+        
+        # Use trend consistency over shorter window
+        df['trend_consistency'] = df['close'].pct_change().rolling(12 * self.multiplier).apply(
+            lambda x: (x > 0).sum() / len(x) if len(x) > 0 else 0.5
+        )
+        
+        strength_score = abs(df['trend_consistency'] - 0.5) * 2
+        df['strength_score'] = strength_score
+        
+        df.loc[df['strength_score'] > thresh['strength_strong'], 'strength_regime'] = 'Strong'
+        df.loc[
+            (df['strength_score'] > thresh['strength_moderate']) & 
+            (df['strength_score'] <= thresh['strength_strong']), 
+            'strength_regime'
+        ] = 'Moderate'
+        df.loc[df['strength_score'] <= thresh['strength_moderate'], 'strength_regime'] = 'Weak'
+        
+        return df
+
+    def _classify_ltf_volatility(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Classify volatility for LTF data"""
+        
+        thresh = self.config['thresholds']
+        
+        if 'realized_vol' in df.columns:
+            # Use rolling window scaled by multiplier for percentile
+            df['vol_percentile'] = df['realized_vol'].rolling(
+                24 * 7 * self.multiplier, min_periods=24 * self.multiplier
+            ).rank(pct=True) * 100
+            
+            df['volatility_score'] = df['vol_percentile'] / 100
+            
+            df.loc[df['vol_percentile'] < thresh['vol_low'], 'volatility_regime'] = 'Low'
+            df.loc[
+                (df['vol_percentile'] >= thresh['vol_low']) & 
+                (df['vol_percentile'] < thresh['vol_normal']), 
+                'volatility_regime'
+            ] = 'Normal'
+            df.loc[
+                (df['vol_percentile'] >= thresh['vol_normal']) & 
+                (df['vol_percentile'] < thresh['vol_high']), 
+                'volatility_regime'
+            ] = 'High'
+            df.loc[df['vol_percentile'] >= thresh['vol_high'], 'volatility_regime'] = 'Extreme'
+        
+        return df
+
+    def _classify_ltf_character(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Classify market character for LTF"""
+        
+        thresh = self.config['thresholds']
+        
+        if 'efficiency_ratio' in df.columns:
+            df['character_score'] = df['efficiency_ratio']
+            
+            trending_mask = (
+                (df['efficiency_ratio'] > thresh['efficiency_trending']) & 
+                (df['direction_regime'] != 'Sideways')
+            )
+            df.loc[trending_mask, 'character_regime'] = 'Trending'
+            
+            ranging_mask = df['efficiency_ratio'] < thresh['efficiency_ranging']
+            df.loc[ranging_mask, 'character_regime'] = 'Ranging'
+            
+            volatile_mask = df['volatility_regime'].isin(['High', 'Extreme'])
+            df.loc[volatile_mask, 'character_regime'] = 'Volatile'
+        
+        return df
+
+    def _smooth_ltf_regimes(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Apply smoothing appropriate for LTF data"""
+        
+        smooth_window = self.config['thresholds']['smoothing_periods']
+        
+        # Define regime mappings for smoothing
+        regime_maps = {
+            'direction_regime': {'Uptrend': 0, 'Downtrend': 1, 'Sideways': 2},
+            'strength_regime': {'Strong': 0, 'Moderate': 1, 'Weak': 2},
+            'volatility_regime': {'Low': 0, 'Normal': 1, 'High': 2, 'Extreme': 3},
+            'character_regime': {'Trending': 0, 'Ranging': 1, 'Volatile': 2}
+        }
+        
+        for col, mapping in regime_maps.items():
+            if col in df.columns:
+                # Map to numeric
+                df[f'{col}_num'] = df[col].map(mapping)
+                
+                # Apply rolling mode (avoid look-ahead with closed='left')
+                df[f'{col}_smooth'] = df[f'{col}_num'].rolling(
+                    window=smooth_window,
+                    min_periods=1,
+                    closed='left'
+                ).apply(lambda x: pd.Series(x).mode()[0] if len(pd.Series(x).mode()) > 0 else x.iloc[-1])
+                
+                # Map back to labels
+                inv_mapping = {v: k for k, v in mapping.items()}
+                df[col] = df[f'{col}_smooth'].map(inv_mapping)
+                
+                # Clean up
+                df.drop([f'{col}_num', f'{col}_smooth'], axis=1, inplace=True)
         
         return df
     
