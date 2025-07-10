@@ -196,7 +196,7 @@ print("\n" + "="*80)
 print("CURRENT WARNINGS")
 print("="*80)
 
-current_warnings = ews.generate_warnings(divergences, lookback_periods=24)  # Adjust lookback for TF
+current_warnings = ews.generate_warnings(divergences, lookback_periods=24)  # Base on 1H; for multi-TF, average or scale
 
 if current_warnings:
     for warning in current_warnings:
