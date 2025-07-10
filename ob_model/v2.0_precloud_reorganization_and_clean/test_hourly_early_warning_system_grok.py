@@ -15,6 +15,10 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import argparse  # For parameterization
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Add paths (make configurable)
 sys.path.insert(0, r'C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean')
@@ -306,29 +310,51 @@ if not args.walk_forward:
     print("   - Multiple divergences = higher confidence signal")
 
 else:
-    # Walk-forward mode
-    print("\nRunning Walk-Forward Testing...")
-    # Split data: e.g., train on data up to 2024-01-01, test forward
+    # Walk-forward mode (standalone)
+    print("\nRunning Walk-Forward Testing (Standalone)...")
+    # Split data: Train on data up to 2024-01-01, test forward
     train_end = pd.Timestamp('2024-01-01')
     train_ltf = ltf_data[ltf_data.index < train_end]
     test_ltf = ltf_data[ltf_data.index >= train_end].sort_index()
     
-    # Initialize ews for a primary TF (e.g., '1H'—you can loop for multi if needed)
-    ews = LowerTimeframeEarlyWarningSystem(daily_classifier, timeframe='1H')  # Or loop over TFs
+    # To avoid look-ahead, recalculate daily_regimes on train only initially
+    train_daily = daily_data[daily_data.index < train_end]
+    train_daily_with_indicators = calculate_all_indicators(train_daily, verbose=False)
+    daily_classifier = NQDailyRegimeClassifier(lookback_days=args.lookback_days)
+    current_daily_regimes = daily_classifier.classify_regimes(train_daily_with_indicators)
+    
+    # Initialize ews for '1H' (primary; can extend to multi-TF)
+    ews = LowerTimeframeEarlyWarningSystem(daily_classifier, timeframe='1H')
     
     # Incremental loop: Process test data hour by hour
     predictions = []  # Log (time, predicted_shift, actual_shift)
+    last_daily_close = train_end
     for i in range(len(test_ltf)):
         new_bar = test_ltf.iloc[i:i+1]
-        warnings, divergences = ews.update(new_bar.iloc[0])
+        current_time = new_bar.index[0]
         
-        # Check for predicted shift (e.g., high divergence)
+        # Update daily regimes if a new day has closed (e.g., at 16:00 ET or end of session)
+        if current_time.hour >= 16 and current_time.date() > last_daily_close.date():
+            # Add new daily bar if available (assume daily_data has it)
+            new_daily_date = current_time.date()
+            if new_daily_date in daily_data.index.date:
+                new_daily_bar = daily_data.loc[pd.Timestamp(new_daily_date)]
+                # Update daily_classifier with new bar (you may need to make classifier stateful or recalculate on cumulative)
+                # For simplicity, recalculate on cumulative train + new
+                cumulative_daily = pd.concat([train_daily, new_daily_bar.to_frame().T])
+                cumulative_daily_with_indicators = calculate_all_indicators(cumulative_daily, verbose=False)
+                current_daily_regimes = daily_classifier.classify_regimes(cumulative_daily_with_indicators)
+                last_daily_close = current_time
+        
+        # Update LTF
+        warnings, divergences = ews.update(new_bar.iloc[0], current_daily_regimes.iloc[-1] if len(current_daily_regimes) > 0 else None)
+        
+        # Predicted shift if strong/critical warning
         predicted_shift = any(w['level'] in ['STRONG', 'CRITICAL'] for w in warnings)
         
-        # Get actual next daily regime (check against tomorrow's regime)
-        current_time = new_bar.index[0]
+        # Actual shift: Check if tomorrow's regime differs (without peeking—use next day's if "closed")
         daily_date = current_time.date()
-        if daily_date in daily_regimes.index.date:
+        if daily_date in daily_regimes.index.date:  # Use full for actual check (simulation only)
             daily_idx = daily_regimes.index.get_loc(pd.Timestamp(daily_date))
             if daily_idx < len(daily_regimes) - 1:
                 current_regime = daily_regimes.iloc[daily_idx]['composite_regime']
@@ -336,13 +362,16 @@ else:
                 actual_shift = current_regime != next_regime
                 predictions.append((current_time, predicted_shift, actual_shift))
     
-    # Analyze predictions
+    # Analyze
     df_pred = pd.DataFrame(predictions, columns=['time', 'predicted', 'actual'])
     success_rate = (df_pred['predicted'] == df_pred['actual']).mean() * 100 if len(df_pred) > 0 else 0
     print(f"\nWalk-Forward Success Rate: {success_rate:.1f}%")
-    # Add confusion matrix
     print("\nConfusion Matrix:")
     print(pd.crosstab(df_pred['predicted'], df_pred['actual'], rownames=['Predicted'], colnames=['Actual']))
+    
+    # Save predictions
+    df_pred.to_csv(f'walk_forward_predictions_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
+    print("\n✓ Walk-forward predictions saved")
 
 print(f"\nCompleted at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
