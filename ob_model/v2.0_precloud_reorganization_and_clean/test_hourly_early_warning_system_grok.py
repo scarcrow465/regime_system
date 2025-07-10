@@ -323,8 +323,8 @@ else:
     daily_classifier = NQDailyRegimeClassifier(lookback_days=args.lookback_days)
     current_daily_regimes = daily_classifier.classify_regimes(train_daily_with_indicators)
     
-    # Initialize ews for '1H' (primary; can extend to multi-TF)
-    ews = LowerTimeframeEarlyWarningSystem(daily_classifier, timeframe='1H')
+    # Initialize ews for each TF
+    ews_list = [LowerTimeframeEarlyWarningSystem(daily_classifier, timeframe=tf) for tf in args.timeframes]
     
     # Incremental loop: Process test data hour by hour
     predictions = []  # Log (time, predicted_shift, actual_shift)
@@ -346,12 +346,18 @@ else:
                     current_daily_regimes = daily_classifier.classify_regimes(cumulative_daily_with_indicators)
                 last_daily_close = current_time
         
-        # Update LTF with current daily regime
+        # Update each LTF ews and collect divergences
+        divergences_list = []
+        warnings_list = []
         new_daily_bar = current_daily_regimes.iloc[-1] if len(current_daily_regimes) > 0 else None
-        warnings, divergences = ews.update(new_bar.iloc[0], new_daily_bar)
+        for ews in ews_list:
+            warnings, divergences = ews.update(new_bar.iloc[0], new_daily_bar)
+            divergences_list.append(divergences['divergence_score'].iloc[-1] if len(divergences) > 0 else 0)
+            warnings_list.extend(warnings)
         
-        # Predicted shift if strong/critical warning
-        predicted_shift = divergences['divergence_score'].iloc[-1] > 0.8 and divergences['direction_divergence_periods'].iloc[-1] >= 8 if len(divergences) > 0 else False
+        # Predicted shift with TF consensus (average score >0.8)
+        avg_score = np.mean(divergences_list)
+        predicted_shift = avg_score > 0.8
         
         # Actual shift: Check if tomorrow's regime differs (simulation uses full for "actual")
         daily_date = current_time.date()
