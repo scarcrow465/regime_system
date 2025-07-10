@@ -334,27 +334,27 @@ else:
         new_bar = test_ltf.iloc[i:i+1]
         current_time = new_bar.index[0]
         
-        # Update daily regimes if a new day has closed (assume at 16:00 ET or when new daily available)
+        # Update daily regimes if a new day has closed
         if current_time.hour >= 16 and current_time.date() > last_daily_close.date():
             new_daily_date = current_time.date()
             if new_daily_date in daily_data.index.date:
                 new_daily_bar = daily_data.loc[pd.Timestamp(new_daily_date)]
                 cumulative_daily = pd.concat([cumulative_daily, new_daily_bar.to_frame().T])
-                cumulative_daily_with_indicators = calculate_all_indicators(cumulative_daily, verbose=False)
-                current_daily_regimes = daily_classifier.classify_regimes(cumulative_daily_with_indicators)
+                # Check min length for indicators (ADX needs ~14+ periods)
+                if len(cumulative_daily) >= 14:  # Min for ADX/default rolls
+                    cumulative_daily_with_indicators = calculate_all_indicators(cumulative_daily, verbose=False)
+                    current_daily_regimes = daily_classifier.classify_regimes(cumulative_daily_with_indicators)
+                # Else, use previous regimes (no update if too short)
                 last_daily_close = current_time
         
         # Update LTF with current daily regime
-        if len(current_daily_regimes) > 0:
-            new_daily_bar = current_daily_regimes.iloc[-1]
-        else:
-            new_daily_bar = None
+        new_daily_bar = current_daily_regimes.iloc[-1] if len(current_daily_regimes) > 0 else None
         warnings, divergences = ews.update(new_bar.iloc[0], new_daily_bar)
         
         # Predicted shift if strong/critical warning
         predicted_shift = any(w['level'] in ['STRONG', 'CRITICAL'] for w in warnings)
         
-        # Actual shift: Check if tomorrow's regime differs (simulation uses full data for "actual", but no peeking in prediction)
+        # Actual shift: Check if tomorrow's regime differs (simulation uses full for "actual")
         daily_date = current_time.date()
         if daily_date in daily_regimes.index.date:
             daily_idx = daily_regimes.index.get_loc(pd.Timestamp(daily_date))
