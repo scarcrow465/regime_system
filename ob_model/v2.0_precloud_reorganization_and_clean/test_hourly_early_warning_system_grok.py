@@ -397,7 +397,7 @@ else:
                 last_daily_close = current_time
         
         # Only trigger LTF update if at session-aligned bar close (your times for 4H/8H)
-        close_hours = [22, 2, 6, 10, 14, 16]  # Your example closes; adjust as needed
+        close_hours = [18, 22, 2, 6, 10, 14]  # Your example closes; adjust as needed
         if current_time.hour in close_hours:
             # Update each LTF ews and collect divergences
             divergences_list = []
