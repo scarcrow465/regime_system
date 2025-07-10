@@ -340,11 +340,10 @@ else:
             if new_daily_date in daily_data.index.date:
                 new_daily_bar = daily_data.loc[pd.Timestamp(new_daily_date)]
                 cumulative_daily = pd.concat([cumulative_daily, new_daily_bar.to_frame().T])
-                # Check min length for indicators (ADX needs ~14+ periods)
-                if len(cumulative_daily) >= 14:  # Min for ADX/default rolls
+                if len(cumulative_daily) >= 14:  # Min for ADX
+                    cumulative_daily = cumulative_daily.fillna(method='ffill').dropna(subset=['high', 'low', 'close'])
                     cumulative_daily_with_indicators = calculate_all_indicators(cumulative_daily, verbose=False)
                     current_daily_regimes = daily_classifier.classify_regimes(cumulative_daily_with_indicators)
-                # Else, use previous regimes (no update if too short)
                 last_daily_close = current_time
         
         # Update LTF with current daily regime
