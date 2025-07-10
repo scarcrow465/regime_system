@@ -142,22 +142,21 @@ for regime in regime_data['direction_regime'].unique():
     regime_returns = regime_data.loc[mask, 'returns']
     
     if len(regime_returns) > 0:
+        # Clean returns
         regime_returns = regime_returns.dropna()
-        annualized_return = (1 + regime_returns).prod() ** (252 / len(regime_returns)) - 1
-        annualized_return *= 100
-        volatility = regime_returns.std() * np.sqrt(252) * 100
-        sharpe = annualized_return / volatility if volatility > 0 else 0
+        
+        # Calculate annualized metrics properly
+        avg_daily_return = regime_returns.mean()
+        daily_vol = regime_returns.std()
+        
+        # Annualize
+        annualized_return = avg_daily_return * 252 * 100  # Percentage
+        annualized_vol = daily_vol * np.sqrt(252) * 100   # Percentage
+        sharpe = (avg_daily_return * 252) / (daily_vol * np.sqrt(252)) if daily_vol > 0 else 0
+        
         print(f"  {regime}:")
         print(f"    Avg Return: {annualized_return:.1f}% annualized")
-        print(f"    Volatility: {volatility:.1f}%")
-        print(f"    Sharpe: {sharpe:.3f}")
-    else:
-        annualized_return = 0
-        volatility = 0
-        sharpe = 0
-        print(f"  {regime}:")
-        print(f"    Avg Return: {annualized_return:.1f}% annualized")
-        print(f"    Volatility: {volatility:.1f}%")
+        print(f"    Volatility: {annualized_vol:.1f}%")
         print(f"    Sharpe: {sharpe:.3f}")
 
 # Performance by composite regime (top 10)
