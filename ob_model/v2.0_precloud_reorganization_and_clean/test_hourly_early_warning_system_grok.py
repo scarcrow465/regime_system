@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from core.data_loader import load_csv_data
 from core.indicators import calculate_all_indicators
 from daily_regime_classifier import NQDailyRegimeClassifier
-from hourly_early_warning_system import LowerTimeframeEarlyWarningSystem  # Updated import
+from hourly_early_warning_system_grok import LowerTimeframeEarlyWarningSystem  # Updated import
 
 # Argument parser for configs
 parser = argparse.ArgumentParser()
