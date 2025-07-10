@@ -75,11 +75,11 @@ class LowerTimeframeEarlyWarningSystem:
                 'efficiency_trending': 0.2,
                 'efficiency_ranging': 0.12,
                 'smoothing_periods': 6 * self.multiplier,  # Scale smoothing
-                'min_divergence_periods': 4 * self.multiplier,
+                'min_divergence_periods': 6 * self.multiplier,
             },
             'warning_levels': {
                 'weak': 0.3,
-                'moderate': 0.5,
+                'moderate': 0.55,
                 'strong': 0.7,
                 'critical': 0.85
             },
@@ -540,28 +540,6 @@ class LowerTimeframeEarlyWarningSystem:
                 df[col] = df[f'{col}_smooth'].map(inv_mapping)
                 
                 # Clean up
-                df.drop([f'{col}_num', f'{col}_smooth'], axis=1, inplace=True)
-        
-        return df
-    
-    # (Omit other _classify_* for brevity; update similarly with self.config['thresholds'])
-    
-    def _smooth_ltf_regimes(self, df: pd.DataFrame) -> pd.DataFrame:
-        smooth_window = self.config['thresholds']['smoothing_periods']
-        
-        regime_maps = {
-            'direction_regime': {'Uptrend': 0, 'Downtrend': 1, 'Sideways': 2},
-            # ... (same as original)
-        }
-        
-        for col, mapping in regime_maps.items():
-            if col in df.columns:
-                df[f'{col}_num'] = df[col].map(mapping)
-                df[f'{col}_smooth'] = df[f'{col}_num'].rolling(
-                    window=smooth_window, min_periods=1, closed='left'  # Avoid look-ahead
-                ).apply(lambda x: pd.Series(x).mode()[0] if len(pd.Series(x).mode()) > 0 else x.iloc[-1])
-                inv_mapping = {v: k for k, v in mapping.items()}
-                df[col] = df[f'{col}_smooth'].map(inv_mapping)
                 df.drop([f'{col}_num', f'{col}_smooth'], axis=1, inplace=True)
         
         return df
