@@ -129,8 +129,12 @@ class HourlyEarlyWarningSystem:
         if hourly_regimes.index.name is None:
             hourly_regimes.index.name = 'Date'
         
-        # Reset index to avoid ambiguity with 'date' column
+        # Reset index to move the datetime index to a column
         hourly_regimes = hourly_regimes.reset_index()
+        
+        # Verify the column exists (debugging step, can be removed after confirmation)
+        if 'Date' not in hourly_regimes.columns:
+            raise ValueError(f"Expected 'Date' column in hourly_regimes, found: {hourly_regimes.columns}")
         
         # Align hourly to daily based on trading session (18:00 ET prior day to 16:00 ET current day)
         def get_trading_session_date(dt):
@@ -138,7 +142,7 @@ class HourlyEarlyWarningSystem:
                 return dt.date() + pd.Timedelta(days=1)
             return dt.date()
         
-        # Use the 'Date' column from the CSV
+        # Use the 'Date' column for trading session alignment
         hourly_regimes['date'] = hourly_regimes['Date'].apply(get_trading_session_date)
         
         # Ensure daily_regimes index has a name
@@ -147,6 +151,11 @@ class HourlyEarlyWarningSystem:
         
         # Create a copy of daily regimes with date as a regular column
         daily_for_merge = daily_regimes.copy().reset_index()
+        
+        # Verify the column exists in daily_for_merge
+        if 'Date' not in daily_for_merge.columns:
+            raise ValueError(f"Expected 'Date' column in daily_for_merge, found: {daily_for_merge.columns}")
+        
         daily_for_merge['date'] = daily_for_merge['Date'].dt.date
         
         # Merge to compare
