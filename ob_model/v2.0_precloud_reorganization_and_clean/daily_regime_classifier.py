@@ -565,68 +565,68 @@ class NQDailyRegimeClassifier:
             ranging_pct = (df['efficiency_ratio'] < threshold * 0.7).mean() * 100  # Using 70% of threshold for ranging
             print(f"    If trending={threshold}: Trending={trending_pct:.1f}%, Ranging={ranging_pct:.1f}%")
     
-def validate_regimes(self, regime_data: pd.DataFrame) -> Dict[str, float]:
-    """Validate regime classifications are reasonable"""
-    
-    validations = {}
-    
-    # Check direction distribution
-    dir_dist = regime_data['direction_regime'].value_counts(normalize=True)
-    validations['uptrend_pct'] = dir_dist.get('Uptrend', 0) * 100
-    validations['downtrend_pct'] = dir_dist.get('Downtrend', 0) * 100
-    validations['sideways_pct'] = dir_dist.get('Sideways', 0) * 100
-    
-    # Check strength distribution
-    strength_dist = regime_data['strength_regime'].value_counts(normalize=True)
-    validations['strong_pct'] = strength_dist.get('Strong', 0) * 100
-    validations['moderate_pct'] = strength_dist.get('Moderate', 0) * 100
-    validations['weak_pct'] = strength_dist.get('Weak', 0) * 100
-    
-    # Check character distribution
-    char_dist = regime_data['character_regime'].value_counts(normalize=True)
-    validations['trending_pct'] = char_dist.get('Trending', 0) * 100
-    validations['ranging_pct'] = char_dist.get('Ranging', 0) * 100
-    
-    # Check average regime duration
-    regime_changes = regime_data['composite_regime'] != regime_data['composite_regime'].shift(1)
-    validations['avg_duration'] = len(regime_data) / regime_changes.sum() if regime_changes.sum() > 0 else 0
-    
-    # Check if any regime dominates too much
-    composite_dist = regime_data['composite_regime'].value_counts(normalize=True)
-    validations['max_regime_pct'] = composite_dist.iloc[0] * 100 if len(composite_dist) > 0 else 0
-    
-    # Print warnings
-    print("\nREGIME VALIDATION:")
-    
-    if validations['sideways_pct'] < 8:
-        print(f"⚠ Warning: Sideways regime too low ({validations['sideways_pct']:.1f}%) - increase direction_neutral threshold")
-    elif validations['sideways_pct'] > 20:
-        print(f"⚠ Warning: Sideways regime too high ({validations['sideways_pct']:.1f}%) - decrease direction_neutral threshold")
-    
-    if validations['strong_pct'] < 15:
-        print(f"⚠ Warning: Strong trends too rare ({validations['strong_pct']:.1f}%) - decrease strength_strong threshold")
-    elif validations['strong_pct'] > 50:
-        print(f"⚠ Warning: Strong trends too common ({validations['strong_pct']:.1f}%) - increase strength_strong threshold")
-    
-    if validations['trending_pct'] < 30:
-        print(f"⚠ Warning: Trending character too low ({validations['trending_pct']:.1f}%) - decrease efficiency_trending threshold")
-    elif validations['trending_pct'] > 70:
-        print(f"⚠ Warning: Trending character too high ({validations['trending_pct']:.1f}%) - increase efficiency_trending threshold")
-    
-    if validations['avg_duration'] < 5:
-        print(f"⚠ Warning: Regimes changing too fast ({validations['avg_duration']:.1f} days) - increase smoothing")
-    elif validations['avg_duration'] > 30:
-        print(f"⚠ Warning: Regimes too persistent ({validations['avg_duration']:.1f} days) - decrease smoothing")
-    
-    if validations['max_regime_pct'] > 25:
-        print(f"⚠ Warning: One regime dominates ({validations['max_regime_pct']:.1f}%) - check classification balance")
-    
-    # Print summary
-    print(f"\nRegime Balance Summary:")
-    print(f"  Direction: Up={validations['uptrend_pct']:.1f}%, Down={validations['downtrend_pct']:.1f}%, Sideways={validations['sideways_pct']:.1f}%")
-    print(f"  Strength: Strong={validations['strong_pct']:.1f}%, Moderate={validations['moderate_pct']:.1f}%, Weak={validations['weak_pct']:.1f}%")
-    print(f"  Character: Trending={validations['trending_pct']:.1f}%, Ranging={validations['ranging_pct']:.1f}%")
-    print(f"  Persistence: {validations['avg_duration']:.1f} days average")
-    
-    return validations
+    def validate_regimes(self, regime_data: pd.DataFrame) -> Dict[str, float]:
+        """Validate regime classifications are reasonable"""
+        
+        validations = {}
+        
+        # Check direction distribution
+        dir_dist = regime_data['direction_regime'].value_counts(normalize=True)
+        validations['uptrend_pct'] = dir_dist.get('Uptrend', 0) * 100
+        validations['downtrend_pct'] = dir_dist.get('Downtrend', 0) * 100
+        validations['sideways_pct'] = dir_dist.get('Sideways', 0) * 100
+        
+        # Check strength distribution
+        strength_dist = regime_data['strength_regime'].value_counts(normalize=True)
+        validations['strong_pct'] = strength_dist.get('Strong', 0) * 100
+        validations['moderate_pct'] = strength_dist.get('Moderate', 0) * 100
+        validations['weak_pct'] = strength_dist.get('Weak', 0) * 100
+        
+        # Check character distribution
+        char_dist = regime_data['character_regime'].value_counts(normalize=True)
+        validations['trending_pct'] = char_dist.get('Trending', 0) * 100
+        validations['ranging_pct'] = char_dist.get('Ranging', 0) * 100
+        
+        # Check average regime duration
+        regime_changes = regime_data['composite_regime'] != regime_data['composite_regime'].shift(1)
+        validations['avg_duration'] = len(regime_data) / regime_changes.sum() if regime_changes.sum() > 0 else 0
+        
+        # Check if any regime dominates too much
+        composite_dist = regime_data['composite_regime'].value_counts(normalize=True)
+        validations['max_regime_pct'] = composite_dist.iloc[0] * 100 if len(composite_dist) > 0 else 0
+        
+        # Print warnings
+        print("\nREGIME VALIDATION:")
+        
+        if validations['sideways_pct'] < 8:
+            print(f"⚠ Warning: Sideways regime too low ({validations['sideways_pct']:.1f}%) - increase direction_neutral threshold")
+        elif validations['sideways_pct'] > 20:
+            print(f"⚠ Warning: Sideways regime too high ({validations['sideways_pct']:.1f}%) - decrease direction_neutral threshold")
+        
+        if validations['strong_pct'] < 15:
+            print(f"⚠ Warning: Strong trends too rare ({validations['strong_pct']:.1f}%) - decrease strength_strong threshold")
+        elif validations['strong_pct'] > 50:
+            print(f"⚠ Warning: Strong trends too common ({validations['strong_pct']:.1f}%) - increase strength_strong threshold")
+        
+        if validations['trending_pct'] < 30:
+            print(f"⚠ Warning: Trending character too low ({validations['trending_pct']:.1f}%) - decrease efficiency_trending threshold")
+        elif validations['trending_pct'] > 70:
+            print(f"⚠ Warning: Trending character too high ({validations['trending_pct']:.1f}%) - increase efficiency_trending threshold")
+        
+        if validations['avg_duration'] < 5:
+            print(f"⚠ Warning: Regimes changing too fast ({validations['avg_duration']:.1f} days) - increase smoothing")
+        elif validations['avg_duration'] > 30:
+            print(f"⚠ Warning: Regimes too persistent ({validations['avg_duration']:.1f} days) - decrease smoothing")
+        
+        if validations['max_regime_pct'] > 25:
+            print(f"⚠ Warning: One regime dominates ({validations['max_regime_pct']:.1f}%) - check classification balance")
+        
+        # Print summary
+        print(f"\nRegime Balance Summary:")
+        print(f"  Direction: Up={validations['uptrend_pct']:.1f}%, Down={validations['downtrend_pct']:.1f}%, Sideways={validations['sideways_pct']:.1f}%")
+        print(f"  Strength: Strong={validations['strong_pct']:.1f}%, Moderate={validations['moderate_pct']:.1f}%, Weak={validations['weak_pct']:.1f}%")
+        print(f"  Character: Trending={validations['trending_pct']:.1f}%, Ranging={validations['ranging_pct']:.1f}%")
+        print(f"  Persistence: {validations['avg_duration']:.1f} days average")
+        
+        return validations
 
