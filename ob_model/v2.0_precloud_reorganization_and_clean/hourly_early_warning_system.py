@@ -138,7 +138,7 @@ class HourlyEarlyWarningSystem:
                 return dt.date() + pd.Timedelta(days=1)
             return dt.date()
         
-        # Use the 'date' column (lowercase, as shown in error)
+        # Use the 'date' column
         hourly_regimes['session_date'] = hourly_regimes['date'].apply(get_trading_session_date)
         
         # Ensure daily_regimes index has a name
@@ -148,6 +148,11 @@ class HourlyEarlyWarningSystem:
         # Create a copy of daily regimes with date as a regular column
         daily_for_merge = daily_regimes.copy().reset_index()
         daily_for_merge['session_date'] = daily_for_merge['date'].dt.date
+        
+        # Log unmatched session dates for debugging
+        unmatched_dates = hourly_regimes[~hourly_regimes['session_date'].isin(daily_for_merge['session_date'])]['session_date'].unique()
+        if len(unmatched_dates) > 0:
+            logger.warning(f"Unmatched session dates in hourly data: {unmatched_dates}")
         
         # Merge to compare
         merged = hourly_regimes.merge(
@@ -274,19 +279,25 @@ class HourlyEarlyWarningSystem:
         return warnings
     
     def _generate_warning_message(self, div_type: str, level: str, 
-                                 div_pct: float, hourly: str, daily: str,
-                                 persistence: int) -> str:
+                                div_pct: float, hourly: str, daily: str,
+                                persistence: int) -> str:
         """Generate human-readable warning message"""
+        
+        # Handle cases where daily regime is NaN
+        if not isinstance(daily, str) or pd.isna(daily):
+            daily = "Unknown"
+        if not isinstance(hourly, str) or pd.isna(hourly):
+            hourly = "Unknown"
         
         messages = {
             'direction': {
-                'WEAK': f"Early direction divergence: Hourly showing {hourly.split('_')[1]} while daily remains {daily.split('_')[1]}",
+                'WEAK': f"Early direction divergence: Hourly showing {hourly.split('_')[1] if '_' in hourly else hourly} while daily remains {daily.split('_')[1] if '_' in daily else daily}",
                 'MODERATE': f"Growing direction divergence: {div_pct*100:.0f}% of hours conflicting with daily trend",
                 'STRONG': f"Strong direction warning: Hourly trend shift persisting {persistence} hours",
-                'CRITICAL': f"CRITICAL direction change: Daily regime likely shifting to {hourly.split('_')[1]} soon"
+                'CRITICAL': f"CRITICAL direction change: Daily regime likely shifting to {hourly.split('_')[1] if '_' in hourly else hourly} soon"
             },
             'strength': {
-                'WEAK': f"Trend strength diverging: Hourly {hourly.split('_')[0]} vs daily {daily.split('_')[0]}",
+                'WEAK': f"Trend strength diverging: Hourly {hourly.split('_')[0] if '_' in hourly else hourly} vs daily {daily.split('_')[0] if '_' in daily else daily}",
                 'MODERATE': f"Trend strength weakening/strengthening: {div_pct*100:.0f}% divergence",
                 'STRONG': f"Significant strength change developing over {persistence} hours",
                 'CRITICAL': f"Trend strength regime change imminent"
