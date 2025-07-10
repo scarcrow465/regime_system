@@ -75,7 +75,7 @@ class LowerTimeframeEarlyWarningSystem:
                 'efficiency_trending': 0.2,
                 'efficiency_ranging': 0.12,
                 'smoothing_periods': 6 * self.multiplier,  # Scale smoothing
-                'min_divergence_periods': 6 * self.multiplier,
+                'min_divergence_periods': 8 * self.multiplier,
             },
             'warning_levels': {
                 'weak': 0.3,
@@ -84,7 +84,7 @@ class LowerTimeframeEarlyWarningSystem:
                 'critical': 0.85
             },
             'divergence_weights': {
-                'direction': 0.4,
+                'direction': 0.5,
                 'strength': 0.2,
                 'volatility': 0.2,
                 'character': 0.2
