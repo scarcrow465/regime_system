@@ -4,11 +4,6 @@
 # In[ ]:
 
 
-"""
-Test the 1-Hour Early Warning System
-Validates detection of regime divergences that predict daily changes
-"""
-
 import sys
 import os
 import pandas as pd
@@ -83,40 +78,46 @@ print(f"  Strength: {strength_div_pct:.1f}% of hours")
 print(f"  Volatility: {volatility_div_pct:.1f}% of hours")
 print(f"  Character: {character_div_pct:.1f}% of hours")
 
-# Find periods with high divergence
+# Summarize high divergence periods
 high_div_threshold = 0.5  # 50% divergence
 recent_window = 24 * 7  # Last week
 
-print(f"\nHigh Divergence Periods (>{high_div_threshold*100}% in {recent_window}h window):")
+print(f"\nSummary of High Divergence Periods (>{high_div_threshold*100}% in {recent_window}h window):")
 divergences['rolling_div_score'] = divergences['divergence_score'].rolling(recent_window).mean()
 high_div_periods = divergences[divergences['rolling_div_score'] > high_div_threshold]
 
 if len(high_div_periods) > 0:
-    print(f"Found {len(high_div_periods)} hours with high divergence")
-    
     # Group consecutive periods
     high_div_periods['group'] = (high_div_periods.index.to_series().diff() > pd.Timedelta(hours=1)).cumsum()
     
+    # Calculate summary statistics
+    num_periods = high_div_periods['group'].nunique()
+    avg_div_score = high_div_periods['divergence_score'].mean() * 100
+    div_score_std = high_div_periods['divergence_score'].std() * 100
+    div_score_percentiles = high_div_periods['divergence_score'].quantile([0.25, 0.5, 0.75]) * 100
+    
+    # Count successful predictions
+    successful_predictions = 0
     for group_id, group in high_div_periods.groupby('group'):
         start = group.index[0]
-        end = group.index[-1]
-        avg_score = group['divergence_score'].mean()
-        
-        # Find what actually happened in daily regime
         daily_date = start.date()
         if daily_date in daily_regimes.index.date:
             daily_idx = daily_regimes.index.get_loc(pd.Timestamp(daily_date))
             if daily_idx < len(daily_regimes) - 1:
                 current_regime = daily_regimes.iloc[daily_idx]['composite_regime']
                 next_regime = daily_regimes.iloc[daily_idx + 1]['composite_regime']
-                
                 if current_regime != next_regime:
-                    print(f"\n  ✓ {start.strftime('%Y-%m-%d %H:%M')} to {end.strftime('%H:%M')}:")
-                    print(f"    Divergence: {avg_score*100:.0f}%")
-                    print(f"    CORRECTLY PREDICTED: {current_regime} → {next_regime}")
-                else:
-                    print(f"\n  ○ {start.strftime('%Y-%m-%d %H:%M')} to {end.strftime('%H:%M')}:")
-                    print(f"    Divergence: {avg_score*100:.0f}% (no regime change)")
+                    successful_predictions += 1
+    
+    success_rate = (successful_predictions / num_periods * 100) if num_periods > 0 else 0
+    
+    print(f"  Total High Divergence Periods: {num_periods}")
+    print(f"  Average Divergence Score: {avg_div_score:.1f}%")
+    print(f"  Divergence Score Std Dev: {div_score_std:.1f}%")
+    print(f"  Divergence Score Percentiles: 25%={div_score_percentiles[0.25]:.1f}%, 50%={div_score_percentiles[0.5]:.1f}%, 75%={div_score_percentiles[0.75]:.1f}%")
+    print(f"  Periods Leading to Regime Change: {successful_predictions} ({success_rate:.1f}%)")
+else:
+    print("  No high divergence periods found.")
 
 # Analyze regime change prediction accuracy
 print("\n" + "="*80)
@@ -227,7 +228,7 @@ ax4.set_ylim(-0.1, 1.1)
 
 # Plot 5: Composite divergence score
 ax5 = axes[4]
-ax5.plot(divergences.index, divergences['divergence_score'], 'purple', linewidth=1)
+ax5.plot(divergences.index, 0, divergences['divergence_score'], 'purple', linewidth=1)
 ax5.fill_between(divergences.index, 0, divergences['divergence_score'], 
                  alpha=0.3, color='purple')
 
