@@ -228,7 +228,7 @@ ax4.set_ylim(-0.1, 1.1)
 
 # Plot 5: Composite divergence score
 ax5 = axes[4]
-ax5.plot(divergences.index, 0, divergences['divergence_score'], 'purple', linewidth=1)
+ax5.plot(divergences.index, divergences['divergence_score'], 'purple', linewidth=1)
 ax5.fill_between(divergences.index, 0, divergences['divergence_score'], 
                  alpha=0.3, color='purple')
 
