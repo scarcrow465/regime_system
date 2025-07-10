@@ -64,17 +64,17 @@ class NQDailyRegimeClassifier:
         self.lookback_days = lookback_days
 
         self.thresholds = {
-            'direction_strong': 0.3,  # Threshold for Strong Uptrend/Downtrend
-            'direction_neutral': 0.03, # Threshold for Neutral Sideways
-            'strength_strong': 0.325,   # Threshold for Strong
-            'strength_moderate': 0.2, # Threshold for Moderate
-            'vol_low': 35,
+            'direction_strong': 0.2,      # Reduced from 0.3 (easier to be sideways)
+            'direction_neutral': 0.05,    # Increased from 0.03 (wider sideways band)
+            'strength_strong': 0.6,       # Back to original
+            'strength_moderate': 0.3,     # Back to original
+            'vol_low': 25,               # Back to original (capture more low vol)
             'vol_normal': 75,
             'vol_high': 90,
-            'efficiency_trending': 0.15,  # Efficiency ratio for trending
-            'efficiency_ranging': 0.1,   # Efficiency ratio for ranging
+            'efficiency_trending': 0.5,   # Back to original
+            'efficiency_ranging': 0.3,    # Back to original
             'min_regime_days': 3,
-            'smoothing_days': 12,
+            'smoothing_days': 5,          # Reduced from 12 (less lag)
         }
         
         # Define regime mappings
@@ -382,6 +382,34 @@ class NQDailyRegimeClassifier:
         
         return df
     
+    def validate_regimes(self, regime_data: pd.DataFrame) -> Dict[str, float]:
+        """Validate regime classifications are reasonable"""
+        
+        validations = {}
+        
+        # Check direction distribution
+        dir_dist = regime_data['direction_regime'].value_counts(normalize=True)
+        validations['uptrend_pct'] = dir_dist.get('Uptrend', 0) * 100
+        validations['sideways_pct'] = dir_dist.get('Sideways', 0) * 100
+        
+        # Check average regime duration
+        regime_changes = regime_data['composite_regime'] != regime_data['composite_regime'].shift(1)
+        validations['avg_duration'] = len(regime_data) / regime_changes.sum()
+        
+        # Check if any regime dominates too much
+        composite_dist = regime_data['composite_regime'].value_counts(normalize=True)
+        validations['max_regime_pct'] = composite_dist.iloc[0] * 100
+        
+        # Warnings
+        if validations['sideways_pct'] < 10:
+            print("⚠ Warning: Sideways regime < 10% - may need threshold adjustment")
+        if validations['avg_duration'] < 5:
+            print("⚠ Warning: Regimes changing too fast - increase smoothing")
+        if validations['max_regime_pct'] > 30:
+            print("⚠ Warning: One regime dominates >30% - check classification balance")
+        
+        return validations
+
     def _calculate_regime_age(self, regime_series: pd.Series) -> pd.Series:
         """Calculate how many days the current regime has persisted"""
         
