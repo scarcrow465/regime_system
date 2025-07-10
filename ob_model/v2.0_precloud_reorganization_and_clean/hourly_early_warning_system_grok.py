@@ -167,12 +167,13 @@ class LowerTimeframeEarlyWarningSystem:
         return df
     
     def detect_divergences(self, daily_regimes: pd.DataFrame, 
-                           ltf_data: pd.DataFrame) -> pd.DataFrame:
+                        ltf_data: pd.DataFrame) -> pd.DataFrame:
         """
         Detect divergences between daily and LTF regimes
         """
         logger.info("Detecting regime divergences...")
         
+        # Calculate LTF regimes
         ltf_regimes = self.calculate_ltf_regimes(ltf_data)
         
         if ltf_regimes.index.name is None:
@@ -187,23 +188,73 @@ class LowerTimeframeEarlyWarningSystem:
         
         ltf_regimes['session_date'] = ltf_regimes['date'].apply(get_trading_session_date)
         
+        # Holiday list for U.S./CME (NQ futures) - add more years as needed
+        holidays = [
+            # 2023
+            pd.to_datetime('2023-01-02'),  # New Year's Day observed
+            pd.to_datetime('2023-01-16'),  # MLK Day
+            pd.to_datetime('2023-02-20'),  # Presidents' Day
+            pd.to_datetime('2023-04-07'),  # Good Friday
+            pd.to_datetime('2023-05-29'),  # Memorial Day
+            pd.to_datetime('2023-06-19'),  # Juneteenth
+            pd.to_datetime('2023-07-04'),  # Independence Day
+            pd.to_datetime('2023-09-04'),  # Labor Day
+            pd.to_datetime('2023-11-23'),  # Thanksgiving
+            pd.to_datetime('2023-12-25'),  # Christmas
+            # 2024
+            pd.to_datetime('2024-01-01'),  # New Year's Day
+            pd.to_datetime('2024-01-15'),  # MLK Day
+            pd.to_datetime('2024-02-19'),  # Presidents' Day
+            pd.to_datetime('2024-03-29'),  # Good Friday
+            pd.to_datetime('2024-05-27'),  # Memorial Day
+            pd.to_datetime('2024-06-19'),  # Juneteenth
+            pd.to_datetime('2024-07-04'),  # Independence Day
+            pd.to_datetime('2024-09-02'),  # Labor Day
+            pd.to_datetime('2024-11-28'),  # Thanksgiving
+            pd.to_datetime('2024-12-25'),  # Christmas
+            # 2025 (from CME schedule)
+            pd.to_datetime('2025-01-01'),  # New Year's Day
+            pd.to_datetime('2025-01-20'),  # MLK Day
+            pd.to_datetime('2025-02-17'),  # Presidents' Day
+            pd.to_datetime('2025-04-18'),  # Good Friday
+            pd.to_datetime('2025-05-26'),  # Memorial Day
+            pd.to_datetime('2025-06-19'),  # Juneteenth
+            pd.to_datetime('2025-07-04'),  # Independence Day
+            pd.to_datetime('2025-09-01'),  # Labor Day
+            pd.to_datetime('2025-11-27'),  # Thanksgiving
+            pd.to_datetime('2025-12-25'),  # Christmas
+        ]
+        
+        # Adjust for holidays: If session_date is holiday, shift to next non-holiday
+        def adjust_for_holiday(session_date):
+            while session_date in holidays:
+                session_date += pd.Timedelta(days=1)
+            return session_date
+        
+        ltf_regimes['session_date'] = ltf_regimes['session_date'].apply(adjust_for_holiday)
+        
         if daily_regimes.index.name is None:
             daily_regimes.index.name = 'date'
         
         daily_for_merge = daily_regimes.copy().reset_index()
         daily_for_merge['session_date'] = daily_for_merge['date'].dt.date
+        daily_for_merge['session_date'] = daily_for_merge['session_date'].apply(adjust_for_holiday)
+        
+        # Fix type mismatch: Convert both session_date to datetime64[ns]
+        daily_for_merge['session_date'] = pd.to_datetime(daily_for_merge['session_date'])
+        ltf_regimes['session_date'] = pd.to_datetime(ltf_regimes['session_date'])
         
         unmatched = ltf_regimes[~ltf_regimes['session_date'].isin(daily_for_merge['session_date'])]['session_date'].unique()
         if len(unmatched) > 0:
             logger.warning(f"Unmatched session dates: {unmatched}. Forward-filling daily regimes.")
-            # Forward-fill daily for missing
+            # Forward-fill daily for missing (handles holidays/closures)
             daily_for_merge = daily_for_merge.set_index('session_date').reindex(
                 pd.date_range(daily_for_merge['session_date'].min(), daily_for_merge['session_date'].max())
             ).ffill().reset_index().rename(columns={'index': 'session_date'})
         
         merged = ltf_regimes.merge(
             daily_for_merge[['session_date', 'direction_regime', 'strength_regime', 
-                             'volatility_regime', 'character_regime', 'composite_regime']],
+                            'volatility_regime', 'character_regime', 'composite_regime']],
             on='session_date',
             how='left',
             suffixes=('_ltf', '_daily')
