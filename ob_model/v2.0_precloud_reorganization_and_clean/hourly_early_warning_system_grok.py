@@ -413,6 +413,11 @@ class LowerTimeframeEarlyWarningSystem:
     # _classify_ltf_* methods: Similar to original, but use self.config['thresholds']
     def _classify_ltf_direction(self, df: pd.DataFrame) -> pd.DataFrame:
         thresh = self.config['thresholds']
+        df['price_vs_sma_short'] = pd.to_numeric(df['price_vs_sma_short'], errors='coerce').fillna(0)
+        df['price_vs_sma_long'] = pd.to_numeric(df['price_vs_sma_long'], errors='coerce').fillna(0)
+        df['trend_slope_short'] = pd.to_numeric(df['trend_slope_short'], errors='coerce').fillna(0)
+        df['trend_slope_long'] = pd.to_numeric(df['trend_slope_long'], errors='coerce').fillna(0)
+        df['efficiency_ratio'] = pd.to_numeric(df['efficiency_ratio'], errors='coerce').fillna(0)
         direction_score = 0
         signal_count = 0
         
