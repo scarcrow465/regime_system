@@ -246,7 +246,7 @@ class LowerTimeframeEarlyWarningSystem:
         
         unmatched = ltf_regimes[~ltf_regimes['session_date'].isin(daily_for_merge['session_date'])]['session_date'].unique()
         if len(unmatched) > 0:
-            logger.warning(f"Unmatched session dates: {unmatched}. Forward-filling daily regimes.")
+            logger.info(f"Unmatched session dates: {unmatched}. Forward-filling daily regimes.")  # Changed from warning
             # Forward-fill daily for missing (handles holidays/closures)
             daily_for_merge = daily_for_merge.set_index('session_date').reindex(
                 pd.date_range(daily_for_merge['session_date'].min(), daily_for_merge['session_date'].max())
