@@ -115,7 +115,7 @@ class HourlyEarlyWarningSystem:
         return df
     
     def detect_divergences(self, daily_regimes: pd.DataFrame, 
-                          hourly_data: pd.DataFrame) -> pd.DataFrame:
+                        hourly_data: pd.DataFrame) -> pd.DataFrame:
         """
         Detect divergences between daily and hourly regimes
         Returns dataframe with divergence signals
@@ -125,24 +125,35 @@ class HourlyEarlyWarningSystem:
         # Calculate hourly regimes
         hourly_regimes = self.calculate_hourly_regimes(hourly_data)
         
-        # Align hourly to daily (map each hour to its day)
-        hourly_regimes['date'] = hourly_regimes.index.date
+        # Reset index to avoid ambiguity with 'date' column
+        hourly_regimes = hourly_regimes.reset_index()
+        
+        # Align hourly to daily based on trading session (18:00 ET prior day to 16:00 ET current day)
+        def get_trading_session_date(dt):
+            if dt.hour >= 18:
+                return dt.date() + pd.Timedelta(days=1)
+            return dt.date()
+        
+        hourly_regimes['date'] = hourly_regimes['datetime'].apply(get_trading_session_date)
         
         # Create a copy of daily regimes with date as a regular column
-        daily_for_merge = daily_regimes.copy()
-        daily_for_merge['date'] = daily_for_merge.index.date
+        daily_for_merge = daily_regimes.copy().reset_index()
+        daily_for_merge['date'] = daily_for_merge['datetime'].dt.date
         
         # Merge to compare
         merged = hourly_regimes.merge(
             daily_for_merge[['date', 'direction_regime', 'strength_regime', 
-                          'volatility_regime', 'character_regime', 'composite_regime']],
+                            'volatility_regime', 'character_regime', 'composite_regime']],
             on='date',
             how='left',
             suffixes=('_hourly', '_daily')
         )
         
+        # Set index back to datetime
+        merged.set_index('datetime', inplace=True)
+        
         # Calculate divergences
-        divergences = pd.DataFrame(index=hourly_regimes.index)
+        divergences = pd.DataFrame(index=merged.index)
         
         # Direction divergence
         divergences['direction_divergence'] = (
