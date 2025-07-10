@@ -83,7 +83,7 @@ class NQDailyRegimeClassifier:
             
             # Smoothing - keep at 5
             'min_regime_days': 3,
-            'smoothing_days': 5,
+            'smoothing_days': 7,
         }
         
         # Define regime mappings
