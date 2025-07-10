@@ -351,7 +351,7 @@ else:
         warnings, divergences = ews.update(new_bar.iloc[0], new_daily_bar)
         
         # Predicted shift if strong/critical warning
-        predicted_shift = any(w['level'] in ['STRONG', 'CRITICAL'] for w in warnings)
+        predicted_shift = divergences['divergence_score'].iloc[-1] > 0.8 and divergences['direction_divergence_periods'].iloc[-1] >= 8 if len(divergences) > 0 else False
         
         # Actual shift: Check if tomorrow's regime differs (simulation uses full for "actual")
         daily_date = current_time.date()
