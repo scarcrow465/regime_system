@@ -64,17 +64,26 @@ class NQDailyRegimeClassifier:
         self.lookback_days = lookback_days
 
         self.thresholds = {
-            'direction_strong': 0.2,      # Reduced from 0.3 (easier to be sideways)
-            'direction_neutral': 0.05,    # Increased from 0.03 (wider sideways band)
-            'strength_strong': 0.6,       # Back to original
-            'strength_moderate': 0.3,     # Back to original
-            'vol_low': 25,               # Back to original (capture more low vol)
+            # Direction - aim for ~10-15% sideways
+            'direction_strong': 0.25,      # Middle ground
+            'direction_neutral': 0.1,      # Wider sideways band
+            
+            # Strength - restore strong trend detection
+            'strength_strong': 0.45,       # Lower than 0.6 but higher than 0.325
+            'strength_moderate': 0.25,     
+            
+            # Volatility - keep as is
+            'vol_low': 25,
             'vol_normal': 75,
             'vol_high': 90,
-            'efficiency_trending': 0.5,   # Back to original
-            'efficiency_ranging': 0.3,    # Back to original
+            
+            # Character - fix ranging dominance
+            'efficiency_trending': 0.25,   # Lower than 0.5 but higher than 0.15
+            'efficiency_ranging': 0.15,    
+            
+            # Smoothing
             'min_regime_days': 3,
-            'smoothing_days': 5,          # Reduced from 12 (less lag)
+            'smoothing_days': 5,
         }
         
         # Define regime mappings
@@ -216,6 +225,8 @@ class NQDailyRegimeClassifier:
         df = self._calculate_confidence_scores(df)
         
         logger.info(f"Regime classification complete for {len(df)} days")
+
+        self.print_threshold_diagnostics(df)
         
         return df
     
@@ -381,34 +392,6 @@ class NQDailyRegimeClassifier:
         df.drop(temp_cols, axis=1, inplace=True)
         
         return df
-    
-    def validate_regimes(self, regime_data: pd.DataFrame) -> Dict[str, float]:
-        """Validate regime classifications are reasonable"""
-        
-        validations = {}
-        
-        # Check direction distribution
-        dir_dist = regime_data['direction_regime'].value_counts(normalize=True)
-        validations['uptrend_pct'] = dir_dist.get('Uptrend', 0) * 100
-        validations['sideways_pct'] = dir_dist.get('Sideways', 0) * 100
-        
-        # Check average regime duration
-        regime_changes = regime_data['composite_regime'] != regime_data['composite_regime'].shift(1)
-        validations['avg_duration'] = len(regime_data) / regime_changes.sum()
-        
-        # Check if any regime dominates too much
-        composite_dist = regime_data['composite_regime'].value_counts(normalize=True)
-        validations['max_regime_pct'] = composite_dist.iloc[0] * 100
-        
-        # Warnings
-        if validations['sideways_pct'] < 10:
-            print("⚠ Warning: Sideways regime < 10% - may need threshold adjustment")
-        if validations['avg_duration'] < 5:
-            print("⚠ Warning: Regimes changing too fast - increase smoothing")
-        if validations['max_regime_pct'] > 30:
-            print("⚠ Warning: One regime dominates >30% - check classification balance")
-        
-        return validations
 
     def _calculate_regime_age(self, regime_series: pd.Series) -> pd.Series:
         """Calculate how many days the current regime has persisted"""
@@ -538,4 +521,112 @@ class NQDailyRegimeClassifier:
             'composite_regime', 'regime_age', 'regime_confidence',
             'direction_score', 'strength_score', 'volatility_score', 'character_score'
         ]]
+    
+    def print_threshold_diagnostics(self, df: pd.DataFrame):
+        """Print diagnostics to help tune thresholds"""
+        
+        print("\n" + "="*60)
+        print("THRESHOLD DIAGNOSTICS FOR TUNING")
+        print("="*60)
+        
+        # Direction scores
+        print(f"\nDirection Scores Distribution:")
+        print(f"  Mean: {df['direction_score'].mean():.3f}")
+        print(f"  Std: {df['direction_score'].std():.3f}")
+        print(f"  Min: {df['direction_score'].min():.3f}")
+        print(f"  Max: {df['direction_score'].max():.3f}")
+        print(f"  Percentiles: 10%={df['direction_score'].quantile(0.1):.3f}, 25%={df['direction_score'].quantile(0.25):.3f}, 75%={df['direction_score'].quantile(0.75):.3f}, 90%={df['direction_score'].quantile(0.9):.3f}")
+        print(f"  Current thresholds: strong={self.thresholds['direction_strong']}, neutral={self.thresholds['direction_neutral']}")
+        
+        # Show what percentages would result from different thresholds
+        for threshold in [0.1, 0.15, 0.2, 0.25, 0.3, 0.35]:
+            up_pct = (df['direction_score'] > threshold).mean() * 100
+            down_pct = (df['direction_score'] < -threshold).mean() * 100
+            sideways_pct = 100 - up_pct - down_pct
+            print(f"    If strong={threshold}: Up={up_pct:.1f}%, Down={down_pct:.1f}%, Sideways={sideways_pct:.1f}%")
+        
+        # Strength scores  
+        print(f"\nStrength Scores Distribution:")
+        print(f"  Mean: {df['strength_score'].mean():.3f}")
+        print(f"  Std: {df['strength_score'].std():.3f}")
+        print(f"  Percentiles: 25%={df['strength_score'].quantile(0.25):.3f}, 50%={df['strength_score'].quantile(0.5):.3f}, 75%={df['strength_score'].quantile(0.75):.3f}, 90%={df['strength_score'].quantile(0.9):.3f}")
+        print(f"  Current thresholds: strong={self.thresholds['strength_strong']}, moderate={self.thresholds['strength_moderate']}")
+        
+        # Efficiency ratio
+        print(f"\nEfficiency Ratio Distribution:")
+        print(f"  Mean: {df['efficiency_ratio'].mean():.3f}")
+        print(f"  Std: {df['efficiency_ratio'].std():.3f}")
+        print(f"  Percentiles: 25%={df['efficiency_ratio'].quantile(0.25):.3f}, 50%={df['efficiency_ratio'].quantile(0.5):.3f}, 75%={df['efficiency_ratio'].quantile(0.75):.3f}")
+        print(f"  Current thresholds: trending={self.thresholds['efficiency_trending']}, ranging={self.thresholds['efficiency_ranging']}")
+        
+        # Show what percentages would result
+        for threshold in [0.1, 0.15, 0.2, 0.25, 0.3, 0.35]:
+            trending_pct = ((df['efficiency_ratio'] > threshold) & (df['direction_regime'] != 'Sideways')).mean() * 100
+            ranging_pct = (df['efficiency_ratio'] < threshold * 0.7).mean() * 100  # Using 70% of threshold for ranging
+            print(f"    If trending={threshold}: Trending={trending_pct:.1f}%, Ranging={ranging_pct:.1f}%")
+    
+def validate_regimes(self, regime_data: pd.DataFrame) -> Dict[str, float]:
+    """Validate regime classifications are reasonable"""
+    
+    validations = {}
+    
+    # Check direction distribution
+    dir_dist = regime_data['direction_regime'].value_counts(normalize=True)
+    validations['uptrend_pct'] = dir_dist.get('Uptrend', 0) * 100
+    validations['downtrend_pct'] = dir_dist.get('Downtrend', 0) * 100
+    validations['sideways_pct'] = dir_dist.get('Sideways', 0) * 100
+    
+    # Check strength distribution
+    strength_dist = regime_data['strength_regime'].value_counts(normalize=True)
+    validations['strong_pct'] = strength_dist.get('Strong', 0) * 100
+    validations['moderate_pct'] = strength_dist.get('Moderate', 0) * 100
+    validations['weak_pct'] = strength_dist.get('Weak', 0) * 100
+    
+    # Check character distribution
+    char_dist = regime_data['character_regime'].value_counts(normalize=True)
+    validations['trending_pct'] = char_dist.get('Trending', 0) * 100
+    validations['ranging_pct'] = char_dist.get('Ranging', 0) * 100
+    
+    # Check average regime duration
+    regime_changes = regime_data['composite_regime'] != regime_data['composite_regime'].shift(1)
+    validations['avg_duration'] = len(regime_data) / regime_changes.sum() if regime_changes.sum() > 0 else 0
+    
+    # Check if any regime dominates too much
+    composite_dist = regime_data['composite_regime'].value_counts(normalize=True)
+    validations['max_regime_pct'] = composite_dist.iloc[0] * 100 if len(composite_dist) > 0 else 0
+    
+    # Print warnings
+    print("\nREGIME VALIDATION:")
+    
+    if validations['sideways_pct'] < 8:
+        print(f"⚠ Warning: Sideways regime too low ({validations['sideways_pct']:.1f}%) - increase direction_neutral threshold")
+    elif validations['sideways_pct'] > 20:
+        print(f"⚠ Warning: Sideways regime too high ({validations['sideways_pct']:.1f}%) - decrease direction_neutral threshold")
+    
+    if validations['strong_pct'] < 15:
+        print(f"⚠ Warning: Strong trends too rare ({validations['strong_pct']:.1f}%) - decrease strength_strong threshold")
+    elif validations['strong_pct'] > 50:
+        print(f"⚠ Warning: Strong trends too common ({validations['strong_pct']:.1f}%) - increase strength_strong threshold")
+    
+    if validations['trending_pct'] < 30:
+        print(f"⚠ Warning: Trending character too low ({validations['trending_pct']:.1f}%) - decrease efficiency_trending threshold")
+    elif validations['trending_pct'] > 70:
+        print(f"⚠ Warning: Trending character too high ({validations['trending_pct']:.1f}%) - increase efficiency_trending threshold")
+    
+    if validations['avg_duration'] < 5:
+        print(f"⚠ Warning: Regimes changing too fast ({validations['avg_duration']:.1f} days) - increase smoothing")
+    elif validations['avg_duration'] > 30:
+        print(f"⚠ Warning: Regimes too persistent ({validations['avg_duration']:.1f} days) - decrease smoothing")
+    
+    if validations['max_regime_pct'] > 25:
+        print(f"⚠ Warning: One regime dominates ({validations['max_regime_pct']:.1f}%) - check classification balance")
+    
+    # Print summary
+    print(f"\nRegime Balance Summary:")
+    print(f"  Direction: Up={validations['uptrend_pct']:.1f}%, Down={validations['downtrend_pct']:.1f}%, Sideways={validations['sideways_pct']:.1f}%")
+    print(f"  Strength: Strong={validations['strong_pct']:.1f}%, Moderate={validations['moderate_pct']:.1f}%, Weak={validations['weak_pct']:.1f}%")
+    print(f"  Character: Trending={validations['trending_pct']:.1f}%, Ranging={validations['ranging_pct']:.1f}%")
+    print(f"  Persistence: {validations['avg_duration']:.1f} days average")
+    
+    return validations
 
