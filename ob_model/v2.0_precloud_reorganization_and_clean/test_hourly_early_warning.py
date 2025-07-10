@@ -26,33 +26,10 @@ print("1-HOUR EARLY WARNING SYSTEM TEST")
 print("="*80)
 print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-# Define U.S. market holidays
-holidays = [
-    '2023-05-29',  # Memorial Day
-    '2023-06-19',  # Juneteenth
-    '2023-07-04',  # Independence Day
-    '2023-09-04',  # Labor Day
-    '2023-11-23',  # Thanksgiving
-    '2024-01-15',  # Martin Luther King Jr. Day
-    '2024-02-19',  # Presidents' Day
-    '2024-05-27',  # Memorial Day
-    '2024-06-19',  # Juneteenth
-    '2024-07-04',  # Independence Day
-    '2024-09-02',  # Labor Day
-    '2024-11-28',  # Thanksgiving
-    '2025-01-20',  # Martin Luther King Jr. Day
-    '2025-02-17',  # Presidents' Day
-    '2025-04-02'   # Good Friday (partial trading day or data anomaly)
-]
-
-# Convert holidays to datetime.date objects
-holidays = [pd.to_datetime(d).date() for d in holidays]
-
 # Load daily data
 print("\nLoading daily data...")
 daily_data = load_csv_data(r'combined_NQ_daily_data.csv', timeframe='1d')
 daily_data = daily_data.tail(252 * 2)  # Last 2 years for testing
-daily_data = daily_data[~daily_data.index.date.isin(holidays)]  # Filter out holidays
 print(f"Loaded {len(daily_data)} daily bars")
 
 # Load hourly data
@@ -61,7 +38,6 @@ hourly_data = load_csv_data(r'combined_NQ_1h_data.csv', timeframe='60min')
 # Align hourly data to match daily date range
 hourly_data = hourly_data[hourly_data.index.date >= daily_data.index[0].date()]
 hourly_data = hourly_data[hourly_data.index.date <= daily_data.index[-1].date()]
-hourly_data = hourly_data[~hourly_data.index.date.isin(holidays)]  # Filter out holidays
 print(f"Loaded {len(hourly_data)} hourly bars")
 
 # Calculate indicators
@@ -73,7 +49,7 @@ hourly_with_indicators = calculate_all_indicators(hourly_data, verbose=False)
 
 # Initialize classifiers
 print("\nInitializing regime classifiers...")
-daily_classifier = NQDailyRegimeClassifier(lookback_days=252, direction_strong_threshold=0.35, trending_threshold=0.3)
+daily_classifier = NQDailyRegimeClassifier(lookback_days=252)
 early_warning = HourlyEarlyWarningSystem(daily_classifier, lookback_hours=168)
 
 # Calculate daily regimes
@@ -103,34 +79,12 @@ print(f"  Volatility: {volatility_div_pct:.1f}% of hours")
 print(f"  Character: {character_div_pct:.1f}% of hours")
 
 # Summarize high divergence periods
-high_div_threshold = 0.7  # Increased from 0.5
+high_div_threshold = 0.5  # 50% divergence
 recent_window = 24 * 7  # Last week
 
 print(f"\nSummary of High Divergence Periods (>{high_div_threshold*100}% in {recent_window}h window):")
 divergences['rolling_div_score'] = divergences['divergence_score'].rolling(recent_window).mean()
-# Calculate persistence
-divergences['divergence_hours'] = divergences['divergence_score'].gt(high_div_threshold).groupby(
-    (divergences['divergence_score'].gt(high_div_threshold) != 
-     divergences['divergence_score'].gt(high_div_threshold).shift()).cumsum()).cumcount() + 1
 high_div_periods = divergences[divergences['rolling_div_score'] > high_div_threshold]
-
-# Apply volume filter if volume column exists
-if 'volume' in hourly_with_indicators.columns:
-    hourly_with_indicators['volume_zscore'] = (hourly_with_indicators['volume'] - hourly_with_indicators['volume'].rolling(20).mean()) / hourly_with_indicators['volume'].rolling(20).std()
-    # Merge volume_zscore with high_div_periods
-    high_div_periods = high_div_periods.merge(
-        hourly_with_indicators[['volume_zscore']], 
-        left_index=True, right_index=True, how='left')
-    high_div_periods = high_div_periods[high_div_periods['volume_zscore'] > 1.0]
-else:
-    print("  Warning: 'volume' column not found in hourly data. Skipping volume filter.")
-
-# Apply persistence and multi-divergence filters
-high_div_periods = high_div_periods[high_div_periods['divergence_hours'] >= 12]
-high_div_periods = high_div_periods[
-    (high_div_periods['direction_divergence'] > 0.7) & 
-    (high_div_periods[['strength_divergence', 'volatility_divergence', 
-                      'character_divergence']].gt(0.5).sum(axis=1) >= 2)]
 
 if len(high_div_periods) > 0:
     # Group consecutive periods
