@@ -11,13 +11,27 @@ import numpy as np
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import argparse  # For parameterization
+import argparse
 import logging
 from tqdm import tqdm
 
+# Define parser and add arguments (assuming your existing args are here; if not, add them)
+parser = argparse.ArgumentParser()
+parser.add_argument('--daily_path', default='combined_NQ_daily_data.csv')
+parser.add_argument('--ltf_path', default='combined_NQ_1h_data.csv')  # Assume 1H input
+parser.add_argument('--timeframes', nargs='+', default=['1H', '4H', '8H'])  # Multiple TFs
+parser.add_argument('--lookback_days', type=int, default=252)
+parser.add_argument('--walk_forward', action='store_true', default=False)  # Toggle walk-forward mode
+parser.add_argument('--verbose', action='store_true', default=False)  # Toggle verbose logs
+parser.add_argument('--tuning_verbose', action='store_true', default=False)  # Toggle tuning diagnostics
+
+# Parse args now
+args = parser.parse_args()
+
+# Set logging after args is defined
 logging.basicConfig(level=logging.INFO)
 if not args.verbose:
-    logger.setLevel(logging.WARNING)
+    logging.getLogger().setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # Add paths (make configurable)
@@ -27,18 +41,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from core.data_loader import load_csv_data
 from core.indicators import calculate_all_indicators
 from daily_regime_classifier import NQDailyRegimeClassifier
-from hourly_early_warning_system_grok import LowerTimeframeEarlyWarningSystem  # Updated import
-
-# Argument parser for configs
-parser = argparse.ArgumentParser()
-parser.add_argument('--daily_path', default='combined_NQ_daily_data.csv')
-parser.add_argument('--ltf_path', default='combined_NQ_1h_data.csv')  # Assume 1H input
-parser.add_argument('--timeframes', nargs='+', default=['1H', '4H', '8H'])  # Multiple TFs
-parser.add_argument('--lookback_days', type=int, default=252)
-parser.add_argument('--walk_forward', action='store_true', default=False)  # Toggle walk-forward mode
-args = parser.parse_args()
-parser.add_argument('--verbose', action='store_true', default=False)  # Toggle verbose logs
-parser.add_argument('--tuning_verbose', action='store_true', default=False)  # Toggle tuning diagnostics
+from hourly_early_warning_system_grok import LowerTimeframeEarlyWarningSystem
 
 print("="*80)
 print("LTF EARLY WARNING SYSTEM TEST")
