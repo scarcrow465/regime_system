@@ -328,33 +328,35 @@ else:
     
     # Incremental loop: Process test data hour by hour
     predictions = []  # Log (time, predicted_shift, actual_shift)
-    last_daily_close = train_end
+    last_daily_close = train_end - pd.Timedelta(days=1)  # Start from last train day
+    cumulative_daily = train_daily.copy()
     for i in range(len(test_ltf)):
         new_bar = test_ltf.iloc[i:i+1]
         current_time = new_bar.index[0]
         
-        # Update daily regimes if a new day has closed (e.g., at 16:00 ET or end of session)
+        # Update daily regimes if a new day has closed (assume at 16:00 ET or when new daily available)
         if current_time.hour >= 16 and current_time.date() > last_daily_close.date():
-            # Add new daily bar if available (assume daily_data has it)
             new_daily_date = current_time.date()
             if new_daily_date in daily_data.index.date:
                 new_daily_bar = daily_data.loc[pd.Timestamp(new_daily_date)]
-                # Update daily_classifier with new bar (you may need to make classifier stateful or recalculate on cumulative)
-                # For simplicity, recalculate on cumulative train + new
-                cumulative_daily = pd.concat([train_daily, new_daily_bar.to_frame().T])
+                cumulative_daily = pd.concat([cumulative_daily, new_daily_bar.to_frame().T])
                 cumulative_daily_with_indicators = calculate_all_indicators(cumulative_daily, verbose=False)
                 current_daily_regimes = daily_classifier.classify_regimes(cumulative_daily_with_indicators)
                 last_daily_close = current_time
         
-        # Update LTF
-        warnings, divergences = ews.update(new_bar.iloc[0], current_daily_regimes.iloc[-1] if len(current_daily_regimes) > 0 else None)
+        # Update LTF with current daily regime
+        if len(current_daily_regimes) > 0:
+            new_daily_bar = current_daily_regimes.iloc[-1]
+        else:
+            new_daily_bar = None
+        warnings, divergences = ews.update(new_bar.iloc[0], new_daily_bar)
         
         # Predicted shift if strong/critical warning
         predicted_shift = any(w['level'] in ['STRONG', 'CRITICAL'] for w in warnings)
         
-        # Actual shift: Check if tomorrow's regime differs (without peeking—use next day's if "closed")
+        # Actual shift: Check if tomorrow's regime differs (simulation uses full data for "actual", but no peeking in prediction)
         daily_date = current_time.date()
-        if daily_date in daily_regimes.index.date:  # Use full for actual check (simulation only)
+        if daily_date in daily_regimes.index.date:
             daily_idx = daily_regimes.index.get_loc(pd.Timestamp(daily_date))
             if daily_idx < len(daily_regimes) - 1:
                 current_regime = daily_regimes.iloc[daily_idx]['composite_regime']
