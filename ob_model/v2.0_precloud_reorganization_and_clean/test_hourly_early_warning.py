@@ -116,9 +116,7 @@ high_div_periods = divergences[divergences['rolling_div_score'] > high_div_thres
 
 # Apply volume filter if volume column exists
 if 'volume' in hourly_with_indicators.columns:
-    hourly_with_indicators['volume_zscore'] = (hourly_with_indicators['volume'] - 
-                                              hourly_with_indicators['volume'].rolling(20).mean()) / 
-                                              hourly_with_indicators['volume'].rolling(20).std()
+    hourly_with_indicators['volume_zscore'] = (hourly_with_indicators['volume'] - hourly_with_indicators['volume'].rolling(20).mean()) / hourly_with_indicators['volume'].rolling(20).std()
     # Merge volume_zscore with high_div_periods
     high_div_periods = high_div_periods.merge(
         hourly_with_indicators[['volume_zscore']], 
