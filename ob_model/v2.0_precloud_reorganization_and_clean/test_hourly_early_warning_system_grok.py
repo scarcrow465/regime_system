@@ -170,7 +170,7 @@ for change_date in change_dates[-10:]:  # Last 10 changes
         div_48h = window_div['divergence_score'].mean()
         
         # Find first significant divergence
-        significant_div = window_div[window_div['divergence_score'] > 0.35]
+        significant_div = window_div[window_div['divergence_score'] > 0.3]
         if len(significant_div) > 0:
             first_warning = significant_div.index[0]
             lead_time = (change_date - first_warning).total_seconds() / 3600
