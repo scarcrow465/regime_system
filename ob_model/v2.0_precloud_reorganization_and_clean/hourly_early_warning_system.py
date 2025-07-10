@@ -127,11 +127,14 @@ class HourlyEarlyWarningSystem:
         
         # Align hourly to daily (map each hour to its day)
         hourly_regimes['date'] = hourly_regimes.index.date
-        daily_regimes['date'] = daily_regimes.index.date
+        
+        # Create a copy of daily regimes with date as a regular column
+        daily_for_merge = daily_regimes.copy()
+        daily_for_merge['date'] = daily_for_merge.index.date
         
         # Merge to compare
         merged = hourly_regimes.merge(
-            daily_regimes[['date', 'direction_regime', 'strength_regime', 
+            daily_for_merge[['date', 'direction_regime', 'strength_regime', 
                           'volatility_regime', 'character_regime', 'composite_regime']],
             on='date',
             how='left',
