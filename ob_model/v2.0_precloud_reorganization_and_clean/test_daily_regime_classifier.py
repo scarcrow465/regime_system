@@ -142,17 +142,19 @@ for regime in regime_data['direction_regime'].unique():
     regime_returns = regime_data.loc[mask, 'returns']
     
     if len(regime_returns) > 0:
-        regime_returns = regime_data.loc[mask, 'returns']
         regime_returns = regime_returns.dropna()
         annualized_return = (1 + regime_returns).prod() ** (252 / len(regime_returns)) - 1
-        annualized_return *= 100  # Convert to percentage
+        annualized_return *= 100
         volatility = regime_returns.std() * np.sqrt(252) * 100
         sharpe = annualized_return / volatility if volatility > 0 else 0
+        print(f"  {regime}:")
+        print(f"    Avg Return: {annualized_return:.1f}% annualized")
+        print(f"    Volatility: {volatility:.1f}%")
+        print(f"    Sharpe: {sharpe:.3f}")
     else:
         annualized_return = 0
         volatility = 0
         sharpe = 0
-        
         print(f"  {regime}:")
         print(f"    Avg Return: {annualized_return:.1f}% annualized")
         print(f"    Volatility: {volatility:.1f}%")
@@ -165,16 +167,16 @@ for regime, count in top_regimes.items():
     mask = regime_data['composite_regime'] == regime
     regime_returns = regime_data.loc[mask, 'returns']
     
-    if len(regime_returns) > 20:  # Only if enough data
-        regime_returns = regime_data.loc[mask, 'returns']
+    if len(regime_returns) > 20:
         regime_returns = regime_returns.dropna()
         annualized_return = (1 + regime_returns).prod() ** (252 / len(regime_returns)) - 1
-        annualized_return *= 100  # Convert to percentage
+        annualized_return *= 100
         sharpe = annualized_return / (regime_returns.std() * np.sqrt(252) * 100) if regime_returns.std() > 0 else 0
+        print(f"  {regime}: {count} days")
+        print(f"    Return: {annualized_return:.1f}% ann., Sharpe: {sharpe:.3f}")
     else:
         annualized_return = 0
         sharpe = 0
-        
         print(f"  {regime}: {count} days")
         print(f"    Return: {annualized_return:.1f}% ann., Sharpe: {sharpe:.3f}")
 
