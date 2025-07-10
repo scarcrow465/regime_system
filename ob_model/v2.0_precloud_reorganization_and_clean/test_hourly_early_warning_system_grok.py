@@ -4,9 +4,6 @@
 # In[ ]:
 
 
-#!/usr/bin/env python
-# coding: utf-8
-
 import sys
 import os
 import pandas as pd
@@ -16,8 +13,11 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import argparse  # For parameterization
 import logging
+from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO)
+if not args.verbose:
+    logger.setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # Add paths (make configurable)
@@ -37,6 +37,8 @@ parser.add_argument('--timeframes', nargs='+', default=['1H', '4H', '8H'])  # Mu
 parser.add_argument('--lookback_days', type=int, default=252)
 parser.add_argument('--walk_forward', action='store_true', default=False)  # Toggle walk-forward mode
 args = parser.parse_args()
+parser.add_argument('--verbose', action='store_true', default=False)  # Toggle verbose logs
+parser.add_argument('--tuning_verbose', action='store_true', default=False)  # Toggle tuning diagnostics
 
 print("="*80)
 print("LTF EARLY WARNING SYSTEM TEST")
@@ -62,11 +64,55 @@ daily_with_indicators = calculate_all_indicators(daily_data, verbose=False)
 daily_classifier = NQDailyRegimeClassifier(lookback_days=args.lookback_days)
 daily_regimes = daily_classifier.classify_regimes(daily_with_indicators)
 
+thresh = daily_classifier.config['thresholds']  # Assuming thresh is defined in classifier config; if not, add this line if needed
+
+if args.tuning_verbose:
+    print("\n============================================================\nTHRESHOLD DIAGNOSTICS FOR TUNING\n============================================================")
+
+    # Direction Scores Distribution
+    print("\nDirection Scores Distribution:")
+    print(f"  Mean: {daily_with_indicators['direction_score'].mean():.3f}")
+    print(f"  Std: {daily_with_indicators['direction_score'].std():.3f}")
+    print(f"  Min: {daily_with_indicators['direction_score'].min():.3f}")
+    print(f"  Max: {daily_with_indicators['direction_score'].max():.3f}")
+    percentiles = daily_with_indicators['direction_score'].quantile([0.1, 0.25, 0.75, 0.9])
+    print(f"  Percentiles: 10%={percentiles[0.1]:.3f}, 25%={percentiles[0.25]:.3f}, 75%={percentiles[0.75]:.3f}, 90%={percentiles[0.9]:.3f}")
+    print(f"  Current thresholds: strong={thresh['direction_strong']}, neutral={thresh['direction_neutral']}")
+
+    for strong_thresh in [0.05, 0.1, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3, 0.325, 0.35]:
+        up_pct = (daily_with_indicators['direction_score'] > strong_thresh).mean() * 100
+        down_pct = (daily_with_indicators['direction_score'] < -strong_thresh).mean() * 100
+        sideways_pct = 100 - up_pct - down_pct
+        print(f"    If strong={strong_thresh}: Up={up_pct:.1f}%, Down={down_pct:.1f}%, Sideways={sideways_pct:.1f}%")
+
+    # Strength Scores Distribution
+    print("\nStrength Scores Distribution:")
+    print(f"  Mean: {daily_with_indicators['strength_score'].mean():.3f}")
+    print(f"  Std: {daily_with_indicators['strength_score'].std():.3f}")
+    percentiles = daily_with_indicators['strength_score'].quantile([0.25, 0.5, 0.75, 0.9])
+    print(f"  Percentiles: 25%={percentiles[0.25]:.3f}, 50%={percentiles[0.5]:.3f}, 75%={percentiles[0.75]:.3f}, 90%={percentiles[0.9]:.3f}")
+    print(f"  Current thresholds: strong={thresh['strength_strong']}, moderate={thresh['strength_moderate']}")
+
+    # Efficiency Ratio Distribution
+    print("\nEfficiency Ratio Distribution:")
+    print(f"  Mean: {daily_with_indicators['efficiency_ratio'].mean():.3f}")
+    print(f"  Std: {daily_with_indicators['efficiency_ratio'].std():.3f}")
+    percentiles = daily_with_indicators['efficiency_ratio'].quantile([0.25, 0.5, 0.75])
+    print(f"  Percentiles: 25%={percentiles[0.25]:.3f}, 50%={percentiles[0.5]:.3f}, 75%={percentiles[0.75]:.3f}")
+    print(f"  Current thresholds: trending={thresh['efficiency_trending']}, ranging={thresh['efficiency_ranging']}")
+
+    for trending_thresh in [0.05, 0.1, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3, 0.325, 0.35]:
+        trending_pct = (daily_with_indicators['efficiency_ratio'] > trending_thresh).mean() * 100
+        ranging_pct = (daily_with_indicators['efficiency_ratio'] < thresh['efficiency_ranging']).mean() * 100
+        print(f"    If trending={trending_thresh}: Trending={trending_pct:.1f}%, Ranging={ranging_pct:.1f}%")
+else:
+    print("\nTuning diagnostics skipped (use --tuning_verbose to enable)")
+
 if not args.walk_forward:
     # Batch mode
     ensemble_divergences = []
     divergences_dict = {}  # Store per TF
-    for tf in args.timeframes:
+    for tf in tqdm(args.timeframes, desc="Processing timeframes", unit="TF"):
         print(f"\nProcessing {tf} timeframe...")
         ews = LowerTimeframeEarlyWarningSystem(daily_classifier, timeframe=tf)
         
@@ -309,6 +355,7 @@ if not args.walk_forward:
     print("   - Direction divergence >70% = high probability of trend change")
     print("   - Multiple divergences = higher confidence signal")
 
+
 else:
     # Walk-forward mode (standalone)
     print("\nRunning Walk-Forward Testing (Standalone)...")
@@ -330,7 +377,7 @@ else:
     predictions = []  # Log (time, predicted_shift, actual_shift)
     last_daily_close = train_end - pd.Timedelta(days=1)  # Start from last train day
     cumulative_daily = train_daily.copy()
-    for i in range(len(test_ltf)):
+    for i in tqdm(range(len(test_ltf)), desc="Processing test bars", unit="bar"):
         new_bar = test_ltf.iloc[i:i+1]
         current_time = new_bar.index[0]
         
@@ -346,28 +393,45 @@ else:
                     current_daily_regimes = daily_classifier.classify_regimes(cumulative_daily_with_indicators)
                 last_daily_close = current_time
         
-        # Update each LTF ews and collect divergences
-        divergences_list = []
-        warnings_list = []
-        new_daily_bar = current_daily_regimes.iloc[-1] if len(current_daily_regimes) > 0 else None
-        for ews in ews_list:
-            warnings, divergences = ews.update(new_bar.iloc[0], new_daily_bar)
-            divergences_list.append(divergences['divergence_score'].iloc[-1] if len(divergences) > 0 else 0)
-            warnings_list.extend(warnings)
-        
-        # Predicted shift with TF consensus (average score >0.8)
-        avg_score = np.mean(divergences_list)
-        predicted_shift = avg_score > 0.8
-        
-        # Actual shift: Check if tomorrow's regime differs (simulation uses full for "actual")
-        daily_date = current_time.date()
-        if daily_date in daily_regimes.index.date:
-            daily_idx = daily_regimes.index.get_loc(pd.Timestamp(daily_date))
-            if daily_idx < len(daily_regimes) - 1:
-                current_regime = daily_regimes.iloc[daily_idx]['composite_regime']
-                next_regime = daily_regimes.iloc[daily_idx + 1]['composite_regime']
-                actual_shift = current_regime != next_regime
-                predictions.append((current_time, predicted_shift, actual_shift))
+        # Only trigger LTF update if at session-aligned bar close (your times for 4H/8H)
+        close_hours = [22, 2, 6, 10, 14, 16]  # Your example closes; adjust as needed
+        if current_time.hour in close_hours:
+            # Update each LTF ews and collect divergences
+            divergences_list = []
+            warnings_list = []
+            new_daily_bar = current_daily_regimes.iloc[-1] if len(current_daily_regimes) > 0 else None
+            for ews in ews_list:
+                warnings, divergences = ews.update(new_bar.iloc[0], new_daily_bar)
+                divergences_list.append(divergences)  # Store full for later
+                warnings_list.extend(warnings)
+            
+            # Calculate alignment weight (1.0 full agreement, lower for conflicts)
+            alignment_weight = 0.0
+            ltf_regimes = [d['ltf_regime'].iloc[-1] if len(d) > 0 else None for d in divergences_list]  # Get latest LTF regimes
+            daily_regime = new_daily_bar['composite_regime'] if new_daily_bar is not None else None
+            if daily_regime is not None:
+                agreement_count = sum(1 for ltf_reg in ltf_regimes if ltf_reg == daily_regime) / len(ltf_regimes)  # % agreement with D
+                alignment_weight = 0.5 + (0.5 * agreement_count)  # Base 0.5, +up to 0.5 for full alignment
+                if agreement_count < 0.5:  # If <50% agree (LTFs conflicting with D/HTF)
+                    alignment_weight *= 1.5  # Bonus for strong LTF cluster against D (your reversal case)
+                else:
+                    alignment_weight *= 0.8  # Penalty for isolated LTF divergence
+            
+            # Predicted shift with weighted consensus
+            avg_score = np.mean([d['divergence_score'].iloc[-1] if len(d) > 0 else 0 for d in divergences_list])
+            predicted_shift = (avg_score * alignment_weight) > 0.8
+            
+            # Actual shift: Check if tomorrow's regime differs (simulation uses full for "actual")
+            daily_date = current_time.date()
+            if daily_date in daily_regimes.index.date:
+                daily_idx = daily_regimes.index.get_loc(pd.Timestamp(daily_date))
+                if daily_idx < len(daily_regimes) - 1:
+                    current_regime = daily_regimes.iloc[daily_idx]['composite_regime']
+                    next_regime = daily_regimes.iloc[daily_idx + 1]['composite_regime']
+                    actual_shift = current_regime != next_regime
+                    predictions.append((current_time, predicted_shift, actual_shift))
+        else:
+            continue  # Skip prediction if not at close time
     
     # Analyze
     df_pred = pd.DataFrame(predictions, columns=['time', 'predicted', 'actual'])
