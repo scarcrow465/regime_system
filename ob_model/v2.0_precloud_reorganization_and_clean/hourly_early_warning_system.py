@@ -127,14 +127,10 @@ class HourlyEarlyWarningSystem:
         
         # Ensure the index has a name for consistent column creation
         if hourly_regimes.index.name is None:
-            hourly_regimes.index.name = 'Date'
+            hourly_regimes.index.name = 'date'
         
         # Reset index to move the datetime index to a column
         hourly_regimes = hourly_regimes.reset_index()
-        
-        # Verify the column exists (debugging step, can be removed after confirmation)
-        if 'Date' not in hourly_regimes.columns:
-            raise ValueError(f"Expected 'Date' column in hourly_regimes, found: {hourly_regimes.columns}")
         
         # Align hourly to daily based on trading session (18:00 ET prior day to 16:00 ET current day)
         def get_trading_session_date(dt):
@@ -142,33 +138,28 @@ class HourlyEarlyWarningSystem:
                 return dt.date() + pd.Timedelta(days=1)
             return dt.date()
         
-        # Use the 'Date' column for trading session alignment
-        hourly_regimes['date'] = hourly_regimes['Date'].apply(get_trading_session_date)
+        # Use the 'date' column (lowercase, as shown in error)
+        hourly_regimes['session_date'] = hourly_regimes['date'].apply(get_trading_session_date)
         
         # Ensure daily_regimes index has a name
         if daily_regimes.index.name is None:
-            daily_regimes.index.name = 'Date'
+            daily_regimes.index.name = 'date'
         
         # Create a copy of daily regimes with date as a regular column
         daily_for_merge = daily_regimes.copy().reset_index()
-        
-        # Verify the column exists in daily_for_merge
-        if 'Date' not in daily_for_merge.columns:
-            raise ValueError(f"Expected 'Date' column in daily_for_merge, found: {daily_for_merge.columns}")
-        
-        daily_for_merge['date'] = daily_for_merge['Date'].dt.date
+        daily_for_merge['session_date'] = daily_for_merge['date'].dt.date
         
         # Merge to compare
         merged = hourly_regimes.merge(
-            daily_for_merge[['date', 'direction_regime', 'strength_regime', 
+            daily_for_merge[['session_date', 'direction_regime', 'strength_regime', 
                             'volatility_regime', 'character_regime', 'composite_regime']],
-            on='date',
+            on='session_date',
             how='left',
             suffixes=('_hourly', '_daily')
         )
         
-        # Set index back to the Date column
-        merged.set_index('Date', inplace=True)
+        # Set index back to the date column
+        merged.set_index('date', inplace=True)
         
         # Calculate divergences
         divergences = pd.DataFrame(index=merged.index)
