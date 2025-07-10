@@ -170,7 +170,7 @@ for change_date in change_dates[-10:]:  # Last 10 changes
         div_48h = window_div['divergence_score'].mean()
         
         # Find first significant divergence
-        significant_div = window_div[window_div['divergence_score'] > 0.4]
+        significant_div = window_div[window_div['divergence_score'] > 0.35]
         if len(significant_div) > 0:
             first_warning = significant_div.index[0]
             lead_time = (change_date - first_warning).total_seconds() / 3600
@@ -191,12 +191,22 @@ if lead_times:
     print(f"  Average lead time: {np.mean(lead_times):.1f} hours")
     print(f"  Median lead time: {np.median(lead_times):.1f} hours")
 
-# Generate current warnings
+# Generate current warnings (using the ews from the last TF, but escalate with ensemble)
 print("\n" + "="*80)
 print("CURRENT WARNINGS")
 print("="*80)
 
-current_warnings = ews.generate_warnings(divergences, lookback_periods=24)  # Base on 1H; for multi-TF, average or scale
+current_warnings = ews.generate_warnings(divergences, lookback_periods=24)
+
+# Escalate levels if multiple TFs and avg_divergence >0.6
+escalate = len(args.timeframes) > 1 and avg_divergence.mean() > 0.6
+level_map = {'WEAK': 'MODERATE', 'MODERATE': 'STRONG', 'STRONG': 'CRITICAL', 'CRITICAL': 'CRITICAL'}  # No higher than CRITICAL
+
+if escalate:
+    for warning in current_warnings:
+        if warning['level'] in level_map:
+            warning['level'] = level_map[warning['level']]
+            warning['message'] += " (Escalated due to multi-TF consensus)"
 
 if current_warnings:
     for warning in current_warnings:
