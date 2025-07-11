@@ -22,8 +22,13 @@ import os
 import matplotlib
 matplotlib.use('agg')  # No popup
 import matplotlib.pyplot as plt
+import logging  # For logging.WARNING
+from config.settings import VERBOSE
 
-logger = get_logger('fingerprint_evolver')
+logger = get_logger('fingerprint_evolver')  # Define logger first
+
+if not VERBOSE:
+    logger.setLevel(logging.WARNING)  # Suppress INFO if not VERBOSE
 
 @log_execution_time(logger)
 @log_errors(logger)
