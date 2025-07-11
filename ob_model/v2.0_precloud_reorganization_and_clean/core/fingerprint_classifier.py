@@ -21,12 +21,15 @@ logger = get_logger('fingerprint_classifier')
 def classify_edges(edge_map: dict, timeframe: str = 'daily') -> dict:
     tagged_map = {}
     hold_multipliers = SCOPES.get(timeframe, SCOPES['daily'])  # Adjust for timeframe
+    if not isinstance(edge_map, dict):
+        logger.error("edge_map is not a dict—check scan_for_edges output")
+        return {}
     for category, data in edge_map.items():
         logger.info(f"Tagging {category}")
         name = PRIMARY_CATEGORIES.get(category, 'Unknown Pattern')
-        all_holds = {hold: data['scopes'].get(hold, 0) * mult for hold, mult in hold_multipliers.items()}
+        all_holds = {hold: data.get('scopes', {}).get(hold, 0) * mult for hold, mult in hold_multipliers.items()}
         best_hold = max(all_holds, key=all_holds.get) if all_holds else 'unknown'
-        strength = data['broad_strength'] * 0.5 + data['conditional_strength'] * 0.5  # Average overall/better conditions
+        strength = data.get('broad_strength', 0) * 0.5 + data.get('conditional_strength', 0) * 0.5  # Average overall/better conditions
         tagged_map[category] = {
             'name': name,
             'strength': strength,
