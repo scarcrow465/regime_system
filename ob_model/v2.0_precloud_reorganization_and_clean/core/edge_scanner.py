@@ -23,9 +23,6 @@ from config.settings import VERBOSE
 
 logger = get_logger('edge_scanner')  # Define logger first
 
-if not VERBOSE:
-    logger.setLevel(logging.WARNING)  # Suppress INFO if not VERBOSE
-
 @log_execution_time(logger)
 @log_errors(logger)
 def scan_for_edges(df: pd.DataFrame) -> dict:
