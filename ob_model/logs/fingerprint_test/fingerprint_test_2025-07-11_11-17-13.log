@@ -1,0 +1,5 @@
+2025-07-11 11:17:13,521 - fingerprint_test - INFO - Starting fingerprint chain test on fake data...
+2025-07-11 11:17:13,541 - fingerprint_test - INFO - Scan complete—here's the raw edge map (potential asymmetries found):
+2025-07-11 11:17:13,544 - fingerprint_test - INFO - Classification complete—here's the tagged map (with scopes like day trading):
+2025-07-11 11:17:13,566 - fingerprint_test - INFO - Evolution complete—here's the final evolved map (with trends like strengthening slope):
+2025-07-11 11:17:13,567 - fingerprint_test - INFO - Test complete! Check logs/fingerprint_test/yyyy-mm-dd_detailed.txt for deep details (e.g., p-values). If edges look good (scores >0.1), we're set.
