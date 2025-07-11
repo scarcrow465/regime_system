@@ -74,9 +74,14 @@ if args.wfo:
     print("\nRunning Walk-Forward Optimization for per-TF thresholds...")
     # Define grid for thresholds (expand as needed)
     threshold_grid = {
-        'direction_strong': [0.2, 0.25, 0.3, 0.35],
-        'efficiency_trending': [0.15, 0.2, 0.25, 0.3]
-    }
+            'direction_strong': [0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3, 0.325, 0.35, 0.375, 0.4, 0.425, 0.45, 0.475, 0.5],
+            'efficiency_trending': [0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3, 0.325, 0.35, 0.375, 0.4, 0.425, 0.45, 0.475, 0.5],
+            'direction_neutral': [0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3, 0.325, 0.35, 0.375, 0.4, 0.425, 0.45, 0.475, 0.5],
+            'strength_strong': [0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3, 0.325, 0.35, 0.375, 0.4, 0.425, 0.45, 0.475, 0.5],
+            'strength_moderate': [0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3, 0.325, 0.35, 0.375, 0.4, 0.425, 0.45, 0.475, 0.5],
+            'efficiency_trending': [0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3, 0.325, 0.35, 0.375, 0.4, 0.425, 0.45, 0.475, 0.5],
+            'efficiency_ranging': [0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3, 0.325, 0.35, 0.375, 0.4, 0.425, 0.45, 0.475, 0.5],
+        }
     # Split into walks (6mo IS + 3mo OOS, rolling)
     walk_windows = []
     start_date = daily_data.index[0]
@@ -99,15 +104,22 @@ if args.wfo:
                 for is_start, is_end, oos_end in walk_windows:
                     is_data = daily_data[(daily_data.index >= is_start) & (daily_data.index < is_end)]
                     oos_data = daily_data[(daily_data.index >= is_end) & (daily_data.index < oos_end)]
-                    if len(is_data) < 100 or len(oos_data) < 50: continue  # Increase min to avoid NaN
+                    if len(is_data) < 200 or len(oos_data) < 100: 
+                        if args.verbose:
+                            print(f"Skipping window {is_start}-{is_end}: too short ({len(is_data)}/{len(oos_data)} rows)")
+                        continue  # Increase min to avoid NaN
                     temp_classifier = NQDailyRegimeClassifier(lookback_days=args.lookback_days)
                     temp_classifier.thresholds.update(temp_config['thresholds'])
                     is_indicators = calculate_all_indicators(is_data)
                     oos_indicators = calculate_all_indicators(oos_data)
                     is_regimes = temp_classifier.classify_regimes(is_indicators)
                     oos_regimes = temp_classifier.classify_regimes(oos_indicators)
+                    # Check for NaN/empty scores
                     if is_regimes['direction_score'].dropna().empty or oos_regimes['direction_score'].dropna().empty:
-                        continue
+                        if args.verbose:
+                            print(f"Skipping window {is_start}-{is_end}: NaN in direction_score")
+                        continue  # Skip
+                    # Success: % correct shifts (placeholder; refine with your divergence)
                     oos_shifts = (oos_regimes['composite_regime'] != oos_regimes['composite_regime'].shift()).sum()
                     predicted_shifts = len(oos_regimes) * 0.1  # Adjust to your logic
                     success = 1 - abs(oos_shifts - predicted_shifts) / len(oos_regimes)
@@ -116,7 +128,7 @@ if args.wfo:
                 if valid_walks > 0:
                     avg_success /= valid_walks
                 else:
-                    avg_success = 0
+                    avg_success = 0  # Default if no valid
                 if avg_success > best_success:
                     best_success = avg_success
                     best_config = temp_config
