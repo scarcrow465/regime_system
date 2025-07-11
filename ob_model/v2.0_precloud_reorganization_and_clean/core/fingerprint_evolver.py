@@ -21,6 +21,7 @@ from config.edge_taxonomy import THRESHOLDS
 import os  # For dir creation
 import matplotlib.pyplot as plt  # For plots
 from datetime import datetime  # For timestamp
+from utils.debug_utils import safe_save
 
 logger = get_logger('fingerprint_evolver')
 
@@ -73,11 +74,7 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> 
         
         # Visual Plot: Save line chart with dir creation + timestamp (no overwrite)
         if rolling_scores:  # Only if data
-            plot_dir = 'docs/plots'
-            os.makedirs(plot_dir, exist_ok=True)  # Create if missing
-            timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
-            file_path = f"{plot_dir}/{category}_evolution_{timestamp}.png"
-            plt.plot(rolling_scores)
+            safe_save(plt.gcf(), f"docs/plots/{category}_evolution")
             plt.title(f"{category} Edge Evolution—rising line = strengthening like a climbing hill")
             plt.savefig(file_path)
             plt.close()
