@@ -23,8 +23,8 @@ from config.settings import VERBOSE
 
 logger = get_logger('edge_scanner')  # Define logger first
 
-@log_execution_time(logger)
-@log_errors(logger)
+@log_execution_time
+@log_errors
 def scan_for_edges(df: pd.DataFrame) -> dict:
     """
     Main scan function—broad tests for each primary category, conditional subsets.
