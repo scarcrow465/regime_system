@@ -18,7 +18,7 @@ from config.edge_taxonomy import PRIMARY_CATEGORIES, SUB_CLASSIFIERS, THRESHOLDS
 logger = get_logger('fingerprint_classifier')
 
 @log_execution_time
-@log_errors
+@log_errors()
 def classify_edges(edge_map: dict, timeframe: str = 'daily') -> dict:
     """
     Classify edges with taxonomy, adjust scopes for timeframe.
