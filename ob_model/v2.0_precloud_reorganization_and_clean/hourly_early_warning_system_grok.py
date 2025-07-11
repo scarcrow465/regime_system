@@ -59,7 +59,7 @@ class LowerTimeframeEarlyWarningSystem:
         """
         self.daily_classifier = daily_classifier
         self.timeframe = timeframe
-        self.lookback_periods = lookback_periods
+        self.lookback_periods = lookback_periods * self.multiplier
         self.multiplier = int(timeframe[:-1]) if timeframe != '1H' else 1  # Hours per period
         
         # Default config (scalable by multiplier where needed)
@@ -84,10 +84,10 @@ class LowerTimeframeEarlyWarningSystem:
                 'critical': 0.85
             },
             'divergence_weights': {
-                'direction': 0.5,
-                'strength': 0.2,
-                'volatility': 0.2,
-                'character': 0.2
+                'direction': 0.6,  # High for trend changes
+                'strength': 0.3,  # Medium for mean reversion signals
+                'volatility': 0.05,  # Low, as vol varies naturally
+                'character': 0.05   # Low, as ranging is LTF noise
             },
             'indicator_periods': {
                 'sma_short': 8 * self.multiplier,  # Scale periods
@@ -246,7 +246,7 @@ class LowerTimeframeEarlyWarningSystem:
         
         unmatched = ltf_regimes[~ltf_regimes['session_date'].isin(daily_for_merge['session_date'])]['session_date'].unique()
         if len(unmatched) > 0:
-            logger.info(f"Unmatched session dates: {unmatched}. Forward-filling daily regimes.")
+            logger.debug(f"Unmatched session dates: {unmatched}. Forward-filling daily regimes.")
             # Remove duplicates before reindex to avoid error
             daily_for_merge = daily_for_merge.drop_duplicates(subset='session_date', keep='last')
             daily_for_merge = daily_for_merge.set_index('session_date').reindex(
