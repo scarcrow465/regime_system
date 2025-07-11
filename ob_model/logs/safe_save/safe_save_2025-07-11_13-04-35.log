@@ -1,0 +1,5 @@
+2025-07-11 13:04:35,823 - safe_save - INFO - Saved PNG file: docs\plots\2025-07-11/temporal_evolution_2025-07-11_13-04-35.png
+2025-07-11 13:04:35,876 - safe_save - INFO - Saved PNG file: docs\plots\2025-07-11/directional_evolution_2025-07-11_13-04-35.png
+2025-07-11 13:04:35,927 - safe_save - INFO - Saved PNG file: docs\plots\2025-07-11/behavioral_evolution_2025-07-11_13-04-35.png
+2025-07-11 13:04:35,979 - safe_save - INFO - Saved PNG file: docs\plots\2025-07-11/conditional_evolution_2025-07-11_13-04-35.png
+2025-07-11 13:04:36,038 - safe_save - INFO - Saved PNG file: docs\plots\2025-07-11/event_driven_evolution_2025-07-11_13-04-35.png

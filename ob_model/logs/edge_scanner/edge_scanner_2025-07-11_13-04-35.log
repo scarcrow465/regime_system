@@ -1,0 +1,7 @@
+2025-07-11 13:04:35,722 - edge_scanner - WARNING - temporal low globally/conditionally—check if latent in other filters
+2025-07-11 13:04:35,726 - edge_scanner - WARNING - directional low globally/conditionally—check if latent in other filters
+2025-07-11 13:04:35,729 - edge_scanner - WARNING - conditional low globally/conditionally—check if latent in other filters
+2025-07-11 13:04:35,731 - edge_scanner - WARNING - event_driven low globally/conditionally—check if latent in other filters
+2025-07-11 13:04:35,732 - edge_scanner - WARNING - intermarket low globally/conditionally—check if latent in other filters
+2025-07-11 13:04:35,733 - edge_scanner - WARNING - microstructural low globally/conditionally—check if latent in other filters
+2025-07-11 13:04:35,735 - edge_scanner - WARNING - sentiment_flow low globally/conditionally—check if latent in other filters

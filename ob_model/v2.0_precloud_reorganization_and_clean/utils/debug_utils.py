@@ -10,7 +10,7 @@ from typing import Any
 from utils.logger import get_logger
 from datetime import datetime
 import os
-import glob  # For counting files
+import glob  # For counting files (future-proof if needed)
 
 def check_data_sanity(df: pd.DataFrame, logger: logging.Logger, module_name: str) -> pd.DataFrame:
     if df.empty:
@@ -29,19 +29,20 @@ def safe_save(fig: Any, base_path: str, extension: str = 'png') -> str:
     logger = get_logger('safe_save')
     
     # Determine type dir (separate by type)
-    type_dirs = {'png': 'plots', 'csv': 'data', 'txt': 'logs'}
+    type_dirs = {'png': 'plots', 'csv': 'data', 'txt': 'logs', 'other': 'other'}
     type_dir = type_dirs.get(extension, 'other')
     
-    # Date subfolder
+    # Date and time subfolders
     date = datetime.now().strftime('%Y-%m-%d')
-    dir_name = os.path.join(base_path.split('/')[0], type_dir, date)  # e.g., docs/plots/2025-07-11
+    time = datetime.now().strftime('%H-%M-%S')  # Time sub for per-run isolation
+    dir_name = os.path.join(base_path.split('/')[0], type_dir, date, time)  # e.g., docs/plots/2025-07-11/12-35-04
     os.makedirs(dir_name, exist_ok=True)
     
-    # Check if many files (>10)—add time subfolder
+    # Future-proof: If many files (>50, rare), add run_id sub (e.g., sequential)
     existing_files = len(glob.glob(os.path.join(dir_name, '*.' + extension)))
-    if existing_files > 10:
-        time = datetime.now().strftime('%H-%M-%S')
-        dir_name = os.path.join(dir_name, time)
+    if existing_files > 50:
+        run_id = f"run_{existing_files // 50 + 1}"
+        dir_name = os.path.join(dir_name, run_id)
         os.makedirs(dir_name, exist_ok=True)
     
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
