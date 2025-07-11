@@ -7,7 +7,6 @@
 import logging
 import pandas as pd
 from typing import Any
-
 from utils.logger import get_logger  # For logger in safe_save
 
 def check_data_sanity(df: pd.DataFrame, logger: logging.Logger, module_name: str) -> pd.DataFrame:
@@ -27,7 +26,7 @@ def safe_save(fig: Any, base_path: str, extension: str = 'png') -> str:
     from datetime import datetime
     import os
     
-    logger = get_logger('debug_utils')  # Fixed: Define logger here
+    logger = get_logger('safe_save')  # Fixed: Define logger for safe_save
     
     dir_name = os.path.dirname(base_path)
     os.makedirs(dir_name, exist_ok=True)
