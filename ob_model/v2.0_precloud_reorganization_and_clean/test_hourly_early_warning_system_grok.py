@@ -94,7 +94,7 @@ if args.wfo:
     # Per-TF optimization
     tf_configs = {}
     for tf in args.timeframes:
-        best_config = {'thresholds': {}}
+        best_config = {'thresholds': {}}  # Default empty
         best_success = 0
         for dir_strong in threshold_grid['direction_strong']:
             for eff_trend in threshold_grid['efficiency_trending']:
@@ -104,10 +104,12 @@ if args.wfo:
                 for is_start, is_end, oos_end in walk_windows:
                     is_data = daily_data[(daily_data.index >= is_start) & (daily_data.index < is_end)]
                     oos_data = daily_data[(daily_data.index >= is_end) & (daily_data.index < oos_end)]
-                    if len(is_data) < 200 or len(oos_data) < 100: 
+                    if args.verbose:
+                        print(f"Window {is_start}-{is_end}: IS rows={len(is_data)}, OOS rows={len(oos_data)}")
+                    if len(is_data) < 120 or len(oos_data) < 60: 
                         if args.verbose:
-                            print(f"Skipping window {is_start}-{is_end}: too short ({len(is_data)}/{len(oos_data)} rows)")
-                        continue  # Increase min to avoid NaN
+                            print(f"Skipping window {is_start}-{is_end}: too short")
+                        continue
                     temp_classifier = NQDailyRegimeClassifier(lookback_days=args.lookback_days)
                     temp_classifier.thresholds.update(temp_config['thresholds'])
                     is_indicators = calculate_all_indicators(is_data)
