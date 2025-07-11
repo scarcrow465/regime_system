@@ -237,3 +237,5 @@ PLOT_STYLE = 'seaborn'
 FIGURE_DPI = 300
 FIGURE_SIZE = (12, 8)
 
+PLOT_ENABLED = True  # Toggle for visuals—set False if matplotlib issues
+
