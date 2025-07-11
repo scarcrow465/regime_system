@@ -8,3 +8,13 @@
 2025-07-11 10:28:37,695 - fingerprint_classifier - INFO - Classifying sentiment_flow
 2025-07-11 10:28:37,695 - fingerprint_classifier - INFO - Classification complete: 8 tagged edges
 2025-07-11 10:28:37,696 - fingerprint_classifier - INFO - classify_edges completed in 0.00s
+2025-07-11 10:40:13,845 - fingerprint_classifier - INFO - Classifying temporal
+2025-07-11 10:40:13,845 - fingerprint_classifier - INFO - Classifying directional
+2025-07-11 10:40:13,845 - fingerprint_classifier - INFO - Classifying behavioral
+2025-07-11 10:40:13,845 - fingerprint_classifier - INFO - Classifying conditional
+2025-07-11 10:40:13,846 - fingerprint_classifier - INFO - Classifying event_driven
+2025-07-11 10:40:13,846 - fingerprint_classifier - INFO - Classifying intermarket
+2025-07-11 10:40:13,846 - fingerprint_classifier - INFO - Classifying microstructural
+2025-07-11 10:40:13,846 - fingerprint_classifier - INFO - Classifying sentiment_flow
+2025-07-11 10:40:13,847 - fingerprint_classifier - INFO - Classification complete: 8 tagged edges
+2025-07-11 10:40:13,847 - fingerprint_classifier - INFO - classify_edges completed in 0.00s

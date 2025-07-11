@@ -6,7 +6,7 @@
 
 """
 Fingerprint Evolver for Edge Tracking
-Tracks changes in edges over time (e.g., rolling scores, intensity slopes, breaks like post-1983).
+Tracks changes over time (e.g., rolling scores, intensity slopes, breaks like post-1983).
 Why: Catches evolutions for latent edges (e.g., RSI2 activated in expansion)—proves OB edge is persistent behavior.
 How it ties to vision: Monitors "why" fading (e.g., score <0.5 = reduce sizing), scaling to multi-asset.
 Use: Input tagged_map + historical df, output evolved_map with trends.
@@ -18,17 +18,20 @@ from scipy import stats  # For ttest_ind on means
 from utils.logger import get_logger, log_execution_time, log_errors
 from utils.debug_utils import check_data_sanity, log_var_state
 from config.edge_taxonomy import THRESHOLDS
+import os  # For dir creation
+import matplotlib.pyplot as plt  # For plots
+from datetime import datetime  # For timestamp
 
 logger = get_logger('fingerprint_evolver')
 
 @log_execution_time(logger)
 @log_errors(logger)
-def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> dict:  # 1y rolling
+def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> dict:
     """
     Evolve tagged edges—compute rolling scores, intensity (slopes), persistence, breaks.
     - Input: tagged_map from classifier, df with dates/returns.
     - Output: evolved_map with added 'evolution' dict (e.g., 'trend_slope': 0.02, 'break_detected': '2020-06-15').
-    - Why visual: Slopes paint "growth curves" for plots (e.g., line chart of edge score over time, rising like a hill).
+    - Why visual: Slopes paint "growth curves" for plots (line chart saved with timestamp, rising like a hill).
     """
     df = check_data_sanity(df, logger, 'fingerprint_evolver')
     df['date'] = pd.to_datetime(df.index)  # Assume index is date
@@ -45,7 +48,7 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> 
             rolling_scores.append(window_score)
         data['evolution'] = {'rolling_avg': np.mean(rolling_scores) if rolling_scores else 0}
         log_var_state('rolling_scores', rolling_scores, logger)
-        logger.info(f"{category} rolling scores summary: Avg {data['evolution']['rolling_avg']:.2f}")  # Terminal summary
+        logger.info(f"{category} rolling scores summary: Avg {data['evolution']['rolling_avg']:.2f}")
         
         # Intensity: Slope on scores (strengthening/fading)
         if len(rolling_scores) > 1:
@@ -68,13 +71,18 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> 
                 data['evolution']['break_detected'] = str(break_date.date())
                 logger.info(f"Break in {category} at {break_date}—evolution shift like RSI2 post-1983")
         
-        # Visual Addition: Plot rolling_scores if matplotlib available (uncomment to see line chart)
-        import matplotlib.pyplot as plt
-        plt.plot(rolling_scores)
-        plt.title(f"{category} Edge Evolution—rising line = strengthening like a climbing hill")
-        plt.savefig(f"docs/plots/{category}_evolution.png")  # Save image for visual review
-        plt.close()  # Close to avoid window popup if batch running
-    
+        # Visual Plot: Save line chart with dir creation + timestamp (no overwrite)
+        if rolling_scores:  # Only if data
+            plot_dir = 'docs/plots'
+            os.makedirs(plot_dir, exist_ok=True)  # Create if missing
+            timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
+            file_path = f"{plot_dir}/{category}_evolution_{timestamp}.png"
+            plt.plot(rolling_scores)
+            plt.title(f"{category} Edge Evolution—rising line = strengthening like a climbing hill")
+            plt.savefig(file_path)
+            plt.close()
+            logger.info(f"Saved plot: {file_path}—open to see growth curve")
+
     return evolved_map
 
 # Example Test (run this in console to see)

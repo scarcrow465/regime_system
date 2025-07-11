@@ -16,3 +16,46 @@ ValueError: For each axis slice, the sum of the observed frequencies must agree 
 2.129038608949504
 2025-07-11 10:28:37,704 - fingerprint_evolver - ERROR - evolve_edges failed after 0.01s: For each axis slice, the sum of the observed frequencies must agree with the sum of the expected frequencies to a relative tolerance of 1.4901161193847656e-08, but the percent differences are:
 2.129038608949504
+2025-07-11 10:40:13,849 - fingerprint_evolver - INFO - Evolving temporal
+2025-07-11 10:40:13,849 - fingerprint_evolver - INFO - temporal rolling scores summary: Avg 0.00
+2025-07-11 10:40:13,852 - fingerprint_evolver - INFO - Break in temporal at 2024-02-20 00:00:00—evolution shift like RSI2 post-1983
+2025-07-11 10:40:15,262 - fingerprint_evolver - ERROR - Error in evolve_edges: [Errno 2] No such file or directory: 'docs/plots/temporal_evolution.png'
+Traceback (most recent call last):
+  File "C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean\utils\logger.py", line 307, in wrapper
+    return func(*args, **kwargs)
+  File "C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean\core\fingerprint_evolver.py", line 75, in evolve_edges
+    plt.savefig(f"docs/plots/{category}_evolution.png")  # Save image for visual review
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rs\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\pyplot.py", line 1243, in savefig
+    res = fig.savefig(*args, **kwargs)  # type: ignore[func-returns-value]
+  File "C:\Users\rs\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\figure.py", line 3490, in savefig
+    self.canvas.print_figure(fname, **kwargs)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\rs\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\backend_bases.py", line 2184, in print_figure
+    result = print_method(
+        filename,
+    ...<3 lines>...
+        bbox_inches_restore=_bbox_inches_restore,
+        **kwargs)
+  File "C:\Users\rs\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\backend_bases.py", line 2040, in <lambda>
+    print_method = functools.wraps(meth)(lambda *args, **kwargs: meth(
+                                                                 ~~~~^
+        *args, **{k: v for k, v in kwargs.items() if k not in skip}))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rs\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\backends\backend_agg.py", line 481, in print_png
+    self._print_pil(filename_or_obj, "png", pil_kwargs, metadata)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rs\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\backends\backend_agg.py", line 430, in _print_pil
+    mpl.image.imsave(
+    ~~~~~~~~~~~~~~~~^
+        filename_or_obj, self.buffer_rgba(), format=fmt, origin="upper",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        dpi=self.figure.dpi, metadata=metadata, pil_kwargs=pil_kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rs\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\image.py", line 1634, in imsave
+    image.save(fname, **pil_kwargs)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rs\AppData\Local\Programs\Python\Python313\Lib\site-packages\PIL\Image.py", line 2591, in save
+    fp = builtins.open(filename, "w+b")
+FileNotFoundError: [Errno 2] No such file or directory: 'docs/plots/temporal_evolution.png'
+2025-07-11 10:40:15,345 - fingerprint_evolver - ERROR - evolve_edges failed after 1.50s: [Errno 2] No such file or directory: 'docs/plots/temporal_evolution.png'
