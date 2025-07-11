@@ -9,7 +9,7 @@ Logging utilities for the Regime System
 Provides consistent logging across all modules
 """
 
-import logging
+from loguru import logger as loguru_logger
 import sys
 import os
 from datetime import datetime
@@ -18,12 +18,21 @@ import json
 from logging.handlers import RotatingFileHandler
 from tqdm import tqdm
 import pretty_errors  # Prettify tracebacks globally for clearer errors
+
 pretty_errors.configure(
     separator_character='*',  # Pretty separator
     filename_display=pretty_errors.FILENAME_EXTENDED,  # Show full file path
     line_number_first=True,  # Line number first for quick scan
     lines_before=5, lines_after=2,  # Context lines
 )
+
+# Setup Loguru (pretty, timed files, levels)
+loguru_logger.remove()  # Clear defaults
+loguru_logger.add(sys.stdout, level=LOG_LEVEL, colorize=True, format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>")  # Pretty console
+loguru_logger.add(lambda msg: os.path.join(LOG_DIR, f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"), level="DEBUG", rotation="10 MB")  # Deep file with rotation
+
+def get_logger(name: str) -> loguru_logger:
+    return loguru_logger.bind(name=name)  # Bind name for module-specific
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
