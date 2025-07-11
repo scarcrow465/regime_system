@@ -9,7 +9,8 @@ Logging utilities for the Regime System
 Provides consistent logging across all modules
 """
 
-from loguru import logger as loguru_logger, Logger
+from loguru import logger as loguru_logger
+from loguru._logger import Logger
 import sys
 import os
 from datetime import datetime
