@@ -12,7 +12,7 @@ Ties to vision: Shows how fingerprint extracts "why" OB wins (e.g., trending edg
 """
 
 import pandas as pd
-import np as np
+import numpy as np  # Fixed: Correct import for numpy (was 'import np as np')
 from core.edge_scanner import scan_for_edges
 from core.fingerprint_classifier import classify_edges
 from core.fingerprint_evolver import evolve_edges
