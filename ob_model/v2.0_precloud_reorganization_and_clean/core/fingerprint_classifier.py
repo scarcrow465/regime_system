@@ -20,9 +20,6 @@ from config.settings import VERBOSE
 
 logger = get_logger('fingerprint_classifier')  # Define logger first
 
-if not VERBOSE:
-    logger.setLevel(logging.WARNING)  # Suppress INFO if not VERBOSE
-
 @log_execution_time(logger)
 @log_errors(logger)
 def classify_edges(edge_map: dict) -> dict:
