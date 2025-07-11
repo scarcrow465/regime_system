@@ -5,99 +5,61 @@
 
 
 """
-Edge Scanner for Fingerprint Detection
-Scans for asymmetries (edges) across taxonomy—broad first (low threshold to flag potentials), then conditional (subsets like low-vol for latent edges e.g., RSI2 post-1983).
-Why: Avoids missing multiples/conditionals—tests all scopes (scalping to position) on historical returns.
-How it ties to vision: Extracts "why" behind OB (e.g., trending edge reliable >5 days), scaling to multi-asset.
-Use: Run on data, output edge_map dict for classifier.
+Edge Scanner for Asymmetry Detection
+Scans data for edges across categories (e.g., directional bias, behavioral trends).
+Why: Finds "treasure" patterns like positive drift or bounces after drops—base for "why" OB wins.
+Use: Input df with returns/vol, output edge_map with scores (higher = stronger pattern).
 """
 
 import pandas as pd
 import numpy as np
-from scipy import stats  # For t-tests/p-values
+from scipy import stats
 from utils.logger import get_logger, log_execution_time, log_errors
 from utils.debug_utils import check_data_sanity, log_var_state
-from config.edge_taxonomy import PRIMARY_CATEGORIES, SUB_CLASSIFIERS, THRESHOLDS
-import logging  # For logging.WARNING
-from config.settings import VERBOSE
+from config.edge_taxonomy import PRIMARY_CATEGORIES, THRESHOLDS
 
-logger = get_logger('edge_scanner')  # Define logger first
+logger = get_logger('edge_scanner')
 
 @log_execution_time
-@log_errors()
+@log_errors
 def scan_for_edges(df: pd.DataFrame) -> dict:
     """
-    Main scan function—broad tests for each primary category, conditional subsets.
-    - Input: df with 'returns' column (from data_loader.py).
-    - Output: edge_map = {'behavioral': {'score': 0.45, 'details': ...}, ...}—multiples OK.
-    - Why visual: Dict structure easy for heatmaps (rows=primary, columns=scopes).
+    Scan for patterns across 8 types—simple checks for wins above average.
+    - Input: df with 'returns' (daily % change), 'vol' (market wildness).
+    - Output: Map of patterns with strength scores (0-1: higher = better win chance) and hold times.
     """
-    df = check_data_sanity(df, logger, 'edge_scanner')  # Debug check
+    df = check_data_sanity(df, logger, 'edge_scanner')
     edge_map = {}
-    
-    for category, desc in PRIMARY_CATEGORIES.items():
-        logger.info(f"Scanning {category}: {desc}")
+
+    def basic_pattern_test(returns: pd.Series, category: str) -> tuple:
+        """Simple check: How much better than average? (strength, significance)"""
+        mean_win = returns.mean()
+        strength = abs(mean_win)  # 0-1 scale (higher = stronger pattern)
+        significance = stats.ttest_1samp(returns.dropna(), 0)[1]  # Low = real, not luck
+        return strength, significance
+
+    for category in PRIMARY_CATEGORIES:
+        logger.info(f"Scanning {category}: {PRIMARY_CATEGORIES[category]}")
         
-        # Broad test: Basic stat on returns (e.g., mean >0 for directional)
-        broad_score, broad_p = basic_asymmetry_test(df['returns'], category)
-        log_var_state('broad_results', {'score': broad_score, 'p': broad_p}, logger)
-        
-        # Always create entry, even if broad low—conditionals might unlock
-        edge_map[category] = {'broad_score': broad_score, 'broad_p': broad_p}
-        
-        # Conditional: Subset tests (e.g., low-vol)
-        conditional_score = conditional_subset_test(df, category)
-        edge_map[category]['conditional_score'] = conditional_score  # Add always—0 if no boost
-        
-        # Test scopes: Simulate holds per your definitions
-        scope_results = test_scopes(df, category)
-        edge_map[category]['scopes'] = scope_results
-        
-        # Check if all low—warning but continue (avoids missing latents)
-        if broad_score <= THRESHOLDS['min_edge_score'] and conditional_score <= THRESHOLDS['min_edge_score']:
-            logger.warning(f"{category} low globally/conditionally—check if latent in other filters")
-    
-    logger.info(f"Scan complete: {len(edge_map)} potential edges found")
+        # Basic strength (global)
+        broad_strength, broad_signif = basic_pattern_test(df['returns'], category)
+
+        # Better in certain conditions (e.g., calm markets)
+        low_vol_returns = df['returns'][df['vol'] < df['vol'].quantile(0.3)]
+        conditional_strength, conditional_signif = basic_pattern_test(low_vol_returns, category)
+
+        # Hold times (simple: same strength, adjusted for short/medium)
+        scopes = {'day_trading': broad_strength, 'short_term': broad_strength * 0.5}  # Shorter = full, longer = half (fades)
+
+        edge_map[category] = {
+            'broad_strength': broad_strength,
+            'conditional_strength': conditional_strength,
+            'scopes': scopes
+        }
+        log_var_state('broad_results', {'strength': broad_strength, 'signif': broad_signif}, logger)
+        if broad_strength < THRESHOLDS['min_edge_strength']:
+            logger.warning(f"{category} low overall/better conditions—check if hidden in other types")
+
+    logger.info(f"Scan complete: {len(edge_map)} potential patterns found")
     return edge_map
-
-def basic_asymmetry_test(returns: pd.Series, category: str) -> tuple:
-    """Basic test per category—e.g., positive mean for directional."""
-    if category == 'directional':
-        mean_ret = returns.mean()
-        t_stat, p_val = stats.ttest_1samp(returns, 0)  # Test >0
-        score = mean_ret if p_val < 0.05 else 0
-    elif category == 'behavioral':
-        # Autocorr for trend (positive) vs reversion (negative)
-        autocorr = returns.autocorr(lag=1)
-        score = abs(autocorr) if abs(autocorr) > 0.1 else 0
-        p_val = 0.05  # Placeholder—use proper test
-    # Add for other categories (e.g., temporal: groupby day, test diffs)
-    else:
-        score, p_val = 0, 1  # Placeholder—expand per category
-    
-    return score, p_val
-
-def conditional_subset_test(df: pd.DataFrame, category: str) -> float:
-    """Subset tests for latent edges—e.g., reversion in high-vol."""
-    low_vol_df = df[df['vol'] < df['vol'].quantile(0.3)]
-    cond_score, _ = basic_asymmetry_test(low_vol_df['returns'], category)
-    return cond_score
-
-def test_scopes(df: pd.DataFrame, category: str) -> dict:
-    """Test holds per your scopes—simulate returns for each range."""
-    scope_results = {}
-    for scope, desc in SUB_CLASSIFIERS['scopes'].items():
-        if '1 day' in desc:
-            hold_ret = df['returns'].shift(-1)
-            score, _ = basic_asymmetry_test(hold_ret.dropna(), category)
-            scope_results[scope] = score
-        # Expand for other scopes (e.g., scalping: Intraday holds—need LTF data)
-    return scope_results
-
-# Example Test (run this in console to see)
-if __name__ == "__main__":
-    # Fake data for test
-    fake_df = pd.DataFrame({'returns': np.random.normal(0.001, 0.02, 100), 'vol': np.random.normal(0.01, 0.005, 100)}, index=pd.date_range('2020-01-01', periods=100))
-    edges = scan_for_edges(fake_df)
-    print(edges)  # See map in terminal
 
