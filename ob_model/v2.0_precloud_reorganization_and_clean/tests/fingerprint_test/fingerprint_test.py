@@ -12,13 +12,18 @@ Ties to vision: Shows how fingerprint extracts "why" OB wins (e.g., trending edg
 """
 
 import pandas as pd
-import numpy as np
+import np as np
 from core.edge_scanner import scan_for_edges
 from core.fingerprint_classifier import classify_edges
 from core.fingerprint_evolver import evolve_edges
-from utils.logger import get_logger, progress_wrapper
+from utils.logger import get_logger
 from config.settings import PLOT_ENABLED, VERBOSE  # Toggle for detail
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich import box
 
+console = Console()  # Rich for pretty output
 logger = get_logger('fingerprint_test')
 
 # Create fake data
@@ -28,33 +33,56 @@ fake_data = {
 }
 fake_df = pd.DataFrame(fake_data, index=pd.date_range('2024-01-01', periods=100))
 
-logger.info("=== Fingerprint Chain Test Starting ===")
-logger.info("VERBOSE mode: %s - Clean summaries (toggle in settings.py for full details).", "On" if VERBOSE else "Off")
+console.print(Panel("Fingerprint Chain Test Starting", style="bold green", box=box.ROUNDED))
+console.print(f"VERBOSE mode: {'On' if VERBOSE else 'Off'} - Clean summaries (toggle in settings.py for full details).", style="italic")
 
 # Step 1: Run scan
-logger.info("=== Step 1: Scan - Searching for asymmetries (edges) across categories ===")
+console.print(Panel("Step 1: Scan - Searching for asymmetries (edges) across categories", style="bold blue", box=box.ROUNDED))
 edge_map = scan_for_edges(fake_df)
-logger.info("Scan complete. 8 potential edges found. Here's the raw edge map (broad/conditional scores, scopes):")
-# Pretty table with explanation
-edge_table = pd.DataFrame.from_dict(edge_map, orient='index')[['broad_score', 'conditional_score', 'scopes']]
-print(edge_table.to_string())
-logger.info("Explanation: Broad score = global asymmetry, Conditional = subset boost (e.g., low-vol like RSI2). Scopes = hold ranges (e.g., day_trading = 1-day). Low in fake; real NQ shows trending.")
+console.print("Scan complete. 8 potential edges found. Here's the raw edge map (broad/conditional scores, scopes):", style="green")
+# Pretty table with Rich
+table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
+table.add_column("Category")
+table.add_column("Broad Score")
+table.add_column("Conditional Score")
+table.add_column("Scopes")
+for category, data in edge_map.items():
+    table.add_row(category, str(data['broad_score']), str(data['conditional_score']), str(data['scopes']))
+console.print(table)
+console.print("Explanation: Broad score = global asymmetry, Conditional = subset boost (e.g., low-vol like RSI2). Scopes = hold ranges (e.g., day_trading = 1-day). Low in fake; real NQ shows trending.", style="dim")
 
 # Step 2: Run classify
-logger.info("\n=== Step 2: Classify - Tagging edges with taxonomy (e.g., scopes like day trading) ===")
+console.print(Panel("Step 2: Classify - Tagging edges with taxonomy (e.g., scopes like day trading)", style="bold blue", box=box.ROUNDED))
 tagged_map = classify_edges(edge_map)
-logger.info("Classification complete. Here's the tagged map (desc, score, best scope):")
-tagged_table = pd.DataFrame.from_dict(tagged_map, orient='index')[['primary_desc', 'final_score', 'sub']]
-print(tagged_table.to_string())
-logger.info("Explanation: Primary desc = edge type (e.g., behavioral for reversion). Final score = viability (>0.1 = potential). Sub = best scope (e.g., day_trading for 1-day holds).")
+console.print("Classification complete. Here's the tagged map (desc, score, best scope):", style="green")
+table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
+table.add_column("Category")
+table.add_column("Desc")
+table.add_column("Final Score")
+table.add_column("Best Scope")
+for category, data in tagged_map.items():
+    table.add_row(category, data['primary_desc'], str(data['final_score']), data['sub']['best_scope'])
+console.print(table)
+console.print("Explanation: Primary desc = edge type (e.g., behavioral for reversion). Final score = viability (>0.1 = potential). Best scope = optimal hold (e.g., day_trading for 1-day).", style="dim")
 
 # Step 3: Run evolve
-logger.info("\n=== Step 3: Evolve - Tracking changes (e.g., strengthening slope, persistence) ===")
+console.print(Panel("Step 3: Evolve - Tracking changes (e.g., strengthening slope, persistence)", style="bold blue", box=box.ROUNDED))
 evolved_map = evolve_edges(tagged_map, fake_df, plot_enabled=PLOT_ENABLED)
-logger.info("Evolution complete. Here's the final evolved map (score, evolution metrics):")
-evolved_table = pd.DataFrame.from_dict(evolved_map, orient='index')[['final_score', 'evolution']]
-print(evolved_table.to_string())
-logger.info("Explanation: Evolution = trends (rolling_avg = average strength, intensity_slope = change rate, persistence_days = how long it holds). Plots in docs/plots/ show lines (rising = strengthening) and bars (tall = strong categories).")
+console.print("Evolution complete. Here's the final evolved map (score, evolution metrics):", style="green")
+table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
+table.add_column("Category")
+table.add_column("Final Score")
+table.add_column("Rolling Avg")
+table.add_column("Intensity Slope")
+table.add_column("Persistence Days")
+table.add_column("Break Detected")
+for category, data in evolved_map.items():
+    evolution = data['evolution']
+    slope = str(evolution.get('intensity_slope', 'N/A'))
+    break_d = str(evolution.get('break_detected', 'N/A'))
+    table.add_row(category, str(data['final_score']), str(evolution['rolling_avg']), slope, str(evolution['persistence_days']), break_d)
+console.print(table)
+console.print("Explanation: Evolution = trends (rolling_avg = average strength, intensity_slope = change rate, persistence_days = how long it holds). Plots in docs/plots/ show lines (rising = strengthening) and bars (tall = strong categories).", style="dim")
 
-logger.info("\n=== Test Complete ===\nCheck logs/fingerprint_test/[name]_[yyyy-mm-dd_hh-mm-ss].log for details. Plots in docs/plots/. Toggle VERBOSE=True for more scan info. Real data next for stronger edges!")
+console.print(Panel("Test Complete\nCheck logs/fingerprint_test/[name]_[yyyy-mm-dd_hh-mm-ss].log for details. Plots in docs/plots/. Toggle VERBOSE=True for more scan info. Real data next for stronger edges!", style="bold green", box=box.ROUNDED))
 
