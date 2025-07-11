@@ -1,0 +1,2 @@
+2025-07-11 16:34:30.147 | INFO     | utils.logger:wrapper:135 - decorator completed in 0.00s
+2025-07-11 16:34:30.147 | ERROR    | utils.logger:wrapper:139 - decorator failed after 0.00s: log_errors.<locals>.decorator() takes 1 positional argument but 2 were given
