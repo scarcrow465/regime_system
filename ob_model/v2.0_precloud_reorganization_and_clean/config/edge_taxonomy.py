@@ -59,6 +59,7 @@ ANALYTICAL_METRICS = {
 # Thresholds: Low to catch potentials—regimes unlock (e.g., 0.1 global, >0.5 conditional)
 THRESHOLDS = {
     'min_edge_score': 0.1,  # Flag potential (any asymmetry)
+    'min_edge_strength': 0.1,  # Alias for consistency
     'conditional_boost': 0.3,  # Add if regime/weekly aligns (e.g., RSI2 + low-vol)
     'evolution_significance': 0.05,  # p-value for changes (e.g., post-1983 shift)
     'persistence_min_days': 5  # Edge reliable if lasts this long

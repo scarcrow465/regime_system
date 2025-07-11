@@ -1,0 +1,5 @@
+2025-07-11 18:08:44.556 | WARNING  | utils.debug_utils:check_data_sanity:18 - edge_scanner: NaNs found—filling with 0
+2025-07-11 18:08:44.570 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning temporal: Calendar patterns (e.g., day-of-week returns diffs)
+2025-07-11 18:08:44.576 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(2.7111345029805188e-05), 'signif': np.float64(0.003375281320843498)}...
+2025-07-11 18:08:44.576 | ERROR    | utils.logger:wrapper:156 - Error in scan_for_edges: 'min_edge_strength'
+2025-07-11 18:08:44.577 | ERROR    | utils.logger:wrapper:139 - scan_for_edges failed after 0.03s: 'min_edge_strength'
