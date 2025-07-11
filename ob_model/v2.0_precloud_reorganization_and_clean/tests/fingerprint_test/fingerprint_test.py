@@ -41,7 +41,7 @@ console.print(f"VERBOSE mode: {'On' if VERBOSE else 'Off'} - Clean summaries (to
 
 # Run chain
 edge_map = scan_for_edges(df)
-tagged_map = classify_edges(edge_map)
+tagged_map = classify_edges(edge_map, TIMEFRAME)
 evolved_map = evolve_edges(tagged_map, df, plot_enabled=PLOT_ENABLED)
 
 # Display raw edge map
