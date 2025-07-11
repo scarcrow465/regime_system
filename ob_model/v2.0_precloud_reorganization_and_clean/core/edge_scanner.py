@@ -18,6 +18,13 @@ from scipy import stats  # For t-tests/p-values
 from utils.logger import get_logger, log_execution_time, log_errors
 from utils.debug_utils import check_data_sanity, log_var_state
 from config.edge_taxonomy import PRIMARY_CATEGORIES, SUB_CLASSIFIERS, THRESHOLDS
+import logging  # For logging.WARNING
+from config.settings import VERBOSE
+
+logger = get_logger('edge_scanner')  # Define logger first
+
+if not VERBOSE:
+    logger.setLevel(logging.WARNING)  # Suppress INFO if not VERBOSE
 
 logger = get_logger('edge_scanner')
 
