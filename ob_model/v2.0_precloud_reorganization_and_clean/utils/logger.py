@@ -9,8 +9,7 @@ Logging utilities for the Regime System
 Provides consistent logging across all modules
 """
 
-from loguru import logger as loguru_logger
-from loguru._logger import Logger
+from loguru import logger as loguru_logger, Logger
 import sys
 import os
 from datetime import datetime
@@ -32,7 +31,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Global Loguru setup (pretty console, deep file)
 loguru_logger.remove()  # Clear defaults
 loguru_logger.add(sys.stdout, level=LOG_LEVEL, colorize=True, format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>")  # Pretty console
-loguru_logger.add(lambda msg: os.path.join(LOG_DIR, f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"), level="DEBUG", rotation="10 MB")  # Deep file with rotation
+loguru_logger.add(os.path.join(LOG_DIR, "{time:YYYY-MM-DD_HH-MM-SS}.log"), level="DEBUG", rotation="10 MB")  # Deep file with timed naming and rotation
 
 def get_logger(name: str) -> Logger:
     """Get a Loguru logger instance with name binding"""
