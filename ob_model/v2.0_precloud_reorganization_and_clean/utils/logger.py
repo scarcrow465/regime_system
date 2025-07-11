@@ -9,7 +9,7 @@ Logging utilities for the Regime System
 Provides consistent logging across all modules
 """
 
-from loguru import logger as loguru_logger
+from loguru import logger as loguru_logger, Logger
 import sys
 import os
 from datetime import datetime
@@ -33,7 +33,7 @@ loguru_logger.remove()  # Clear defaults
 loguru_logger.add(sys.stdout, level=LOG_LEVEL, colorize=True, format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>")  # Pretty console
 loguru_logger.add(lambda msg: os.path.join(LOG_DIR, f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"), level="DEBUG", rotation="10 MB")  # Deep file with rotation
 
-def get_logger(name: str) -> loguru_logger:
+def get_logger(name: str) -> Logger:
     """Get a Loguru logger instance with name binding"""
     return loguru_logger.bind(name=name)
 
@@ -118,7 +118,7 @@ class TradingLogger:
 # LOGGING DECORATORS (Adapted for Loguru)
 # =============================================================================
 
-def log_execution_time(logger: Optional[loguru_logger] = None):
+def log_execution_time(logger: Optional[Logger] = None):
     """Decorator to log function execution time"""
     import functools
     import time
@@ -148,7 +148,7 @@ def log_execution_time(logger: Optional[loguru_logger] = None):
         return wrapper
     return decorator
 
-def log_errors(logger: Optional[loguru_logger] = None, 
+def log_errors(logger: Optional[Logger] = None, 
               reraise: bool = True):
     """Decorator to log exceptions"""
     import functools
