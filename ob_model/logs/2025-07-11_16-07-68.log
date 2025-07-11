@@ -1,0 +1,27 @@
+2025-07-11 16:04:36.224 | WARNING  | utils.debug_utils:check_data_sanity:18 - edge_scanner: NaNs found—filling with 0
+2025-07-11 16:04:36.226 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning temporal: Calendar patterns (e.g., day-of-week returns diffs)
+2025-07-11 16:04:36.226 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 1}...
+2025-07-11 16:04:36.228 | WARNING  | core.edge_scanner:scan_for_edges:58 - temporal low globally/conditionally—check if latent in other filters
+2025-07-11 16:04:36.228 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning directional: Long/short bias (e.g., positive drift in sims)
+2025-07-11 16:04:36.230 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': np.float64(0.0004747480053472638), 'p': np.float64(0.024475765684454545)}...
+2025-07-11 16:04:36.234 | WARNING  | core.edge_scanner:scan_for_edges:58 - directional low globally/conditionally—check if latent in other filters
+2025-07-11 16:04:36.234 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning behavioral: Trend/reversion/chop (e.g., autocorrelation tests)
+2025-07-11 16:04:36.235 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 0.05}...
+2025-07-11 16:04:36.237 | WARNING  | core.edge_scanner:scan_for_edges:58 - behavioral low globally/conditionally—check if latent in other filters
+2025-07-11 16:04:36.237 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning conditional: Regime-dependent (e.g., subset tests on vol)
+2025-07-11 16:04:36.237 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 1}...
+2025-07-11 16:04:36.239 | WARNING  | core.edge_scanner:scan_for_edges:58 - conditional low globally/conditionally—check if latent in other filters
+2025-07-11 16:04:36.239 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning event_driven: News reactions (e.g., isolate Fed days)
+2025-07-11 16:04:36.239 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 1}...
+2025-07-11 16:04:36.240 | WARNING  | core.edge_scanner:scan_for_edges:58 - event_driven low globally/conditionally—check if latent in other filters
+2025-07-11 16:04:36.240 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning intermarket: Cross-asset links (e.g., correlation tests)
+2025-07-11 16:04:36.241 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 1}...
+2025-07-11 16:04:36.242 | WARNING  | core.edge_scanner:scan_for_edges:58 - intermarket low globally/conditionally—check if latent in other filters
+2025-07-11 16:04:36.242 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning microstructural: Volume/VWAP patterns
+2025-07-11 16:04:36.242 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 1}...
+2025-07-11 16:04:36.244 | WARNING  | core.edge_scanner:scan_for_edges:58 - microstructural low globally/conditionally—check if latent in other filters
+2025-07-11 16:04:36.244 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning sentiment_flow: Positioning extremes (e.g., COT data if available)
+2025-07-11 16:04:36.244 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 1}...
+2025-07-11 16:04:36.246 | WARNING  | core.edge_scanner:scan_for_edges:58 - sentiment_flow low globally/conditionally—check if latent in other filters
+2025-07-11 16:04:36.246 | INFO     | core.edge_scanner:scan_for_edges:60 - Scan complete: 8 potential edges found
+2025-07-11 16:04:36.246 | INFO     | utils.logger:wrapper:139 - scan_for_edges completed in 0.02s

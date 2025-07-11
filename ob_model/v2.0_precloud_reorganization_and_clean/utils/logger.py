@@ -10,6 +10,7 @@ Provides consistent logging across all modules
 """
 
 from loguru import logger as loguru_logger
+from loguru._logger import Logger
 import sys
 import os
 from datetime import datetime
@@ -33,7 +34,7 @@ loguru_logger.remove()  # Clear defaults
 loguru_logger.add(sys.stdout, level=LOG_LEVEL, colorize=True, format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>")  # Pretty console
 loguru_logger.add(os.path.join(LOG_DIR, "{time:YYYY-MM-DD_HH-MM-SS}.log"), level="DEBUG", rotation="10 MB")  # Deep file with timed naming and rotation
 
-def get_logger(name: str) -> "loguru_logger":
+def get_logger(name: str) -> Logger:
     """Get a Loguru logger instance with name binding"""
     return loguru_logger.bind(name=name)
 
@@ -118,52 +119,41 @@ class TradingLogger:
 # LOGGING DECORATORS (Adapted for Loguru)
 # =============================================================================
 
-def log_execution_time(logger: Optional["loguru_logger"] = None):
+def log_execution_time(func):
     """Decorator to log function execution time"""
     import functools
     import time
     
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            nonlocal logger
-            if logger is None:
-                logger = get_logger(func.__module__)
-            
-            start_time = time.time()
-            
-            try:
-                result = func(*args, **kwargs)
-                execution_time = time.time() - start_time
-                
-                logger.info("{func_name} completed in {time:.2f}s", func_name=func.__name__, time=execution_time)
-                
-                return result
-                
-            except Exception as e:
-                execution_time = time.time() - start_time
-                logger.error("{func_name} failed after {time:.2f}s: {error}", func_name=func.__name__, time=execution_time, error=e)
-                raise
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        logger = get_logger(func.__module__)
+        start_time = time.time()
         
-        return wrapper
-    return decorator
+        try:
+            result = func(*args, **kwargs)
+            execution_time = time.time() - start_time
+            logger.info(f"{func.__name__} completed in {execution_time:.2f}s")
+            return result
+        except Exception as e:
+            execution_time = time.time() - start_time
+            logger.error(f"{func.__name__} failed after {execution_time:.2f}s: {e}")
+            raise
+        
+    return wrapper
 
-def log_errors(logger: Optional["loguru_logger"] = None, 
-              reraise: bool = True):
+def log_errors(reraise: bool = True):
     """Decorator to log exceptions"""
     import functools
     
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            nonlocal logger
-            if logger is None:
-                logger = get_logger(func.__module__)
+            logger = get_logger(func.__module__)
             
             try:
                 return func(*args, **kwargs)
             except Exception as e:
-                logger.error("Error in {func_name}: {error}", func_name=func.__name__, error=e)
+                logger.error(f"Error in {func.__name__}: {e}")
                 if reraise:
                     raise
                 return None
