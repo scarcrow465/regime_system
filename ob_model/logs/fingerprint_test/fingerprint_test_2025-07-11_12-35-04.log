@@ -1,0 +1,16 @@
+2025-07-11 12:35:04,222 - fingerprint_test - INFO - === Fingerprint Chain Test Starting ===
+2025-07-11 12:35:04,223 - fingerprint_test - INFO - VERBOSE mode: Off - Clean summaries (toggle in settings.py for full details).
+2025-07-11 12:35:04,223 - fingerprint_test - INFO - === Step 1: Scan - Searching for asymmetries (edges) across categories ===
+2025-07-11 12:35:04,241 - fingerprint_test - INFO - Scan complete. 8 potential edges found. Here's the raw edge map (broad/conditional scores, scopes):
+2025-07-11 12:35:04,245 - fingerprint_test - INFO - Explanation: Broad score = global asymmetry, Conditional = subset boost (e.g., low-vol like RSI2). Scopes = hold ranges (e.g., day_trading = 1-day). Low in fake; real NQ shows trending.
+2025-07-11 12:35:04,246 - fingerprint_test - INFO - 
+=== Step 2: Classify - Tagging edges with taxonomy (e.g., scopes like day trading) ===
+2025-07-11 12:35:04,248 - fingerprint_test - INFO - Classification complete. Here's the tagged map (desc, score, best scope):
+2025-07-11 12:35:04,252 - fingerprint_test - INFO - Explanation: Primary desc = edge type (e.g., behavioral for reversion). Final score = viability (>0.1 = potential). Sub = best scope (e.g., day_trading for 1-day holds).
+2025-07-11 12:35:04,252 - fingerprint_test - INFO - 
+=== Step 3: Evolve - Tracking changes (e.g., strengthening slope, persistence) ===
+2025-07-11 12:35:04,846 - fingerprint_test - INFO - Evolution complete. Here's the final evolved map (score, evolution metrics):
+2025-07-11 12:35:04,849 - fingerprint_test - INFO - Explanation: Evolution = trends (rolling_avg = average strength, intensity_slope = change rate, persistence_days = how long it holds). Plots in docs/plots/ show lines (rising = strengthening) and bars (tall = strong categories).
+2025-07-11 12:35:04,849 - fingerprint_test - INFO - 
+=== Test Complete ===
+Check logs/fingerprint_test/[name]_[yyyy-mm-dd_hh-mm-ss].log for details. Plots in docs/plots/. Toggle VERBOSE=True for more scan info. Real data next for stronger edges!
