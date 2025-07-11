@@ -27,7 +27,7 @@ console = Console()  # Rich for pretty output
 logger = get_logger('fingerprint_test')
 
 # Load your weekly data (replace with actual path/variable)
-weekly_df = pd.read_csv('path/to/weekly_nq.csv')  # Or weekly_df = your_weekly_df_variable
+weekly_df = pd.read_csv(r'C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean\combined_NQ_weekly_data.csv')  # Or weekly_df = your_weekly_df_variable
 weekly_df.index = pd.to_datetime(weekly_df.index)  # Ensure datetime index
 
 console.print(Panel("Fingerprint Chain Test Starting", style="bold green", box=box.ROUNDED))
