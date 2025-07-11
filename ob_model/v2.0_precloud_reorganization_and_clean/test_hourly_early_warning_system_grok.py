@@ -22,6 +22,7 @@ parser.add_argument('--ltf_path', default='combined_NQ_1h_data.csv')  # Assume 1
 parser.add_argument('--timeframes', nargs='+', default=['1H', '4H', '8H'])  # Multiple TFs
 parser.add_argument('--lookback_days', type=int, default=252)
 parser.add_argument('--walk_forward', action='store_true', default=False)  # Toggle walk-forward mode
+parser.add_argument('--wfo', action='store_true', default=False)  # Toggle WFO for per-TF thresholds
 parser.add_argument('--verbose', action='store_true', default=False)  # Toggle verbose logs
 parser.add_argument('--tuning_verbose', action='store_true', default=False)  # Toggle tuning diagnostics
 
@@ -68,6 +69,53 @@ daily_classifier = NQDailyRegimeClassifier(lookback_days=args.lookback_days)
 daily_regimes = daily_classifier.classify_regimes(daily_with_indicators)
 
 thresh = daily_classifier.thresholds  # Use thresholds dict from classifier
+
+if args.wfo:
+    print("\nRunning Walk-Forward Optimization for per-TF thresholds...")
+    # Define grid for thresholds (expand as needed)
+    threshold_grid = {
+        'direction_strong': [0.2, 0.25, 0.3, 0.35],
+        'efficiency_trending': [0.15, 0.2, 0.25, 0.3]
+    }
+    # Split into walks (6mo IS + 3mo OOS, rolling)
+    walk_windows = []
+    start_date = daily_data.index[0]
+    while start_date + pd.DateOffset(months=9) < daily_data.index[-1]:
+        is_end = start_date + pd.DateOffset(months=6)
+        oos_end = is_end + pd.DateOffset(months=3)
+        walk_windows.append((start_date, is_end, oos_end))
+        start_date = is_end
+
+    # Per-TF optimization
+    tf_configs = {}
+    for tf in args.timeframes:
+        best_config = {'thresholds': {}}
+        best_success = 0
+        for dir_strong in threshold_grid['direction_strong']:
+            for eff_trend in threshold_grid['efficiency_trending']:
+                temp_config = {'thresholds': {'direction_strong': dir_strong, 'efficiency_trending': eff_trend}}
+                avg_success = 0
+                for is_start, is_end, oos_end in walk_windows:
+                    is_data = daily_data[(daily_data.index >= is_start) & (daily_data.index < is_end)]
+                    oos_data = daily_data[(daily_data.index >= is_end) & (daily_data.index < oos_end)]
+                    if len(is_data) < 50 or len(oos_data) < 20: continue
+                    temp_classifier = NQDailyRegimeClassifier(lookback_days=args.lookback_days)
+                    temp_classifier.thresholds.update(temp_config['thresholds'])
+                    is_regimes = temp_classifier.classify_regimes(calculate_all_indicators(is_data))
+                    oos_regimes = temp_classifier.classify_regimes(calculate_all_indicators(oos_data))
+                    # Success: % correct shifts (placeholder; refine with your divergence)
+                    oos_shifts = (oos_regimes['composite_regime'] != oos_regimes['composite_regime'].shift()).sum()
+                    predicted_shifts = len(oos_regimes) * 0.1  # Adjust to your logic
+                    success = 1 - abs(oos_shifts - predicted_shifts) / len(oos_regimes)
+                    avg_success += success
+                avg_success /= len(walk_windows) or 1
+                if avg_success > best_success:
+                    best_success = avg_success
+                    best_config = temp_config
+        tf_configs[tf] = best_config
+        print(f"Best config for {tf}: {best_config} (Success: {best_success:.1f}%)")
+else:
+    tf_configs = None
 
 if args.tuning_verbose:
     print("\n============================================================\nTHRESHOLD DIAGNOSTICS FOR TUNING\n============================================================")
@@ -374,7 +422,12 @@ else:
     current_daily_regimes = daily_classifier.classify_regimes(train_daily_with_indicators)
     
     # Initialize ews for each TF
-    ews_list = [LowerTimeframeEarlyWarningSystem(daily_classifier, timeframe=tf) for tf in args.timeframes]
+    ews_list = []
+    for tf in args.timeframes:
+        ews = LowerTimeframeEarlyWarningSystem(daily_classifier, timeframe=tf)
+        if tf_configs and tf in tf_configs:
+            ews.config.update(tf_configs[tf])
+        ews_list.append(ews)
     
     # Incremental loop: Process test data hour by hour
     predictions = []  # Log (time, predicted_shift, actual_shift)
@@ -421,8 +474,18 @@ else:
                     alignment_weight *= 0.8  # Penalty for isolated LTF divergence
             
             # Predicted shift with weighted consensus
-            avg_score = np.mean([d['divergence_score'].iloc[-1] if len(d) > 0 else 0 for d in divergences_list])
-            predicted_shift = (avg_score * alignment_weight) > 0.8
+            tf_weights = {'1H': 0.2, '4H': 0.3, '8H': 0.5}  # Adjust as needed
+            weighted_scores = [divergences_list[j]['divergence_score'].iloc[-1] * tf_weights[args.timeframes[j]] for j in range(len(divergences_list)) if len(divergences_list[j]) > 0]
+            avg_score = np.mean(weighted_scores) if weighted_scores else 0
+            personality_boost = 1.0
+            # Recalc fingerprint every 20 days (dynamic)
+            if (current_time - last_daily_close).days >= 20:
+                recent_daily = cumulative_daily.tail(20)
+                trend_bias = (recent_daily['close'].pct_change() > 0).mean() > 0.6  # Up bias if >60% up days
+                reversion_strength = recent_daily['strength_score'].mean() < 0.3  # Mean reversion if low strength
+                if trend_bias and reversion_strength and daily_regime == 'Uptrend':
+                    personality_boost = 1.5 if np.mean([d['strength_divergence'].iloc[-1] for d in divergences_list]) > 0.7 else 1.0  # Boost for reversion warning
+            predicted_shift = (avg_score * alignment_weight * personality_boost) > 0.8
             
             # Actual shift: Check if tomorrow's regime differs (simulation uses full for "actual")
             daily_date = current_time.date()
