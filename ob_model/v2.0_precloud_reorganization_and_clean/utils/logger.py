@@ -77,7 +77,7 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(log_data)
 
 # =============================================================================
-# LOGGER SETUP (Enhanced with date_time in filename for new file per run)
+# LOGGER SETUP (Fixed for time in filename—new file per run)
 # =============================================================================
 
 def setup_logger(name: str = 'regime_system',
@@ -87,18 +87,7 @@ def setup_logger(name: str = 'regime_system',
                 file_logging: bool = True,
                 json_format: bool = False) -> logging.Logger:
     """
-    Setup a logger with console and file handlers. Enhanced: Filename with date_time (new file per run, no overload).
-    
-    Args:
-        name: Logger name
-        level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_file: Custom log file path
-        console: Whether to log to console
-        file_logging: Whether to log to file
-        json_format: Whether to use JSON format for logs
-        
-    Returns:
-        Configured logger
+    Setup a logger with console and file handlers. Fixed: Filename with date_time (new file per run, no overload).
     """
     logger = logging.getLogger(name)
     
@@ -120,12 +109,12 @@ def setup_logger(name: str = 'regime_system',
         logger.addHandler(console_handler)
     
     if file_logging:
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Date_time for new file per run
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Date_time for new file
         module_dir = os.path.join(LOG_DIR, name.lower())
         os.makedirs(module_dir, exist_ok=True)
         
         if log_file is None:
-            log_file = os.path.join(module_dir, f'{name}_{timestamp}.log')
+            log_file = os.path.join(module_dir, f'{name}_{timestamp}.log')  # Name_date_time.log
         
         file_handler = RotatingFileHandler(
             log_file,
