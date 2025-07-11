@@ -22,14 +22,11 @@ import os
 import matplotlib
 matplotlib.use('agg')  # No popup
 import matplotlib.pyplot as plt
-import logging  # For logging.WARNING
-from config.settings import VERBOSE
 
-logger = get_logger('fingerprint_evolver')  # Define logger first
+logger = get_logger('fingerprint_evolver')
 
 @log_execution_time(logger)
 @log_errors(logger)
-
 def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252, plot_enabled: bool = True) -> dict:
     """
     Evolve edges—compute rolling scores, intensity, persistence, breaks.
@@ -65,7 +62,7 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252, plo
         # Persistence
         data['evolution']['persistence_days'] = len(df) / 10
         
-        # Break Detection
+        # Break Detection (enhanced for weekly: monthly subsets)
         mid = len(df) // 2
         if mid > 0:
             pre, post = df['returns'][:mid], df['returns'][mid:]
