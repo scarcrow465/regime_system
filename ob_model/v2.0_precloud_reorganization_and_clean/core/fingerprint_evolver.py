@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 logger = get_logger('fingerprint_evolver')
 
 @log_execution_time
-@log_errors
+@log_errors()
 def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252, plot_enabled: bool = True) -> dict:
     """
     Evolve edges—compute rolling scores, intensity, persistence, breaks.
