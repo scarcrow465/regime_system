@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 import json
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
-from tqdm import tqdm  # Added for visual progress bars in terminal (pip install if needed)
+from tqdm import tqdm  # For visual progress bars
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -41,15 +41,12 @@ class ColoredFormatter(logging.Formatter):
     RESET = '\033[0m'
     
     def format(self, record):
-        # Add color to level name
         levelname = record.levelname
         if levelname in self.COLORS:
             record.levelname = f"{self.COLORS[levelname]}{levelname}{self.RESET}"
         
-        # Format message
         formatted = super().format(record)
         
-        # Reset level name
         record.levelname = levelname
         
         return formatted
@@ -68,11 +65,9 @@ class JsonFormatter(logging.Formatter):
             'message': record.getMessage(),
         }
         
-        # Add exception info if present
         if record.exc_info:
             log_data['exception'] = self.formatException(record.exc_info)
         
-        # Add extra fields
         for key, value in record.__dict__.items():
             if key not in ['name', 'msg', 'args', 'created', 'msecs', 'levelname', 
                           'levelno', 'pathname', 'filename', 'module', 'funcName', 
@@ -82,7 +77,7 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(log_data)
 
 # =============================================================================
-# LOGGER SETUP (Enhanced with subdirs and tqdm integration)
+# LOGGER SETUP (Enhanced with date_time in filename for new file per run)
 # =============================================================================
 
 def setup_logger(name: str = 'regime_system',
@@ -92,7 +87,7 @@ def setup_logger(name: str = 'regime_system',
                 file_logging: bool = True,
                 json_format: bool = False) -> logging.Logger:
     """
-    Setup a logger with console and file handlers. Enhanced: Dated subdirs for files (e.g., logs/regime_system/2025-07-11_detailed.txt) to avoid mess; tqdm support for visual bars in terminal summaries.
+    Setup a logger with console and file handlers. Enhanced: Filename with date_time (new file per run, no overload).
     
     Args:
         name: Logger name
@@ -105,17 +100,13 @@ def setup_logger(name: str = 'regime_system',
     Returns:
         Configured logger
     """
-    # Create logger
     logger = logging.getLogger(name)
     
-    # Set level
     level = level or LOG_LEVEL
     logger.setLevel(getattr(logging, level.upper()))
     
-    # Remove existing handlers
     logger.handlers = []
     
-    # Console handler
     if console:
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(getattr(logging, level.upper()))
@@ -128,17 +119,14 @@ def setup_logger(name: str = 'regime_system',
         console_handler.setFormatter(console_formatter)
         logger.addHandler(console_handler)
     
-    # File handler with dated subdir
     if file_logging:
-        # Create dated subdir (e.g., logs/regime_system/2025-07-11)
-        timestamp = datetime.now().strftime("%Y-%m-%d")
-        module_dir = os.path.join(LOG_DIR, name.lower(), timestamp)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Date_time for new file per run
+        module_dir = os.path.join(LOG_DIR, name.lower())
         os.makedirs(module_dir, exist_ok=True)
         
         if log_file is None:
             log_file = os.path.join(module_dir, f'{name}_{timestamp}.log')
         
-        # Create rotating file handler (10MB max, keep 5 backups)
         file_handler = RotatingFileHandler(
             log_file,
             maxBytes=10*1024*1024,  # 10MB
