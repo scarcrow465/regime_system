@@ -67,7 +67,7 @@ console.print("What It Means: Overall = average win chance. Better Conditions = 
 pd.DataFrame(edge_map).T.to_csv(f'docs/tables/{TIMEFRAME}_patterns_found.csv')
 fig, ax = plt.subplots()  # PNG of table
 ax.axis('off')
-ax.table(cellText=table.rows, colLabels=table.columns, loc='center')
+ax.table(cellText=[ [category.capitalize(), str(data['broad_strength']), str(data['conditional_strength']), str(data['scopes'])] for category, data in edge_map.items()], colLabels=["Pattern Type", "Overall Strength", "Better Conditions Strength", "Hold Times"], loc='center')
 fig.savefig(f'docs/plots/{TIMEFRAME}_patterns_found.png')
 
 # Best Ways Table
@@ -86,7 +86,7 @@ console.print("What It Means: Simple Name = easy description. Strength = win cha
 pd.DataFrame(tagged_map).T.to_csv(f'docs/tables/{TIMEFRAME}_best_ways.csv')
 fig, ax = plt.subplots()
 ax.axis('off')
-ax.table(cellText=table.rows, colLabels=table.columns, loc='center')
+ax.table(cellText=[ [category.capitalize(), data['name'], str(data['strength']), data['best_hold']] for category, data in tagged_map.items()], colLabels=["Pattern Type", "Simple Name", "Strength", "Best Hold Time"], loc='center')
 fig.savefig(f'docs/plots/{TIMEFRAME}_best_ways.png')
 
 # Hold Times Table (New)
@@ -107,7 +107,7 @@ console.print("What It Means: Shows win chance for short vs. medium holds—pick
 pd.DataFrame([data['all_holds'] for data in tagged_map.values()], index=tagged_map.keys()).to_csv(f'docs/tables/{TIMEFRAME}_hold_times.csv')
 fig, ax = plt.subplots()
 ax.axis('off')
-ax.table(cellText=table.rows, colLabels=table.columns, loc='center')
+ax.table(cellText=[ [category.capitalize()] + [str(data['all_holds'].get(hold, 0)) for hold in SCOPES[TIMEFRAME]] for category, data in tagged_map.items()], colLabels=["Pattern Type"] + [hold.capitalize() + " Strength" for hold in SCOPES[TIMEFRAME]], loc='center')
 fig.savefig(f'docs/plots/{TIMEFRAME}_hold_times.png')
 
 # Changes Table
@@ -128,7 +128,50 @@ console.print("What It Means: Average Strength = typical win chance over time. C
 pd.DataFrame([data['changes'] for data in evolved_map.values()], index=evolved_map.keys()).to_csv(f'docs/tables/{TIMEFRAME}_changes.csv')
 fig, ax = plt.subplots()
 ax.axis('off')
-ax.table(cellText=table.rows, colLabels=table.columns, loc='center')
+ax.table(cellText=[ [category.capitalize(), str(changes['avg_strength']), str(changes['change_trend']), str(changes['lasts_days']), changes['change_date']] for category, data in evolved_map.items() for changes in [data['changes']]], colLabels=["Pattern Type", "Average Strength", "Change Trend", "Lasts (Days)", "Sudden Shift"], loc='center')
+fig.savefig(f'docs/plots/{TIMEFRAME}_changes.png')
+
+console.print(Panel("Check Complete—See tables/plots in docs/ for saves. Flip VERBOSE for details. Next: Add patterns like 'Bounce After Drop' for higher strengths!", style="bold green", box=box.ROUNDED))
+```)
+console.print(f"Hold Times for Patterns: (Higher = Better for That Length)", style="green")
+table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
+table.add_column("Pattern Type")
+for hold in SCOPES[TIMEFRAME]:
+    table.add_column(hold.capitalize() + " Strength")
+for category, data in tagged_map.items():
+    row = [category.capitalize()]
+    for hold in SCOPES[TIMEFRAME]:
+        row.append(str(data['all_holds'].get(hold, 0)))
+    table.add_row(*row)
+console.print(table)
+console.print("What It Means: Shows win chance for short vs. medium holds—pick highest for your style.", style="dim")
+
+# Export
+pd.DataFrame([data['all_holds'] for data in tagged_map.values()], index=tagged_map.keys()).to_csv(f'docs/tables/{TIMEFRAME}_hold_times.csv')
+fig, ax = plt.subplots()
+ax.axis('off')
+ax.table(cellText=[ [category.capitalize()] + [str(data['all_holds'].get(hold, 0)) for hold in SCOPES[TIMEFRAME]] for category, data in tagged_map.items()], colLabels=["Pattern Type"] + [hold.capitalize() + " Strength" for hold in SCOPES[TIMEFRAME]], loc='center')
+fig.savefig(f'docs/plots/{TIMEFRAME}_hold_times.png')
+
+# Changes Table
+console.print(f"How Patterns Change: (Positive Trend = Getting Better)", style="green")
+table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
+table.add_column("Pattern Type")
+table.add_column("Average Strength")
+table.add_column("Change Trend")
+table.add_column("Lasts (Days)")
+table.add_column("Sudden Shift")
+for category, data in evolved_map.items():
+    changes = data['changes']
+    table.add_row(category.capitalize(), str(changes['avg_strength']), str(changes['change_trend']), str(changes['lasts_days']), changes['change_date'])
+console.print(table)
+console.print("What It Means: Average Strength = typical win chance over time. Change Trend = if improving (positive) or weakening (negative). Lasts = how many days reliable. Sudden Shift = date it changed big (or None).", style="dim")
+
+# Export
+pd.DataFrame([data['changes'] for data in evolved_map.values()], index=evolved_map.keys()).to_csv(f'docs/tables/{TIMEFRAME}_changes.csv')
+fig, ax = plt.subplots()
+ax.axis('off')
+ax.table(cellText=[ [category.capitalize(), str(changes['avg_strength']), str(changes['change_trend']), str(changes['lasts_days']), changes['change_date']] for category, data in evolved_map.items() for changes in [data['changes']]], colLabels=["Pattern Type", "Average Strength", "Change Trend", "Lasts (Days)", "Sudden Shift"], loc='center')
 fig.savefig(f'docs/plots/{TIMEFRAME}_changes.png')
 
 console.print(Panel("Check Complete—See tables/plots in docs/ for saves. Flip VERBOSE for details. Next: Add patterns like 'Bounce After Drop' for higher strengths!", style="bold green", box=box.ROUNDED))
