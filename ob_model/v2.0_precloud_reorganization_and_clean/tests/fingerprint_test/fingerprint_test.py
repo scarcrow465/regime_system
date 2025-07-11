@@ -27,7 +27,7 @@ console = Console()  # Rich for pretty output
 logger = get_logger('fingerprint_test')
 
 # Timeframe variable - change this to 'daily', '1h', 'weekly', etc.
-TIMEFRAME = 'daily'  # Select here; run script for that timeframe
+TIMEFRAME = '1h'  # Select here; run script for that timeframe
 
 # Load data based on timeframe (assume CSVs named like combined_NQ_[timeframe]_data.csv)
 data_path = r'C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean'

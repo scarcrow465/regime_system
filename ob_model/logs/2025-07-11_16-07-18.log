@@ -1,0 +1,81 @@
+2025-07-11 16:39:54.719 | WARNING  | utils.debug_utils:check_data_sanity:18 - edge_scanner: NaNs found—filling with 0
+2025-07-11 16:39:54.720 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning temporal: Calendar patterns (e.g., day-of-week returns diffs)
+2025-07-11 16:39:54.720 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 1}...
+2025-07-11 16:39:54.722 | WARNING  | core.edge_scanner:scan_for_edges:58 - temporal low globally/conditionally—check if latent in other filters
+2025-07-11 16:39:54.722 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning directional: Long/short bias (e.g., positive drift in sims)
+2025-07-11 16:39:54.724 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': np.float64(0.0004747480053472638), 'p': np.float64(0.024475765684454545)}...
+2025-07-11 16:39:54.727 | WARNING  | core.edge_scanner:scan_for_edges:58 - directional low globally/conditionally—check if latent in other filters
+2025-07-11 16:39:54.727 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning behavioral: Trend/reversion/chop (e.g., autocorrelation tests)
+2025-07-11 16:39:54.728 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 0.05}...
+2025-07-11 16:39:54.730 | WARNING  | core.edge_scanner:scan_for_edges:58 - behavioral low globally/conditionally—check if latent in other filters
+2025-07-11 16:39:54.730 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning conditional: Regime-dependent (e.g., subset tests on vol)
+2025-07-11 16:39:54.730 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 1}...
+2025-07-11 16:39:54.732 | WARNING  | core.edge_scanner:scan_for_edges:58 - conditional low globally/conditionally—check if latent in other filters
+2025-07-11 16:39:54.732 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning event_driven: News reactions (e.g., isolate Fed days)
+2025-07-11 16:39:54.732 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 1}...
+2025-07-11 16:39:54.733 | WARNING  | core.edge_scanner:scan_for_edges:58 - event_driven low globally/conditionally—check if latent in other filters
+2025-07-11 16:39:54.734 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning intermarket: Cross-asset links (e.g., correlation tests)
+2025-07-11 16:39:54.734 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 1}...
+2025-07-11 16:39:54.735 | WARNING  | core.edge_scanner:scan_for_edges:58 - intermarket low globally/conditionally—check if latent in other filters
+2025-07-11 16:39:54.736 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning microstructural: Volume/VWAP patterns
+2025-07-11 16:39:54.736 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 1}...
+2025-07-11 16:39:54.737 | WARNING  | core.edge_scanner:scan_for_edges:58 - microstructural low globally/conditionally—check if latent in other filters
+2025-07-11 16:39:54.737 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning sentiment_flow: Positioning extremes (e.g., COT data if available)
+2025-07-11 16:39:54.738 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'score': 0, 'p': 1}...
+2025-07-11 16:39:54.739 | WARNING  | core.edge_scanner:scan_for_edges:58 - sentiment_flow low globally/conditionally—check if latent in other filters
+2025-07-11 16:39:54.739 | INFO     | core.edge_scanner:scan_for_edges:60 - Scan complete: 8 potential edges found
+2025-07-11 16:39:54.739 | INFO     | utils.logger:wrapper:135 - scan_for_edges completed in 0.02s
+2025-07-11 16:39:54.739 | INFO     | core.fingerprint_classifier:classify_edges:31 - Classifying temporal
+2025-07-11 16:39:54.740 | INFO     | core.fingerprint_classifier:classify_edges:31 - Classifying directional
+2025-07-11 16:39:54.740 | INFO     | core.fingerprint_classifier:classify_edges:31 - Classifying behavioral
+2025-07-11 16:39:54.740 | INFO     | core.fingerprint_classifier:classify_edges:31 - Classifying conditional
+2025-07-11 16:39:54.740 | INFO     | core.fingerprint_classifier:classify_edges:31 - Classifying event_driven
+2025-07-11 16:39:54.741 | INFO     | core.fingerprint_classifier:classify_edges:31 - Classifying intermarket
+2025-07-11 16:39:54.741 | INFO     | core.fingerprint_classifier:classify_edges:31 - Classifying microstructural
+2025-07-11 16:39:54.741 | INFO     | core.fingerprint_classifier:classify_edges:31 - Classifying sentiment_flow
+2025-07-11 16:39:54.741 | INFO     | core.fingerprint_classifier:classify_edges:44 - Classification complete: 8 tagged edges
+2025-07-11 16:39:54.741 | INFO     | utils.logger:wrapper:135 - classify_edges completed in 0.00s
+2025-07-11 16:39:54.743 | WARNING  | utils.debug_utils:check_data_sanity:18 - fingerprint_evolver: NaNs found—filling with 0
+2025-07-11 16:39:54.748 | INFO     | core.fingerprint_evolver:evolve_edges:42 - Evolving temporal
+2025-07-11 16:39:54.750 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_scores: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,...
+2025-07-11 16:39:54.750 | INFO     | core.fingerprint_evolver:evolve_edges:52 - temporal rolling scores summary: Avg 0.00
+2025-07-11 16:39:54.823 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\16-39-54/temporal_evolution_2025-07-11_16-39-54.png
+2025-07-11 16:39:54.824 | INFO     | core.fingerprint_evolver:evolve_edges:82 - Saved line plot: docs\plots\2025-07-11\16-39-54/temporal_evolution_2025-07-11_16-39-54.png
+2025-07-11 16:39:54.824 | INFO     | core.fingerprint_evolver:evolve_edges:42 - Evolving directional
+2025-07-11 16:39:54.826 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_scores: [np.float64(0.0005396477412976186), np.float64(0.00052896895327235), np.float64(0.0006154311753031811), np.float64(0.000713925632910245), np.float64(0.0005898332107144888), np.float64(0.00071279108498...
+2025-07-11 16:39:54.826 | INFO     | core.fingerprint_evolver:evolve_edges:52 - directional rolling scores summary: Avg 0.00
+2025-07-11 16:39:54.886 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\16-39-54/directional_evolution_2025-07-11_16-39-54.png
+2025-07-11 16:39:54.887 | INFO     | core.fingerprint_evolver:evolve_edges:82 - Saved line plot: docs\plots\2025-07-11\16-39-54/directional_evolution_2025-07-11_16-39-54.png
+2025-07-11 16:39:54.887 | INFO     | core.fingerprint_evolver:evolve_edges:42 - Evolving behavioral
+2025-07-11 16:39:54.889 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_scores: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,...
+2025-07-11 16:39:54.889 | INFO     | core.fingerprint_evolver:evolve_edges:52 - behavioral rolling scores summary: Avg 0.00
+2025-07-11 16:39:54.945 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\16-39-54/behavioral_evolution_2025-07-11_16-39-54.png
+2025-07-11 16:39:54.946 | INFO     | core.fingerprint_evolver:evolve_edges:82 - Saved line plot: docs\plots\2025-07-11\16-39-54/behavioral_evolution_2025-07-11_16-39-54.png
+2025-07-11 16:39:54.946 | INFO     | core.fingerprint_evolver:evolve_edges:42 - Evolving conditional
+2025-07-11 16:39:54.948 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_scores: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,...
+2025-07-11 16:39:54.948 | INFO     | core.fingerprint_evolver:evolve_edges:52 - conditional rolling scores summary: Avg 0.00
+2025-07-11 16:39:55.008 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\16-39-54/conditional_evolution_2025-07-11_16-39-54.png
+2025-07-11 16:39:55.008 | INFO     | core.fingerprint_evolver:evolve_edges:82 - Saved line plot: docs\plots\2025-07-11\16-39-54/conditional_evolution_2025-07-11_16-39-54.png
+2025-07-11 16:39:55.008 | INFO     | core.fingerprint_evolver:evolve_edges:42 - Evolving event_driven
+2025-07-11 16:39:55.010 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_scores: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,...
+2025-07-11 16:39:55.010 | INFO     | core.fingerprint_evolver:evolve_edges:52 - event_driven rolling scores summary: Avg 0.00
+2025-07-11 16:39:55.062 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\16-39-55/event_driven_evolution_2025-07-11_16-39-55.png
+2025-07-11 16:39:55.063 | INFO     | core.fingerprint_evolver:evolve_edges:82 - Saved line plot: docs\plots\2025-07-11\16-39-55/event_driven_evolution_2025-07-11_16-39-55.png
+2025-07-11 16:39:55.063 | INFO     | core.fingerprint_evolver:evolve_edges:42 - Evolving intermarket
+2025-07-11 16:39:55.065 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_scores: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,...
+2025-07-11 16:39:55.065 | INFO     | core.fingerprint_evolver:evolve_edges:52 - intermarket rolling scores summary: Avg 0.00
+2025-07-11 16:39:55.117 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\16-39-55/intermarket_evolution_2025-07-11_16-39-55.png
+2025-07-11 16:39:55.117 | INFO     | core.fingerprint_evolver:evolve_edges:82 - Saved line plot: docs\plots\2025-07-11\16-39-55/intermarket_evolution_2025-07-11_16-39-55.png
+2025-07-11 16:39:55.117 | INFO     | core.fingerprint_evolver:evolve_edges:42 - Evolving microstructural
+2025-07-11 16:39:55.119 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_scores: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,...
+2025-07-11 16:39:55.119 | INFO     | core.fingerprint_evolver:evolve_edges:52 - microstructural rolling scores summary: Avg 0.00
+2025-07-11 16:39:55.171 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\16-39-55/microstructural_evolution_2025-07-11_16-39-55.png
+2025-07-11 16:39:55.171 | INFO     | core.fingerprint_evolver:evolve_edges:82 - Saved line plot: docs\plots\2025-07-11\16-39-55/microstructural_evolution_2025-07-11_16-39-55.png
+2025-07-11 16:39:55.172 | INFO     | core.fingerprint_evolver:evolve_edges:42 - Evolving sentiment_flow
+2025-07-11 16:39:55.174 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_scores: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,...
+2025-07-11 16:39:55.174 | INFO     | core.fingerprint_evolver:evolve_edges:52 - sentiment_flow rolling scores summary: Avg 0.00
+2025-07-11 16:39:55.229 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\16-39-55/sentiment_flow_evolution_2025-07-11_16-39-55.png
+2025-07-11 16:39:55.229 | INFO     | core.fingerprint_evolver:evolve_edges:82 - Saved line plot: docs\plots\2025-07-11\16-39-55/sentiment_flow_evolution_2025-07-11_16-39-55.png
+2025-07-11 16:39:55.300 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\16-39-55/all_edges_bar_2025-07-11_16-39-55.png
+2025-07-11 16:39:55.300 | INFO     | core.fingerprint_evolver:evolve_edges:97 - Saved bar plot: docs\plots\2025-07-11\16-39-55/all_edges_bar_2025-07-11_16-39-55.png
+2025-07-11 16:39:55.300 | INFO     | utils.logger:wrapper:135 - evolve_edges completed in 0.56s
