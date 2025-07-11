@@ -29,15 +29,11 @@ logger = get_logger('fingerprint_test')
 # Load your weekly data (replace with actual path/variable)
 weekly_df = pd.read_csv(r'C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean\combined_NQ_weekly_data.csv')  # Or weekly_df = your_weekly_df_variable
 weekly_df.index = pd.to_datetime(weekly_df.index)  # Ensure datetime index
+weekly_df['returns'] = weekly_df['close'].pct_change()  # Calculate returns (percentage change)
+weekly_df['vol'] = weekly_df['returns'].rolling(window=20).std() * np.sqrt(252)  # Calculate volatility (annualized std dev, adjust window as needed)
 
 console.print(Panel("Fingerprint Chain Test Starting", style="bold green", box=box.ROUNDED))
 console.print(f"VERBOSE mode: {'On' if VERBOSE else 'Off'} - Clean summaries (toggle in settings.py for full details).", style="italic")
-
-# Run on daily
-console.print(Panel("Running on Daily Data", style="bold blue", box=box.ROUNDED))
-edge_map_daily = scan_for_edges(weekly_df)
-tagged_map_daily = classify_edges(edge_map_daily)
-evolved_map_daily = evolve_edges(tagged_map_daily, weekly_df, plot_enabled=PLOT_ENABLED)
 
 # Run on weekly
 console.print(Panel("Running on Weekly Data (Persistence Context)", style="bold blue", box=box.ROUNDED))
@@ -45,20 +41,42 @@ edge_map_weekly = scan_for_edges(weekly_df)
 tagged_map_weekly = classify_edges(edge_map_weekly)
 evolved_map_weekly = evolve_edges(tagged_map_weekly, weekly_df, plot_enabled=PLOT_ENABLED)
 
-# Comparison Table
-console.print("Comparison: Daily vs. Weekly (High weekly = edge persists, like RSI2 glue)", style="green")
+# Display results
+console.print("Weekly scan complete. Here's the raw edge map:", style="green")
 table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
 table.add_column("Category")
-table.add_column("Daily Score")
-table.add_column("Weekly Score")
-table.add_column("Weekly Persistence (Days)")
-for category in evolved_map_daily:
-    d_score = evolved_map_daily[category]['final_score']
-    w_score = evolved_map_weekly.get(category, {'final_score': 'N/A'})['final_score']
-    persistence = evolved_map_weekly.get(category, {'evolution': {'persistence_days': 'N/A'}})['evolution']['persistence_days']
-    table.add_row(category, str(d_score), str(w_score), str(persistence))
+table.add_column("Broad Score")
+table.add_column("Conditional Score")
+table.add_column("Scopes")
+for category, data in edge_map_weekly.items():
+    table.add_row(category, str(data['broad_score']), str(data['conditional_score']), str(data['scopes']))
 console.print(table)
-console.print("Explanation: Weekly checks long-hold (position scope). If weekly score close to daily, edge strong over weeks—OB 'why' for sizing up.", style="dim")
 
-console.print(Panel("Test Complete\nCheck logs/fingerprint_test/[name]_[yyyy-mm-dd_hh-mm-ss].log for details. Plots in docs/plots/date/time. Real NQ weekly edges show persistence!", style="bold green", box=box.ROUNDED))
+console.print("Weekly classification complete. Here's the tagged map:", style="green")
+table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
+table.add_column("Category")
+table.add_column("Desc")
+table.add_column("Final Score")
+table.add_column("Best Scope")
+for category, data in tagged_map_weekly.items():
+    table.add_row(category, data['primary_desc'], str(data['final_score']), data['sub']['best_scope'])
+console.print(table)
+
+console.print("Weekly evolution complete. Here's the final evolved map:", style="green")
+table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
+table.add_column("Category")
+table.add_column("Final Score")
+table.add_column("Rolling Avg")
+table.add_column("Intensity Slope")
+table.add_column("Persistence Days")
+table.add_column("Break Detected")
+for category, data in evolved_map_weekly.items():
+    evolution = data['evolution']
+    slope = str(evolution.get('intensity_slope', 'N/A'))
+    break_d = str(evolution.get('break_detected', 'N/A'))
+    table.add_row(category, str(data['final_score']), str(evolution['rolling_avg']), slope, str(evolution['persistence_days']), break_d)
+console.print(table)
+console.print("Explanation: Evolution = trends (rolling_avg = average strength, intensity_slope = change rate, persistence_days = how long it holds). Plots in docs/plots/ show lines (rising = strengthening) and bars (tall = strong categories).", style="dim")
+
+console.print(Panel("Test Complete\nCheck logs/fingerprint_test/[name]_[yyyy-mm-dd_hh-mm-ss].log for details. Plots in docs/plots/. Toggle VERBOSE=True for more scan info. Real data next for stronger edges!", style="bold green", box=box.ROUNDED))
 
