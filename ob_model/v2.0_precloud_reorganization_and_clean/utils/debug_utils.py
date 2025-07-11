@@ -6,13 +6,12 @@
 
 import logging
 import pandas as pd
-from datetime import datetime
-import os
+from typing import Any  # Added: For Any in function hints (fixes NameError)—like opening the toolbox for labels
 
-def check_data_sanity(df, logger, module_name):
+def check_data_sanity(df: pd.DataFrame, logger: logging.Logger, module_name: str) -> pd.DataFrame:
     """
     Runs sanity checks on data—e.g., no NaNs, valid scopes.
-    - Why: Catches issues early (like past NaNs), logs warnings/errors.
+    - Why: Catches issues early (like past NaNs), logs warnings.
     - Ties to vision: Ensures clean data for accurate edge extraction.
     """
     if df.empty:
@@ -24,7 +23,7 @@ def check_data_sanity(df, logger, module_name):
     # Add more, e.g., for scopes: if hold <0: logger.error("Invalid scope")
     return df
 
-def log_var_state(var_name, var_value, logger, level='DEBUG'):
+def log_var_state(var_name: str, var_value: Any, logger: logging.Logger, level: str = 'DEBUG') -> None:
     """
     Logs variable states for deep debug—only if level=DEBUG.
     - Why: Helps trace "what went wrong" without manual prints.
@@ -33,7 +32,7 @@ def log_var_state(var_name, var_value, logger, level='DEBUG'):
     if logger.level <= logging.DEBUG:
         logger.debug(f"{var_name}: {str(var_value)[:200]}...")  # Truncate long vars
 
-def safe_save(fig: any, base_path: str, extension: str = 'png') -> str:
+def safe_save(fig: Any, base_path: str, extension: str = 'png') -> str:
     """
     Safe save for files (PNG, CSV, TXT)—creates dir, adds timestamp, logs path.
     - Input: fig (plt.figure for PNG, df for CSV, str for TXT), base_path (e.g., 'docs/plots/category_evolution').
@@ -41,6 +40,9 @@ def safe_save(fig: any, base_path: str, extension: str = 'png') -> str:
     - Why: Future-proof—no errors on missing dir/overwrite; timestamp for versions (e.g., _2025-07-11_10-45.png).
     - Use: In evolver: safe_save(plt.gcf(), 'docs/plots/category_evolution')—gcf gets current figure.
     """
+    from datetime import datetime  # For timestamp
+    import os  # For dir creation
+    
     dir_name = os.path.dirname(base_path)
     os.makedirs(dir_name, exist_ok=True)  # Create dir if missing
     
@@ -58,7 +60,4 @@ def safe_save(fig: any, base_path: str, extension: str = 'png') -> str:
     
     logger.info(f"Saved {extension.upper()} file: {file_path}")
     return file_path
-
-# Usage: In edge_scanner.py, df = check_data_sanity(df, logger, 'edge_scanner')
-# log_var_state('scores', edge_scores, logger)
 
