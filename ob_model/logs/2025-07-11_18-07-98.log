@@ -5,3 +5,76 @@
 2025-07-11 18:02:36.163 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\18-02-36/all_patterns_bar_2025-07-11_18-02-36.png
 2025-07-11 18:02:36.164 | INFO     | core.fingerprint_evolver:evolve_edges:104 - Saved bar plot: docs\plots\2025-07-11\18-02-36/all_patterns_bar_2025-07-11_18-02-36.png
 2025-07-11 18:02:36.201 | INFO     | utils.logger:wrapper:135 - evolve_edges completed in 0.95s
+2025-07-11 18:15:10.260 | WARNING  | utils.debug_utils:check_data_sanity:18 - edge_scanner: NaNs found—filling with 0
+2025-07-11 18:15:10.272 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning temporal: Calendar patterns (e.g., day-of-week returns diffs)
+2025-07-11 18:15:10.279 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(2.7111345029805188e-05), 'signif': np.float64(0.003375281320843498)}...
+2025-07-11 18:15:10.279 | WARNING  | core.edge_scanner:scan_for_edges:61 - temporal low overall/better conditions—check if hidden in other types
+2025-07-11 18:15:10.279 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning directional: Long/short bias (e.g., positive drift in sims)
+2025-07-11 18:15:10.285 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(2.7111345029805188e-05), 'signif': np.float64(0.003375281320843498)}...
+2025-07-11 18:15:10.285 | WARNING  | core.edge_scanner:scan_for_edges:61 - directional low overall/better conditions—check if hidden in other types
+2025-07-11 18:15:10.285 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning behavioral: Trend/reversion/chop (e.g., autocorrelation tests)
+2025-07-11 18:15:10.291 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(2.7111345029805188e-05), 'signif': np.float64(0.003375281320843498)}...
+2025-07-11 18:15:10.291 | WARNING  | core.edge_scanner:scan_for_edges:61 - behavioral low overall/better conditions—check if hidden in other types
+2025-07-11 18:15:10.291 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning conditional: Regime-dependent (e.g., subset tests on vol)
+2025-07-11 18:15:10.296 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(2.7111345029805188e-05), 'signif': np.float64(0.003375281320843498)}...
+2025-07-11 18:15:10.297 | WARNING  | core.edge_scanner:scan_for_edges:61 - conditional low overall/better conditions—check if hidden in other types
+2025-07-11 18:15:10.297 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning event_driven: News reactions (e.g., isolate Fed days)
+2025-07-11 18:15:10.302 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(2.7111345029805188e-05), 'signif': np.float64(0.003375281320843498)}...
+2025-07-11 18:15:10.302 | WARNING  | core.edge_scanner:scan_for_edges:61 - event_driven low overall/better conditions—check if hidden in other types
+2025-07-11 18:15:10.302 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning intermarket: Cross-asset links (e.g., correlation tests)
+2025-07-11 18:15:10.308 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(2.7111345029805188e-05), 'signif': np.float64(0.003375281320843498)}...
+2025-07-11 18:15:10.308 | WARNING  | core.edge_scanner:scan_for_edges:61 - intermarket low overall/better conditions—check if hidden in other types
+2025-07-11 18:15:10.308 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning microstructural: Volume/VWAP patterns
+2025-07-11 18:15:10.314 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(2.7111345029805188e-05), 'signif': np.float64(0.003375281320843498)}...
+2025-07-11 18:15:10.314 | WARNING  | core.edge_scanner:scan_for_edges:61 - microstructural low overall/better conditions—check if hidden in other types
+2025-07-11 18:15:10.314 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning sentiment_flow: Positioning extremes (e.g., COT data if available)
+2025-07-11 18:15:10.321 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(2.7111345029805188e-05), 'signif': np.float64(0.003375281320843498)}...
+2025-07-11 18:15:10.321 | WARNING  | core.edge_scanner:scan_for_edges:61 - sentiment_flow low overall/better conditions—check if hidden in other types
+2025-07-11 18:15:10.321 | INFO     | core.edge_scanner:scan_for_edges:63 - Scan complete: 8 potential patterns found
+2025-07-11 18:15:10.323 | INFO     | utils.logger:wrapper:135 - scan_for_edges completed in 0.07s
+2025-07-11 18:15:10.323 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging temporal
+2025-07-11 18:15:10.323 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging directional
+2025-07-11 18:15:10.323 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging behavioral
+2025-07-11 18:15:10.323 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging conditional
+2025-07-11 18:15:10.324 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging event_driven
+2025-07-11 18:15:10.324 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging intermarket
+2025-07-11 18:15:10.324 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging microstructural
+2025-07-11 18:15:10.324 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging sentiment_flow
+2025-07-11 18:15:10.324 | INFO     | core.fingerprint_classifier:classify_edges:39 - Tagging complete: 8 patterns named
+2025-07-11 18:15:10.324 | INFO     | utils.logger:wrapper:135 - classify_edges completed in 0.00s
+2025-07-11 18:15:10.332 | WARNING  | utils.debug_utils:check_data_sanity:18 - pattern_evolver: NaNs found—filling with 0
+2025-07-11 18:15:10.350 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking temporal
+2025-07-11 18:15:10.374 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(4.642470289690081e-05), np.float64(4.1769942309376334e-05), np.float64(4.5092786615907185e-05), np.float64(4.04366602954234e-05), np.float64(4.561842354554757e-05), np.float64(4.0203657630...
+2025-07-11 18:15:10.720 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\18-15-10/temporal_change_2025-07-11_18-15-10.png
+2025-07-11 18:15:10.720 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\18-15-10/temporal_change_2025-07-11_18-15-10.png
+2025-07-11 18:15:10.755 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking directional
+2025-07-11 18:15:10.787 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(4.456862211791102e-05), np.float64(4.924466972680256e-05), np.float64(4.591521131364433e-05), np.float64(4.7656365428253696e-05), np.float64(4.2319828629110016e-05), np.float64(4.393842834...
+2025-07-11 18:15:11.003 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\18-15-10/directional_change_2025-07-11_18-15-10.png
+2025-07-11 18:15:11.004 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\18-15-10/directional_change_2025-07-11_18-15-10.png
+2025-07-11 18:15:11.028 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking behavioral
+2025-07-11 18:15:11.052 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(3.987215355036696e-05), np.float64(5.130293575415274e-05), np.float64(4.598007480850465e-05), np.float64(3.9921167341037016e-05), np.float64(5.261164374472897e-05), np.float64(3.8321292072...
+2025-07-11 18:15:11.263 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\18-15-11/behavioral_change_2025-07-11_18-15-11.png
+2025-07-11 18:15:11.263 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\18-15-11/behavioral_change_2025-07-11_18-15-11.png
+2025-07-11 18:15:11.288 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking conditional
+2025-07-11 18:15:11.315 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(4.57333803187355e-05), np.float64(4.615585891634348e-05), np.float64(4.475860158624058e-05), np.float64(4.687355493848258e-05), np.float64(5.1404047021715e-05), np.float64(4.60953706187157...
+2025-07-11 18:15:11.528 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\18-15-11/conditional_change_2025-07-11_18-15-11.png
+2025-07-11 18:15:11.529 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\18-15-11/conditional_change_2025-07-11_18-15-11.png
+2025-07-11 18:15:11.557 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking event_driven
+2025-07-11 18:15:11.589 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(4.53555978058291e-05), np.float64(4.352350868532299e-05), np.float64(4.943872387892621e-05), np.float64(4.4484855945956125e-05), np.float64(4.82672541425745e-05), np.float64(4.311740153311...
+2025-07-11 18:15:11.801 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\18-15-11/event_driven_change_2025-07-11_18-15-11.png
+2025-07-11 18:15:11.801 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\18-15-11/event_driven_change_2025-07-11_18-15-11.png
+2025-07-11 18:15:11.832 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking intermarket
+2025-07-11 18:15:11.858 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(4.341351471660291e-05), np.float64(4.895761206946598e-05), np.float64(3.5803832220939564e-05), np.float64(4.7338700356027194e-05), np.float64(4.077562345116777e-05), np.float64(4.230695701...
+2025-07-11 18:15:12.079 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\18-15-12/intermarket_change_2025-07-11_18-15-12.png
+2025-07-11 18:15:12.079 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\18-15-12/intermarket_change_2025-07-11_18-15-12.png
+2025-07-11 18:15:12.104 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking microstructural
+2025-07-11 18:15:12.130 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(4.6022184036648064e-05), np.float64(4.894107609014804e-05), np.float64(3.498829468672943e-05), np.float64(4.741641587629096e-05), np.float64(4.964308110958017e-05), np.float64(4.3839708447...
+2025-07-11 18:15:12.349 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\18-15-12/microstructural_change_2025-07-11_18-15-12.png
+2025-07-11 18:15:12.350 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\18-15-12/microstructural_change_2025-07-11_18-15-12.png
+2025-07-11 18:15:12.375 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking sentiment_flow
+2025-07-11 18:15:12.401 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(5.2237835526877863e-05), np.float64(4.048798942019446e-05), np.float64(4.879549558971264e-05), np.float64(4.7848538308514965e-05), np.float64(4.371669937970735e-05), np.float64(4.601231871...
+2025-07-11 18:15:12.628 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\18-15-12/sentiment_flow_change_2025-07-11_18-15-12.png
+2025-07-11 18:15:12.628 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\18-15-12/sentiment_flow_change_2025-07-11_18-15-12.png
+2025-07-11 18:15:12.885 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\18-15-12/all_patterns_bar_2025-07-11_18-15-12.png
+2025-07-11 18:15:12.885 | INFO     | core.fingerprint_evolver:evolve_edges:104 - Saved bar plot: docs\plots\2025-07-11\18-15-12/all_patterns_bar_2025-07-11_18-15-12.png
+2025-07-11 18:15:12.912 | INFO     | utils.logger:wrapper:135 - evolve_edges completed in 2.59s
