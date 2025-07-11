@@ -1,0 +1,26 @@
+2025-07-11 12:25:02,909 - fingerprint_evolver - INFO - Evolving temporal
+2025-07-11 12:25:02,909 - fingerprint_evolver - INFO - temporal rolling scores summary: Avg 0.00
+2025-07-11 12:25:03,038 - fingerprint_evolver - INFO - Saved line plot: docs/plots/temporal_evolution_2025-07-11_12-25-02.png
+2025-07-11 12:25:03,038 - fingerprint_evolver - INFO - Evolving directional
+2025-07-11 12:25:03,038 - fingerprint_evolver - INFO - directional rolling scores summary: Avg 0.00
+2025-07-11 12:25:03,092 - fingerprint_evolver - INFO - Saved line plot: docs/plots/directional_evolution_2025-07-11_12-25-03.png
+2025-07-11 12:25:03,092 - fingerprint_evolver - INFO - Evolving behavioral
+2025-07-11 12:25:03,092 - fingerprint_evolver - INFO - behavioral rolling scores summary: Avg 0.00
+2025-07-11 12:25:03,147 - fingerprint_evolver - INFO - Saved line plot: docs/plots/behavioral_evolution_2025-07-11_12-25-03.png
+2025-07-11 12:25:03,147 - fingerprint_evolver - INFO - Evolving conditional
+2025-07-11 12:25:03,147 - fingerprint_evolver - INFO - conditional rolling scores summary: Avg 0.00
+2025-07-11 12:25:03,199 - fingerprint_evolver - INFO - Saved line plot: docs/plots/conditional_evolution_2025-07-11_12-25-03.png
+2025-07-11 12:25:03,199 - fingerprint_evolver - INFO - Evolving event_driven
+2025-07-11 12:25:03,199 - fingerprint_evolver - INFO - event_driven rolling scores summary: Avg 0.00
+2025-07-11 12:25:03,251 - fingerprint_evolver - INFO - Saved line plot: docs/plots/event_driven_evolution_2025-07-11_12-25-03.png
+2025-07-11 12:25:03,251 - fingerprint_evolver - INFO - Evolving intermarket
+2025-07-11 12:25:03,251 - fingerprint_evolver - INFO - intermarket rolling scores summary: Avg 0.00
+2025-07-11 12:25:03,305 - fingerprint_evolver - INFO - Saved line plot: docs/plots/intermarket_evolution_2025-07-11_12-25-03.png
+2025-07-11 12:25:03,305 - fingerprint_evolver - INFO - Evolving microstructural
+2025-07-11 12:25:03,305 - fingerprint_evolver - INFO - microstructural rolling scores summary: Avg 0.00
+2025-07-11 12:25:03,365 - fingerprint_evolver - INFO - Saved line plot: docs/plots/microstructural_evolution_2025-07-11_12-25-03.png
+2025-07-11 12:25:03,366 - fingerprint_evolver - INFO - Evolving sentiment_flow
+2025-07-11 12:25:03,366 - fingerprint_evolver - INFO - sentiment_flow rolling scores summary: Avg 0.00
+2025-07-11 12:25:03,418 - fingerprint_evolver - INFO - Saved line plot: docs/plots/sentiment_flow_evolution_2025-07-11_12-25-03.png
+2025-07-11 12:25:03,487 - fingerprint_evolver - INFO - Saved bar plot: docs/plots/all_edges_bar_2025-07-11_12-25-03.png
+2025-07-11 12:25:03,488 - fingerprint_evolver - INFO - evolve_edges completed in 0.58s

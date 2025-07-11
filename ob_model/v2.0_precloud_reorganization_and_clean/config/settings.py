@@ -238,4 +238,5 @@ FIGURE_DPI = 300
 FIGURE_SIZE = (12, 8)
 
 PLOT_ENABLED = True  # Toggle for visuals—set False if matplotlib issues
+VERBOSE = False  # Toggle: False for clean terminal (summaries only), True for full details (scan steps, warnings).
 

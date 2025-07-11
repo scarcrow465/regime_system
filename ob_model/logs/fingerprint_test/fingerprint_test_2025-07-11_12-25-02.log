@@ -1,0 +1,12 @@
+2025-07-11 12:25:02,874 - fingerprint_test - INFO - Starting fingerprint chain test on fake data...
+2025-07-11 12:25:02,874 - fingerprint_test - INFO - === Step 1: Scan - Searching for asymmetries (edges) across categories ===
+2025-07-11 12:25:02,892 - fingerprint_test - INFO - Scan complete. Here's the raw edge map (potential asymmetries found):
+2025-07-11 12:25:02,900 - fingerprint_test - INFO - 
+=== Step 2: Classify - Tagging edges with taxonomy (e.g., scopes like day trading) ===
+2025-07-11 12:25:02,902 - fingerprint_test - INFO - Classification complete. Here's the tagged map:
+2025-07-11 12:25:02,907 - fingerprint_test - INFO - 
+=== Step 3: Evolve - Tracking changes (e.g., strengthening slope, persistence) ===
+2025-07-11 12:25:03,488 - fingerprint_test - INFO - Evolution complete. Here's the final evolved map:
+2025-07-11 12:25:03,492 - fingerprint_test - INFO - 
+=== Test Complete ===
+Check logs/fingerprint_test/fingerprint_test_[yyyy-mm-dd_hh-mm-ss].log for details. Plots in docs/plots/[category]_evolution_[yyyy-mm-dd_hh-mm-ss].png. If scores >0.1, good—real data will show stronger.
