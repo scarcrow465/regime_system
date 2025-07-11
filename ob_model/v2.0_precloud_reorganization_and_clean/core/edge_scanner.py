@@ -21,7 +21,7 @@ from config.edge_taxonomy import PRIMARY_CATEGORIES, THRESHOLDS
 logger = get_logger('edge_scanner')
 
 @log_execution_time
-@log_errors
+@log_errors()
 def scan_for_edges(df: pd.DataFrame) -> dict:
     """
     Scan for patterns across 8 types—simple checks for wins above average.

@@ -1,0 +1,7 @@
+2025-07-11 18:02:35.250 | INFO     | utils.logger:wrapper:135 - decorator completed in 0.00s
+2025-07-11 18:02:35.251 | ERROR    | core.fingerprint_classifier:classify_edges:25 - edge_map is not a dict—check scan_for_edges output
+2025-07-11 18:02:35.251 | INFO     | utils.logger:wrapper:135 - classify_edges completed in 0.00s
+2025-07-11 18:02:35.259 | WARNING  | utils.debug_utils:check_data_sanity:18 - pattern_evolver: NaNs found—filling with 0
+2025-07-11 18:02:36.163 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\18-02-36/all_patterns_bar_2025-07-11_18-02-36.png
+2025-07-11 18:02:36.164 | INFO     | core.fingerprint_evolver:evolve_edges:104 - Saved bar plot: docs\plots\2025-07-11\18-02-36/all_patterns_bar_2025-07-11_18-02-36.png
+2025-07-11 18:02:36.201 | INFO     | utils.logger:wrapper:135 - evolve_edges completed in 0.95s
