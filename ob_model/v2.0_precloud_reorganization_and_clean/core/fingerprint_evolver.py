@@ -14,7 +14,7 @@ Use: Input tagged_map + historical df, output evolved_map with trends.
 
 import pandas as pd
 import numpy as np
-from scipy import stats  # For ttest_ind on means (fixed from chisquare)
+from scipy import stats  # For ttest_ind on means
 from utils.logger import get_logger, log_execution_time, log_errors
 from utils.debug_utils import check_data_sanity, log_var_state
 from config.edge_taxonomy import THRESHOLDS
@@ -45,6 +45,7 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> 
             rolling_scores.append(window_score)
         data['evolution'] = {'rolling_avg': np.mean(rolling_scores) if rolling_scores else 0}
         log_var_state('rolling_scores', rolling_scores, logger)
+        logger.info(f"{category} rolling scores summary: Avg {data['evolution']['rolling_avg']:.2f}")  # Terminal summary
         
         # Intensity: Slope on scores (strengthening/fading)
         if len(rolling_scores) > 1:
@@ -57,7 +58,7 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> 
         # Persistence: Avg duration (placeholder—use survival for "half-life" days > threshold)
         data['evolution']['persistence_days'] = len(df) / 10  # Fake—real: Count consecutive > min_score
         
-        # Break Detection: ttest_ind for mean difference pre/post mid (fixed—handles scalars)
+        # Break Detection: ttest_ind for mean difference pre/post mid
         mid = len(df) // 2
         if mid > 0:
             pre, post = df['returns'][:mid], df['returns'][mid:]
@@ -66,6 +67,13 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> 
                 break_date = df['date'].iloc[mid]
                 data['evolution']['break_detected'] = str(break_date.date())
                 logger.info(f"Break in {category} at {break_date}—evolution shift like RSI2 post-1983")
+        
+        # Visual Addition: Plot rolling_scores if matplotlib available (uncomment to see line chart)
+        import matplotlib.pyplot as plt
+        plt.plot(rolling_scores)
+        plt.title(f"{category} Edge Evolution—rising line = strengthening like a climbing hill")
+        plt.savefig(f"docs/plots/{category}_evolution.png")  # Save image for visual review
+        plt.close()  # Close to avoid window popup if batch running
     
     return evolved_map
 
@@ -74,11 +82,5 @@ if __name__ == "__main__":
     fake_df = pd.DataFrame({'returns': np.random.normal(0.001, 0.02, 100)}, index=pd.date_range('2020-01-01', periods=100))
     fake_tagged = {'behavioral': {'final_score': 0.45}}
     evolved = evolve_edges(fake_tagged, fake_df)
-    print(evolved)  # See evolution dict
-
-# Visual Addition: Uncomment for line plot of rolling_scores (picture "edge growth curve")
-import matplotlib.pyplot as plt
-plt.plot(rolling_scores)  # Assume from inside function—add global for test
-plt.title("Edge Evolution Line Chart—rising line = strengthening like a climbing hill")
-plt.show()  # Opens window with line—see if slope up (positive trend)
+    print(evolved)  # See evolution dict in terminal
 
