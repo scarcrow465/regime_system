@@ -15,8 +15,13 @@ Use: Input edge_map from scanner, output tagged dict.
 from utils.logger import get_logger, log_execution_time, log_errors
 from utils.debug_utils import log_var_state
 from config.edge_taxonomy import PRIMARY_CATEGORIES, SUB_CLASSIFIERS, ANALYTICAL_METRICS, THRESHOLDS
+import logging  # For logging.WARNING
+from config.settings import VERBOSE
 
-logger = get_logger('fingerprint_classifier')
+logger = get_logger('fingerprint_classifier')  # Define logger first
+
+if not VERBOSE:
+    logger.setLevel(logging.WARNING)  # Suppress INFO if not VERBOSE
 
 @log_execution_time(logger)
 @log_errors(logger)
