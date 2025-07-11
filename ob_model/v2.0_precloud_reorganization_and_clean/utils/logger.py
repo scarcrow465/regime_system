@@ -30,7 +30,6 @@ from config.settings import LOG_DIR, LOG_LEVEL, LOG_FORMAT
 class ColoredFormatter(logging.Formatter):
     """Colored formatter for console output"""
     
-    # Color codes
     COLORS = {
         'DEBUG': '\033[36m',    # Cyan
         'INFO': '\033[32m',     # Green
@@ -77,7 +76,7 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(log_data)
 
 # =============================================================================
-# LOGGER SETUP (Fixed for time in filename—new file per run)
+# LOGGER SETUP
 # =============================================================================
 
 def setup_logger(name: str = 'regime_system',
@@ -87,7 +86,7 @@ def setup_logger(name: str = 'regime_system',
                 file_logging: bool = True,
                 json_format: bool = False) -> logging.Logger:
     """
-    Setup a logger with console and file handlers. Fixed: Filename with date_time (new file per run, no overload).
+    Setup a logger with console and file handlers. Uses date_time (yyyy-mm-dd_hh-mm-ss) for new file per run—no overload.
     """
     logger = logging.getLogger(name)
     
@@ -109,16 +108,16 @@ def setup_logger(name: str = 'regime_system',
         logger.addHandler(console_handler)
     
     if file_logging:
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Date_time for new file
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         module_dir = os.path.join(LOG_DIR, name.lower())
         os.makedirs(module_dir, exist_ok=True)
         
         if log_file is None:
-            log_file = os.path.join(module_dir, f'{name}_{timestamp}.log')  # Name_date_time.log
+            log_file = os.path.join(module_dir, f'{name}_{timestamp}.log')
         
         file_handler = RotatingFileHandler(
             log_file,
-            maxBytes=10*1024*1024,  # 10MB
+            maxBytes=10*1024*1024,
             backupCount=5
         )
         file_handler.setLevel(getattr(logging, level.upper()))
