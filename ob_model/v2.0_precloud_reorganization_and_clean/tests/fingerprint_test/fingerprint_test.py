@@ -17,6 +17,11 @@ from core.edge_scanner import scan_for_edges
 from core.fingerprint_classifier import classify_edges
 from core.fingerprint_evolver import evolve_edges
 from utils.logger import get_logger, progress_wrapper
+import os
+import sys
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 logger = get_logger('fingerprint_test')
 
