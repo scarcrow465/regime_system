@@ -33,7 +33,7 @@ SUB_CLASSIFIERS = {
         'day_trading': '1 day hold only',
         'short_term': 'More than 1 day to full week',
         'swing': '1 to 3 weeks',
-        'position': '3+ weeks to month or longer'
+        'position': '3+ weeks or longer'
     },
     'time_horizon': ['intraday', 'daily', 'weekly'],  # TF fit
     'execution_context': ['open_to_close', 'close_to_open', 'overnight'],  # Timing
@@ -62,6 +62,12 @@ THRESHOLDS = {
     'conditional_boost': 0.3,  # Add if regime/weekly aligns (e.g., RSI2 + low-vol)
     'evolution_significance': 0.05,  # p-value for changes (e.g., post-1983 shift)
     'persistence_min_days': 5  # Edge reliable if lasts this long
+}
+
+SCOPES = {
+    'daily': {'day_trading': 1, 'short_term': 5},  # Multipliers for hold days
+    '1h': {'scalping': 0.04, 'day_trading': 1},
+    'weekly': {'short_term': 5, 'swing': 15, 'position': 60}
 }
 
 # Example Usage (in edge_scanner.py): for category in PRIMARY_CATEGORIES: test_asymmetry(category)
