@@ -16,12 +16,13 @@ import pandas as pd
 import numpy as np
 from scipy import stats  # For ttest_ind on means
 from utils.logger import get_logger, log_execution_time, log_errors
-from utils.debug_utils import check_data_sanity, log_var_state
+from utils.debug_utils import check_data_sanity, log_var_state, safe_save  # Use safe_save for files
 from config.edge_taxonomy import THRESHOLDS
-import os  # For dir creation
+import os  # For dir check
+import matplotlib
+matplotlib.use('agg')  # Non-interactive backend—no popup window (fixed)
 import matplotlib.pyplot as plt  # For plots
 from datetime import datetime  # For timestamp
-from utils.debug_utils import safe_save
 
 logger = get_logger('fingerprint_evolver')
 
@@ -72,13 +73,12 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> 
                 data['evolution']['break_detected'] = str(break_date.date())
                 logger.info(f"Break in {category} at {break_date}—evolution shift like RSI2 post-1983")
         
-        # Visual Plot: Save line chart with dir creation + timestamp (no overwrite)
+        # Visual Plot: Save line chart using safe_save (no popup, dir created, timestamp added)
         if rolling_scores:  # Only if data
-            safe_save(plt.gcf(), f"docs/plots/{category}_evolution")
+            plt.plot(rolling_scores)
             plt.title(f"{category} Edge Evolution—rising line = strengthening like a climbing hill")
-            plt.savefig(file_path)
-            plt.close()
-            logger.info(f"Saved plot: {file_path}—open to see growth curve")
+            safe_save(plt.gcf(), f"docs/plots/{category}_evolution")  # Uses safe_save—creates dir, adds _yyyy-mm-dd_hh-mm.png
+            plt.close()  # Ensure no window
 
     return evolved_map
 

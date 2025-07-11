@@ -63,3 +63,20 @@ KeyError: 'behavioral'
 2025-07-11 10:46:42,009 - edge_scanner - WARNING - sentiment_flow low globally/conditionally—check if latent in other filters
 2025-07-11 10:46:42,009 - edge_scanner - INFO - Scan complete: 8 potential edges found
 2025-07-11 10:46:42,009 - edge_scanner - INFO - scan_for_edges completed in 0.02s
+2025-07-11 10:56:19,998 - edge_scanner - INFO - Scanning temporal: Calendar patterns (e.g., day-of-week returns diffs)
+2025-07-11 10:56:20,000 - edge_scanner - WARNING - temporal low globally/conditionally—check if latent in other filters
+2025-07-11 10:56:20,001 - edge_scanner - INFO - Scanning directional: Long/short bias (e.g., positive drift in sims)
+2025-07-11 10:56:20,005 - edge_scanner - WARNING - directional low globally/conditionally—check if latent in other filters
+2025-07-11 10:56:20,006 - edge_scanner - INFO - Scanning behavioral: Trend/reversion/chop (e.g., autocorrelation tests)
+2025-07-11 10:56:20,008 - edge_scanner - INFO - Scanning conditional: Regime-dependent (e.g., subset tests on vol)
+2025-07-11 10:56:20,010 - edge_scanner - WARNING - conditional low globally/conditionally—check if latent in other filters
+2025-07-11 10:56:20,010 - edge_scanner - INFO - Scanning event_driven: News reactions (e.g., isolate Fed days)
+2025-07-11 10:56:20,012 - edge_scanner - WARNING - event_driven low globally/conditionally—check if latent in other filters
+2025-07-11 10:56:20,012 - edge_scanner - INFO - Scanning intermarket: Cross-asset links (e.g., correlation tests)
+2025-07-11 10:56:20,013 - edge_scanner - WARNING - intermarket low globally/conditionally—check if latent in other filters
+2025-07-11 10:56:20,014 - edge_scanner - INFO - Scanning microstructural: Volume/VWAP patterns
+2025-07-11 10:56:20,015 - edge_scanner - WARNING - microstructural low globally/conditionally—check if latent in other filters
+2025-07-11 10:56:20,015 - edge_scanner - INFO - Scanning sentiment_flow: Positioning extremes (e.g., COT data if available)
+2025-07-11 10:56:20,017 - edge_scanner - WARNING - sentiment_flow low globally/conditionally—check if latent in other filters
+2025-07-11 10:56:20,017 - edge_scanner - INFO - Scan complete: 8 potential edges found
+2025-07-11 10:56:20,017 - edge_scanner - INFO - scan_for_edges completed in 0.02s

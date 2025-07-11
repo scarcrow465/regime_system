@@ -76,3 +76,20 @@ FileNotFoundError: [Errno 2] No such file or directory: 'docs/plots/temporal_evo
 2025-07-11 10:46:42,031 - fingerprint_evolver - INFO - Evolving sentiment_flow
 2025-07-11 10:46:42,031 - fingerprint_evolver - INFO - sentiment_flow rolling scores summary: Avg 0.00
 2025-07-11 10:46:42,033 - fingerprint_evolver - INFO - evolve_edges completed in 0.02s
+2025-07-11 10:56:20,023 - fingerprint_evolver - INFO - Evolving temporal
+2025-07-11 10:56:20,023 - fingerprint_evolver - INFO - temporal rolling scores summary: Avg 0.00
+2025-07-11 10:56:20,026 - fingerprint_evolver - INFO - Evolving directional
+2025-07-11 10:56:20,026 - fingerprint_evolver - INFO - directional rolling scores summary: Avg 0.00
+2025-07-11 10:56:20,028 - fingerprint_evolver - INFO - Evolving behavioral
+2025-07-11 10:56:20,029 - fingerprint_evolver - INFO - behavioral rolling scores summary: Avg 0.00
+2025-07-11 10:56:20,031 - fingerprint_evolver - INFO - Evolving conditional
+2025-07-11 10:56:20,031 - fingerprint_evolver - INFO - conditional rolling scores summary: Avg 0.00
+2025-07-11 10:56:20,033 - fingerprint_evolver - INFO - Evolving event_driven
+2025-07-11 10:56:20,034 - fingerprint_evolver - INFO - event_driven rolling scores summary: Avg 0.00
+2025-07-11 10:56:20,036 - fingerprint_evolver - INFO - Evolving intermarket
+2025-07-11 10:56:20,037 - fingerprint_evolver - INFO - intermarket rolling scores summary: Avg 0.00
+2025-07-11 10:56:20,039 - fingerprint_evolver - INFO - Evolving microstructural
+2025-07-11 10:56:20,040 - fingerprint_evolver - INFO - microstructural rolling scores summary: Avg 0.00
+2025-07-11 10:56:20,042 - fingerprint_evolver - INFO - Evolving sentiment_flow
+2025-07-11 10:56:20,042 - fingerprint_evolver - INFO - sentiment_flow rolling scores summary: Avg 0.00
+2025-07-11 10:56:20,044 - fingerprint_evolver - INFO - evolve_edges completed in 0.02s
