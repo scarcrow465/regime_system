@@ -17,6 +17,13 @@ from typing import Optional, Dict, Any
 import json
 from logging.handlers import RotatingFileHandler
 from tqdm import tqdm
+import pretty_errors  # Prettify tracebacks globally for clearer errors
+pretty_errors.configure(
+    separator_character='*',  # Pretty separator
+    filename_display=pretty_errors.FILENAME_EXTENDED,  # Show full file path
+    line_number_first=True,  # Line number first for quick scan
+    lines_before=5, lines_after=2,  # Context lines
+)
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
