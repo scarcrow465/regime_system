@@ -1,0 +1,18 @@
+2025-07-11 10:28:37,698 - fingerprint_evolver - INFO - Evolving temporal
+2025-07-11 10:28:37,699 - fingerprint_evolver - ERROR - Error in evolve_edges: For each axis slice, the sum of the observed frequencies must agree with the sum of the expected frequencies to a relative tolerance of 1.4901161193847656e-08, but the percent differences are:
+2.129038608949504
+Traceback (most recent call last):
+  File "C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean\utils\logger.py", line 307, in wrapper
+    return func(*args, **kwargs)
+  File "C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean\core\fingerprint_evolver.py", line 62, in evolve_edges
+    chow_stat, p_val = stats.chisquare(pre.mean(), post.mean())  # Simple—use full Chow later
+                       ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\rs\AppData\Local\Programs\Python\Python313\Lib\site-packages\scipy\stats\_stats_py.py", line 7505, in chisquare
+    return _power_divergence(f_obs, f_exp=f_exp, ddof=ddof, axis=axis,
+                             lambda_="pearson", sum_check=sum_check)
+  File "C:\Users\rs\AppData\Local\Programs\Python\Python313\Lib\site-packages\scipy\stats\_stats_py.py", line 7321, in _power_divergence
+    raise ValueError(msg)
+ValueError: For each axis slice, the sum of the observed frequencies must agree with the sum of the expected frequencies to a relative tolerance of 1.4901161193847656e-08, but the percent differences are:
+2.129038608949504
+2025-07-11 10:28:37,704 - fingerprint_evolver - ERROR - evolve_edges failed after 0.01s: For each axis slice, the sum of the observed frequencies must agree with the sum of the expected frequencies to a relative tolerance of 1.4901161193847656e-08, but the percent differences are:
+2.129038608949504
