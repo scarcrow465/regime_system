@@ -14,9 +14,8 @@ import sys
 import os
 from datetime import datetime
 from typing import Optional, Dict, Any
-import json
-from logging.handlers import RotatingFileHandler
 from tqdm import tqdm
+from config.settings import LOG_DIR, LOG_LEVEL
 import pretty_errors  # Prettify tracebacks globally for clearer errors
 
 pretty_errors.configure(
@@ -26,138 +25,27 @@ pretty_errors.configure(
     lines_before=5, lines_after=2,  # Context lines
 )
 
-# Setup Loguru (pretty, timed files, levels)
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Global Loguru setup (pretty console, deep file)
 loguru_logger.remove()  # Clear defaults
 loguru_logger.add(sys.stdout, level=LOG_LEVEL, colorize=True, format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>")  # Pretty console
 loguru_logger.add(lambda msg: os.path.join(LOG_DIR, f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"), level="DEBUG", rotation="10 MB")  # Deep file with rotation
 
 def get_logger(name: str) -> loguru_logger:
-    return loguru_logger.bind(name=name)  # Bind name for module-specific
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from config.settings import LOG_DIR, LOG_LEVEL, LOG_FORMAT
-
-# CUSTOM FORMATTERS (unchanged)
-class ColoredFormatter(logging.Formatter):
-    COLORS = {
-        'DEBUG': '\033[36m',
-        'INFO': '\033[32m',
-        'WARNING': '\033[33m',
-        'ERROR': '\033[31m',
-        'CRITICAL': '\033[35m',
-    }
-    RESET = '\033[0m'
-    
-    def format(self, record):
-        levelname = record.levelname
-        if levelname in self.COLORS:
-            record.levelname = f"{self.COLORS[levelname]}{levelname}{self.RESET}"
-        
-        formatted = super().format(record)
-        
-        record.levelname = levelname
-        
-        return formatted
-
-class JsonFormatter(logging.Formatter):
-    def format(self, record):
-        log_data = {
-            'timestamp': datetime.utcnow().isoformat(),
-            'level': record.levelname,
-            'logger': record.name,
-            'module': record.module,
-            'function': record.funcName,
-            'line': record.lineno,
-            'message': record.getMessage(),
-        }
-        
-        if record.exc_info:
-            log_data['exception'] = self.formatException(record.exc_info)
-        
-        for key, value in record.__dict__.items():
-            if key not in ['name', 'msg', 'args', 'created', 'msecs', 'levelname', 
-                          'levelno', 'pathname', 'filename', 'module', 'funcName', 
-                          'lineno', 'exc_info', 'exc_text', 'stack_info', 'message']:
-                log_data[key] = value
-        
-        return json.dumps(log_data)
-
-# LOGGER SETUP (Fixed for no duplicates, pretty console, detailed file)
-def setup_logger(name: str = 'regime_system',
-                level: Optional[str] = None,
-                log_file: Optional[str] = None,
-                console: bool = True,
-                file_logging: bool = True,
-                json_format: bool = False) -> logging.Logger:
-    """
-    Setup logger—timed files, no duplicates, console INFO (pretty summaries), file DEBUG (details).
-    """
-    logger = logging.getLogger(name)
-    
-    level = level or LOG_LEVEL
-    logger.setLevel(getattr(logging, level.upper()))
-    
-    logger.handlers = []
-    logger.propagate = False  # Fixed: No propagation—stops duplicates
-    
-    if console:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging.INFO)  # Console: Pretty, summaries only
-        if json_format:
-            console_formatter = JsonFormatter()
-        else:
-            console_formatter = ColoredFormatter(LOG_FORMAT)
-        console_handler.setFormatter(console_formatter)
-        logger.addHandler(console_handler)
-    
-    if file_logging:
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        module_dir = os.path.join(LOG_DIR, name.lower())
-        os.makedirs(module_dir, exist_ok=True)
-        
-        if log_file is None:
-            log_file = os.path.join(module_dir, f'{name}_{timestamp}.log')
-        
-        file_handler = RotatingFileHandler(
-            log_file,
-            maxBytes=10*1024*1024,
-            backupCount=5
-        )
-        file_handler.setLevel(logging.DEBUG)  # File: Detailed, all info
-        if json_format:
-            file_formatter = JsonFormatter()
-        else:
-            file_formatter = logging.Formatter(LOG_FORMAT)
-        file_handler.setFormatter(file_formatter)
-        logger.addHandler(file_handler)
-    
-    # Filter to skip duplicates
-    class NoDuplicateFilter(logging.Filter):
-        def __init__(self):
-            self.last_log = None
-        
-        def filter(self, record):
-            current_log = (record.msg, record.args)
-            if current_log == self.last_log:
-                return 0
-            self.last_log = current_log
-            return 1
-    
-    logger.addFilter(NoDuplicateFilter())  # Fixed: Suppress repeats for clean output
-    
-    return logger
+    """Get a Loguru logger instance with name binding"""
+    return loguru_logger.bind(name=name)
 
 # =============================================================================
-# SPECIALIZED LOGGERS
+# SPECIALIZED LOGGERS (Adapted for Loguru)
 # =============================================================================
 
 class PerformanceLogger:
     """Logger for tracking performance metrics"""
     
     def __init__(self, name: str = 'performance'):
-        self.logger = setup_logger(f'regime_system.{name}', json_format=True)
+        self.logger = get_logger(f'regime_system.{name}')
         self.metrics = {}
         
     def log_metric(self, metric_name: str, value: float, 
@@ -172,7 +60,7 @@ class PerformanceLogger:
         if context:
             log_data['context'] = context
         
-        self.logger.info("Performance metric", extra=log_data)
+        self.logger.info("Performance metric: {data}", data=log_data)
         
         # Store for aggregation
         if metric_name not in self.metrics:
@@ -182,12 +70,8 @@ class PerformanceLogger:
     def log_optimization_iteration(self, iteration: int, score: float,
                                  params: Dict[str, float], metrics: Dict[str, float]):
         """Log optimization iteration details"""
-        self.logger.info("Optimization iteration", extra={
-            'iteration': iteration,
-            'score': score,
-            'parameters': params,
-            'metrics': metrics
-        })
+        self.logger.info("Optimization iteration: iteration={iteration}, score={score}, parameters={params}, metrics={metrics}",
+                         iteration=iteration, score=score, params=params, metrics=metrics)
     
     def get_summary(self) -> Dict[str, Dict[str, float]]:
         """Get summary statistics for all metrics"""
@@ -211,50 +95,30 @@ class TradingLogger:
     """Logger for trading operations"""
     
     def __init__(self, name: str = 'trading'):
-        self.logger = setup_logger(f'regime_system.{name}')
+        self.logger = get_logger(f'regime_system.{name}')
         
     def log_trade(self, action: str, symbol: str, quantity: float, 
                  price: float, reason: str, **kwargs):
         """Log a trade execution"""
-        self.logger.info(f"Trade: {action} {quantity} {symbol} @ {price} - {reason}", 
-                        extra={
-                            'action': action,
-                            'symbol': symbol,
-                            'quantity': quantity,
-                            'price': price,
-                            'reason': reason,
-                            **kwargs
-                        })
+        self.logger.info("Trade: {action} {quantity} {symbol} @ {price} - {reason}", 
+                         action=action, quantity=quantity, symbol=symbol, price=price, reason=reason, **kwargs)
     
     def log_position_update(self, symbol: str, position: float, 
                           market_value: float, pnl: float):
         """Log position update"""
-        self.logger.info(f"Position: {symbol} = {position} (${market_value:.2f}, "
-                        f"P&L: ${pnl:.2f})", 
-                        extra={
-                            'symbol': symbol,
-                            'position': position,
-                            'market_value': market_value,
-                            'pnl': pnl
-                        })
+        self.logger.info("Position: {symbol} = {position} (${market_value:.2f}, P&L: ${pnl:.2f})", 
+                         symbol=symbol, position=position, market_value=market_value, pnl=pnl)
     
     def log_risk_alert(self, alert_type: str, message: str, **kwargs):
         """Log risk management alert"""
-        self.logger.warning(f"Risk Alert [{alert_type}]: {message}", 
-                           extra={
-                               'alert_type': alert_type,
-                               **kwargs
-                           })
+        self.logger.warning("Risk Alert [{alert_type}]: {message}", 
+                            alert_type=alert_type, message=message, **kwargs)
 
 # =============================================================================
-# LOGGING DECORATORS
+# LOGGING DECORATORS (Adapted for Loguru)
 # =============================================================================
 
-# =============================================================================
-# LOGGING DECORATORS (Enhanced with tqdm for bars)
-# =============================================================================
-
-def log_execution_time(logger: Optional[logging.Logger] = None):
+def log_execution_time(logger: Optional[loguru_logger] = None):
     """Decorator to log function execution time"""
     import functools
     import time
@@ -264,7 +128,7 @@ def log_execution_time(logger: Optional[logging.Logger] = None):
         def wrapper(*args, **kwargs):
             nonlocal logger
             if logger is None:
-                logger = logging.getLogger(func.__module__)
+                logger = get_logger(func.__module__)
             
             start_time = time.time()
             
@@ -272,19 +136,19 @@ def log_execution_time(logger: Optional[logging.Logger] = None):
                 result = func(*args, **kwargs)
                 execution_time = time.time() - start_time
                 
-                logger.info(f"{func.__name__} completed in {execution_time:.2f}s")
+                logger.info("{func_name} completed in {time:.2f}s", func_name=func.__name__, time=execution_time)
                 
                 return result
                 
             except Exception as e:
                 execution_time = time.time() - start_time
-                logger.error(f"{func.__name__} failed after {execution_time:.2f}s: {e}")
+                logger.error("{func_name} failed after {time:.2f}s: {error}", func_name=func.__name__, time=execution_time, error=e)
                 raise
         
         return wrapper
     return decorator
 
-def log_errors(logger: Optional[logging.Logger] = None, 
+def log_errors(logger: Optional[loguru_logger] = None, 
               reraise: bool = True):
     """Decorator to log exceptions"""
     import functools
@@ -294,12 +158,12 @@ def log_errors(logger: Optional[logging.Logger] = None,
         def wrapper(*args, **kwargs):
             nonlocal logger
             if logger is None:
-                logger = logging.getLogger(func.__module__)
+                logger = get_logger(func.__module__)
             
             try:
                 return func(*args, **kwargs)
             except Exception as e:
-                logger.error(f"Error in {func.__name__}: {e}", exc_info=True)
+                logger.error("Error in {func_name}: {error}", func_name=func.__name__, error=e)
                 if reraise:
                     raise
                 return None
@@ -308,7 +172,7 @@ def log_errors(logger: Optional[logging.Logger] = None,
     return decorator
 
 # =============================================================================
-# LOG ANALYSIS UTILITIES
+# LOG ANALYSIS UTILITIES (Adapted for Loguru format)
 # =============================================================================
 
 class LogAnalyzer:
@@ -327,7 +191,7 @@ class LogAnalyzer:
                 if 'ERROR' in line or 'CRITICAL' in line:
                     errors.append(line.strip())
                     
-                    # Try to extract error type
+                    # Try to extract error type (adjusted for Loguru format)
                     if 'Error' in line:
                         error_type = line.split('Error')[0].split()[-1] + 'Error'
                         error_counts[error_type] = error_counts.get(error_type, 0) + 1
@@ -346,7 +210,7 @@ class LogAnalyzer:
             for line in f:
                 if 'completed in' in line and 's' in line:
                     try:
-                        # Extract execution time
+                        # Extract execution time (adjusted for Loguru format)
                         time_str = line.split('completed in')[1].split('s')[0].strip()
                         execution_times.append(float(time_str))
                     except:
@@ -369,30 +233,26 @@ class LogAnalyzer:
 # =============================================================================
 
 # Create default loggers
-main_logger = setup_logger('regime_system')
+main_logger = get_logger('regime_system')
 performance_logger = PerformanceLogger()
 trading_logger = TradingLogger()
 
-# Export convenience functions
-def get_logger(name: str) -> logging.Logger:
-    """Get a logger instance"""
-    return setup_logger(name)
-
+# Export convenience functions (use Loguru syntax)
 def log_info(message: str, **kwargs):
     """Log info message"""
-    main_logger.info(message, extra=kwargs)
+    main_logger.info(message, **kwargs)
 
 def log_error(message: str, **kwargs):
     """Log error message"""
-    main_logger.error(message, extra=kwargs)
+    main_logger.error(message, **kwargs)
 
 def log_warning(message: str, **kwargs):
     """Log warning message"""
-    main_logger.warning(message, extra=kwargs)
+    main_logger.warning(message, **kwargs)
 
 def log_debug(message: str, **kwargs):
     """Log debug message"""
-    main_logger.debug(message, extra=kwargs)
+    main_logger.debug(message, **kwargs)
 
 def progress_wrapper(iterable, desc="Progress", logger=main_logger, level='INFO'):
     """
@@ -400,7 +260,7 @@ def progress_wrapper(iterable, desc="Progress", logger=main_logger, level='INFO'
     - Why: Makes long runs feel "alive" and trackable, like a video game loading screen—your visual style.
     - Use: for item in progress_wrapper(range(100), desc="Scanning edges"):
     """
-    if logger.level <= logging.INFO:
+    if logger.level(level) <= logger.level("INFO"):
         return tqdm(iterable, desc=desc, file=sys.stdout)  # Visual bar in terminal
     return iterable  # No bar if higher level
 
