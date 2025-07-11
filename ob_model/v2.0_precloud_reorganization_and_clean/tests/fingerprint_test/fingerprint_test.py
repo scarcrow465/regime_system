@@ -132,7 +132,6 @@ ax.table(cellText=[ [category.capitalize(), str(changes['avg_strength']), str(ch
 fig.savefig(f'docs/plots/{TIMEFRAME}_changes.png')
 
 console.print(Panel("Check Complete—See tables/plots in docs/ for saves. Flip VERBOSE for details. Next: Add patterns like 'Bounce After Drop' for higher strengths!", style="bold green", box=box.ROUNDED))
-```)
 console.print(f"Hold Times for Patterns: (Higher = Better for That Length)", style="green")
 table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
 table.add_column("Pattern Type")
