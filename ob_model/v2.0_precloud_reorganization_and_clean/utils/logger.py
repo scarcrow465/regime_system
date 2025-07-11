@@ -86,7 +86,7 @@ def setup_logger(name: str = 'regime_system',
                 file_logging: bool = True,
                 json_format: bool = False) -> logging.Logger:
     """
-    Setup a logger with console and file handlers. Uses date_time (yyyy-mm-dd_hh-mm-ss) for new file per run—no overload.
+    Setup logger—timed files (new per run), no duplicates, pretty console (INFO, colored), deep file (DEBUG).
     """
     logger = logging.getLogger(name)
     
@@ -94,10 +94,11 @@ def setup_logger(name: str = 'regime_system',
     logger.setLevel(getattr(logging, level.upper()))
     
     logger.handlers = []
+    logger.propagate = False  # Fixed: No propagation—stops duplicates
     
     if console:
         console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(getattr(logging, level.upper()))
+        console_handler.setLevel(logging.INFO)  # Console pretty/less noise (INFO+)
         
         if json_format:
             console_formatter = JsonFormatter()
@@ -108,7 +109,7 @@ def setup_logger(name: str = 'regime_system',
         logger.addHandler(console_handler)
     
     if file_logging:
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        timestamp = datetime.now().strftime("%Y-%m-%m-%d_%H-%M-%S")
         module_dir = os.path.join(LOG_DIR, name.lower())
         os.makedirs(module_dir, exist_ok=True)
         
@@ -120,7 +121,7 @@ def setup_logger(name: str = 'regime_system',
             maxBytes=10*1024*1024,
             backupCount=5
         )
-        file_handler.setLevel(getattr(logging, level.upper()))
+        file_handler.setLevel(logging.DEBUG)  # File deep (DEBUG+)
         
         if json_format:
             file_formatter = JsonFormatter()
@@ -129,6 +130,20 @@ def setup_logger(name: str = 'regime_system',
         
         file_handler.setFormatter(file_formatter)
         logger.addHandler(file_handler)
+    
+    # Filter for "sloppy" duplicates
+    class NoDuplicateFilter(logging.Filter):
+        def __init__(self):
+            self.last_log = None
+        
+        def filter(self, record):
+            current_log = (record.msg, record.args)
+            if current_log == self.last_log:
+                return 0
+            self.last_log = current_log
+            return 1
+    
+    logger.addFilter(NoDuplicateFilter())  # Fixed: Suppress repeats
     
     return logger
 
