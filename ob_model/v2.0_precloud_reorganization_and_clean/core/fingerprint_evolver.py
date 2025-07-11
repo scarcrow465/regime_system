@@ -32,7 +32,7 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252, plo
     Evolve edges—compute rolling scores, intensity, persistence, breaks.
     - Input: tagged_map, df with dates/returns, plot_enabled (toggle for visuals).
     - Output: evolved_map with 'evolution' (e.g., 'trend_slope': 0.02).
-    - Why visual: Saves line chart (rising like a hill) to docs/plots/[category]_evolution_[time].png.
+    - Why visual: Saves line chart (rising like a hill) and bar chart (tall = strong) to docs/plots/.
     """
     df = check_data_sanity(df, logger, 'fingerprint_evolver')
     df['date'] = pd.to_datetime(df.index)
@@ -72,16 +72,32 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252, plo
                 data['evolution']['break_detected'] = str(break_date.date())
                 logger.info(f"Break in {category} at {break_date}—evolution shift like RSI2 post-1983")
         
-        # Visual Plot
-        if rolling_scores and plot_enabled:
+        # Visual Plot: Line chart for each category
+        if plot_enabled:
             try:
-                plt.plot(rolling_scores)
+                plt.figure()  # New figure
+                plt.plot(rolling_scores or [0])  # Plot even if empty
                 plt.title(f"{category} Edge Evolution—rising line = strengthening like a climbing hill")
                 file_path = safe_save(plt.gcf(), f"docs/plots/{category}_evolution")
-                logger.info(f"Saved plot: {file_path}")
+                logger.info(f"Saved line plot: {file_path}")
                 plt.close()
             except Exception as e:
-                logger.error(f"Failed to save plot for {category}: {e}")
+                logger.error(f"Failed to save line plot for {category}: {e}")
+
+    # Visual Plot: Bar chart for all categories
+    if plot_enabled:
+        try:
+            plt.figure()
+            categories = list(evolved_map.keys())
+            scores = [data['final_score'] for data in evolved_map.values()]
+            plt.bar(categories, scores)
+            plt.title("Edge Scores Across Categories—tall bars = strong edges like skyscrapers")
+            plt.xticks(rotation=45)
+            file_path = safe_save(plt.gcf(), f"docs/plots/all_edges_bar")
+            logger.info(f"Saved bar plot: {file_path}")
+            plt.close()
+        except Exception as e:
+            logger.error(f"Failed to save bar plot: {e}")
 
     return evolved_map
 
