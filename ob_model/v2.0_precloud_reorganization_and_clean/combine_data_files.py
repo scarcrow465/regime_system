@@ -38,7 +38,7 @@ def combine_csv_files(instrument='NQ'):
     print(f"Selected Instrument: {instrument}")
     
     # 1 hour data files
-    file1 = r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\6. Master Hourly Data - Nearest Unadjusted.csv"
+    file1 = r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\4. Master Weekly Data - Nearest Unadjusted.csv"
     
     # 1 hour data files
     #file1 = r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\6. Master Hourly Data - Nearest Unadjusted.csv"
