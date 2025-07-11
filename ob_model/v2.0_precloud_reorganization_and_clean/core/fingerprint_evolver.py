@@ -14,25 +14,25 @@ Use: Input tagged_map + historical df, output evolved_map with trends.
 
 import pandas as pd
 import numpy as np
-from scipy import stats  # For ttest_ind on means
+from scipy import stats
 from utils.logger import get_logger, log_execution_time, log_errors
 from utils.debug_utils import check_data_sanity, log_var_state, safe_save
 from config.edge_taxonomy import THRESHOLDS
 import os
 import matplotlib
-matplotlib.use('agg')  # Non-interactive—no popup
+matplotlib.use('agg')  # No popup
 import matplotlib.pyplot as plt
 
 logger = get_logger('fingerprint_evolver')
 
 @log_execution_time(logger)
 @log_errors(logger)
-def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> dict:
+def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252, plot_enabled: bool = True) -> dict:
     """
-    Evolve tagged edges—compute rolling scores, intensity (slopes), persistence, breaks.
-    - Input: tagged_map from classifier, df with dates/returns.
-    - Output: evolved_map with 'evolution' dict (e.g., 'trend_slope': 0.02, 'break_detected': '2020-06-15').
-    - Why visual: Slopes paint "growth curves" (line chart saved with time, rising like a hill).
+    Evolve edges—compute rolling scores, intensity, persistence, breaks.
+    - Input: tagged_map, df with dates/returns, plot_enabled (toggle for visuals).
+    - Output: evolved_map with 'evolution' (e.g., 'trend_slope': 0.02).
+    - Why visual: Saves line chart (rising like a hill) to docs/plots/[category]_evolution_[time].png.
     """
     df = check_data_sanity(df, logger, 'fingerprint_evolver')
     df['date'] = pd.to_datetime(df.index)
@@ -41,7 +41,7 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> 
     for category, data in evolved_map.items():
         logger.info(f"Evolving {category}")
         
-        # Rolling score: Mean over windows (placeholder—real: Recalc basic_test)
+        # Rolling score
         rolling_scores = []
         for start in range(0, len(df) - window_size, window_size // 2):
             window_df = df.iloc[start:start+window_size]
@@ -51,7 +51,7 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> 
         log_var_state('rolling_scores', rolling_scores, logger)
         logger.info(f"{category} rolling scores summary: Avg {data['evolution']['rolling_avg']:.2f}")
         
-        # Intensity: Slope on scores
+        # Intensity
         if len(rolling_scores) > 1:
             x = range(len(rolling_scores))
             slope = np.polyfit(x, rolling_scores, 1)[0]
@@ -59,10 +59,10 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> 
             if slope < -THRESHOLDS['min_edge_score']:
                 logger.warning(f"{category} fading—check for breaks")
         
-        # Persistence: Avg duration (placeholder—use survival for half-life)
+        # Persistence
         data['evolution']['persistence_days'] = len(df) / 10
         
-        # Break Detection: ttest_ind for mean difference
+        # Break Detection
         mid = len(df) // 2
         if mid > 0:
             pre, post = df['returns'][:mid], df['returns'][mid:]
@@ -72,12 +72,16 @@ def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252) -> 
                 data['evolution']['break_detected'] = str(break_date.date())
                 logger.info(f"Break in {category} at {break_date}—evolution shift like RSI2 post-1983")
         
-        # Visual Plot: Save line chart (active, saved with timestamp)
-        if rolling_scores:
-            plt.plot(rolling_scores)
-            plt.title(f"{category} Edge Evolution—rising line = strengthening like a climbing hill")
-            safe_save(plt.gcf(), f"docs/plots/{category}_evolution")
-            plt.close()
+        # Visual Plot
+        if rolling_scores and plot_enabled:
+            try:
+                plt.plot(rolling_scores)
+                plt.title(f"{category} Edge Evolution—rising line = strengthening like a climbing hill")
+                file_path = safe_save(plt.gcf(), f"docs/plots/{category}_evolution")
+                logger.info(f"Saved plot: {file_path}")
+                plt.close()
+            except Exception as e:
+                logger.error(f"Failed to save plot for {category}: {e}")
 
     return evolved_map
 
