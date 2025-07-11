@@ -139,7 +139,7 @@ class NQDailyRegimeClassifier:
             strength_signals.append('di_spread')
         
         # Trend consistency
-        df['trend_consistency'] = df['close'].pct_change().rolling(20).apply(
+        df['trend_consistency'] = df['close'].pct_change().rolling(20, min_periods=1).apply(
             lambda x: (x > 0).sum() / len(x) if len(x) > 0 else 0.5
         )
         strength_signals.append('trend_consistency')
@@ -153,7 +153,7 @@ class NQDailyRegimeClassifier:
             volatility_signals.append('atr_percent')
         
         # Realized volatility
-        df['realized_vol'] = df['close'].pct_change().rolling(20).std() * np.sqrt(252) * 100
+        df['realized_vol'] = df['close'].pct_change().rolling(20, min_periods=1).std() * np.sqrt(252) * 100
         volatility_signals.append('realized_vol')
         
         # Bollinger Band width
@@ -239,24 +239,23 @@ class NQDailyRegimeClassifier:
         
         # Price vs moving averages
         if 'price_vs_sma50' in df.columns:
-            direction_score += np.sign(df['price_vs_sma50']) * 0.2
+            direction_score += np.sign(df['price_vs_sma50'].fillna(0)) * 0.2
             signal_count += 1
-        
+
         if 'price_vs_sma200' in df.columns:
-            direction_score += np.sign(df['price_vs_sma200']) * 0.3
+            direction_score += np.sign(df['price_vs_sma200'].fillna(0)) * 0.3
             signal_count += 1
-            
+
         if 'sma50_vs_sma200' in df.columns:
-            direction_score += np.sign(df['sma50_vs_sma200']) * 0.3
+            direction_score += np.sign(df['sma50_vs_sma200'].fillna(0)) * 0.3
             signal_count += 1
-        
-        # Trend slopes
+
         if 'trend_slope_20' in df.columns:
-            direction_score += np.tanh(df['trend_slope_20'] * 10) * 0.1
+            direction_score += np.tanh(df['trend_slope_20'].fillna(0) * 10) * 0.1
             signal_count += 1
-            
+
         if 'trend_slope_50' in df.columns:
-            direction_score += np.tanh(df['trend_slope_50'] * 5) * 0.1
+            direction_score += np.tanh(df['trend_slope_50'].fillna(0) * 5) * 0.1
             signal_count += 1
         
         # Normalize score
@@ -278,19 +277,17 @@ class NQDailyRegimeClassifier:
         
         # ADX-based strength
         if 'ADX' in df.columns:
-            df['adx_normalized'] = df['ADX'] / 50  # Normalize to 0-1
+            df['adx_normalized'] = df['ADX'].fillna(0) / 50  # Fill if ADX NaN
             strength_score += df['adx_normalized'].clip(0, 1) * 0.4
             signal_count += 1
-        
-        # Directional movement spread
+
         if 'di_spread' in df.columns:
-            df['di_strength'] = abs(df['di_spread']) / 50
+            df['di_strength'] = abs(df['di_spread'].fillna(0)) / 50
             strength_score += df['di_strength'].clip(0, 1) * 0.3
             signal_count += 1
-        
-        # Trend consistency
+
         if 'trend_consistency' in df.columns:
-            consistency_strength = abs(df['trend_consistency'] - 0.5) * 2
+            consistency_strength = abs(df['trend_consistency'].fillna(0.5) - 0.5) * 2  # Default to 0.5 if NaN
             strength_score += consistency_strength * 0.3
             signal_count += 1
         
@@ -310,7 +307,7 @@ class NQDailyRegimeClassifier:
         # Calculate volatility percentile
         if 'realized_vol' in df.columns:
             df['vol_percentile'] = df['realized_vol'].rolling(
-                self.lookback_days, min_periods=20
+                self.lookback_days, min_periods=1
             ).rank(pct=True) * 100
             
             df['volatility_score'] = df['vol_percentile'] / 100
@@ -442,7 +439,7 @@ class NQDailyRegimeClassifier:
         net_change = abs(price_series - price_series.shift(period))
         
         # Sum of absolute changes
-        total_change = price_series.diff().abs().rolling(period).sum()
+        total_change = price_series.diff().abs().rolling(period, min_periods=1).sum()
         
         # Efficiency ratio
         efficiency_ratio = net_change / total_change
