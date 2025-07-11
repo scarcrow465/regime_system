@@ -57,7 +57,7 @@ def scan_for_edges(df: pd.DataFrame) -> dict:
             'scopes': scopes
         }
         log_var_state('broad_results', {'strength': broad_strength, 'signif': broad_signif}, logger)
-        if broad_strength < THRESHOLDS['min_edge_strength']:
+        if broad_strength < THRESHOLDS['min_edge_score']:
             logger.warning(f"{category} low overall/better conditions—check if hidden in other types")
 
     logger.info(f"Scan complete: {len(edge_map)} potential patterns found")
