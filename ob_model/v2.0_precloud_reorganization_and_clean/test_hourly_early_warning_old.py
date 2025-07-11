@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from core.data_loader import load_csv_data
 from core.indicators import calculate_all_indicators
 from daily_regime_classifier import NQDailyRegimeClassifier
-from hourly_early_warning_system import HourlyEarlyWarningSystem
+from hourly_early_warning_system_old import HourlyEarlyWarningSystem
 
 print("="*80)
 print("1-HOUR EARLY WARNING SYSTEM TEST")
