@@ -1,0 +1,3 @@
+2025-07-11 14:30:46.371 | INFO     | core.edge_scanner:scan_for_edges:39 - Scanning temporal: Calendar patterns (e.g., day-of-week returns diffs)
+2025-07-11 14:30:46.372 | ERROR    | utils.logger:wrapper:166 - Error in scan_for_edges: '<=' not supported between instances of 'method' and 'int'
+2025-07-11 14:30:46.372 | ERROR    | utils.logger:wrapper:145 - scan_for_edges failed after 0.00s: '<=' not supported between instances of 'method' and 'int'
