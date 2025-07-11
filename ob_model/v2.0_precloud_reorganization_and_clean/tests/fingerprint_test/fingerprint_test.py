@@ -26,13 +26,6 @@ from rich import box
 console = Console()  # Rich for pretty output
 logger = get_logger('fingerprint_test')
 
-# Load daily fake (or your real daily NQ)
-fake_data = {
-    'returns': np.random.normal(0.001, 0.02, 100),
-    'vol': np.random.normal(0.01, 0.005, 100)
-}
-daily_df = pd.DataFrame(fake_data, index=pd.date_range('2024-01-01', periods=100))
-
 # Load your weekly data (replace with actual path/variable)
 weekly_df = pd.read_csv('path/to/weekly_nq.csv')  # Or weekly_df = your_weekly_df_variable
 weekly_df.index = pd.to_datetime(weekly_df.index)  # Ensure datetime index
@@ -42,9 +35,9 @@ console.print(f"VERBOSE mode: {'On' if VERBOSE else 'Off'} - Clean summaries (to
 
 # Run on daily
 console.print(Panel("Running on Daily Data", style="bold blue", box=box.ROUNDED))
-edge_map_daily = scan_for_edges(daily_df)
+edge_map_daily = scan_for_edges(weekly_df)
 tagged_map_daily = classify_edges(edge_map_daily)
-evolved_map_daily = evolve_edges(tagged_map_daily, daily_df, plot_enabled=PLOT_ENABLED)
+evolved_map_daily = evolve_edges(tagged_map_daily, weekly_df, plot_enabled=PLOT_ENABLED)
 
 # Run on weekly
 console.print(Panel("Running on Weekly Data (Persistence Context)", style="bold blue", box=box.ROUNDED))
