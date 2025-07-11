@@ -15,27 +15,22 @@ import os
 from datetime import datetime
 from typing import Optional, Dict, Any
 import json
-from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
-from tqdm import tqdm  # For visual progress bars
+from logging.handlers import RotatingFileHandler
+from tqdm import tqdm
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config.settings import LOG_DIR, LOG_LEVEL, LOG_FORMAT
 
-# =============================================================================
-# CUSTOM FORMATTERS
-# =============================================================================
-
+# CUSTOM FORMATTERS (unchanged)
 class ColoredFormatter(logging.Formatter):
-    """Colored formatter for console output"""
-    
     COLORS = {
-        'DEBUG': '\033[36m',    # Cyan
-        'INFO': '\033[32m',     # Green
-        'WARNING': '\033[33m',  # Yellow
-        'ERROR': '\033[31m',    # Red
-        'CRITICAL': '\033[35m', # Magenta
+        'DEBUG': '\033[36m',
+        'INFO': '\033[32m',
+        'WARNING': '\033[33m',
+        'ERROR': '\033[31m',
+        'CRITICAL': '\033[35m',
     }
     RESET = '\033[0m'
     
@@ -51,8 +46,6 @@ class ColoredFormatter(logging.Formatter):
         return formatted
 
 class JsonFormatter(logging.Formatter):
-    """JSON formatter for structured logging"""
-    
     def format(self, record):
         log_data = {
             'timestamp': datetime.utcnow().isoformat(),
@@ -75,10 +68,7 @@ class JsonFormatter(logging.Formatter):
         
         return json.dumps(log_data)
 
-# =============================================================================
-# LOGGER SETUP
-# =============================================================================
-
+# LOGGER SETUP (Fixed for no duplicates, pretty console, detailed file)
 def setup_logger(name: str = 'regime_system',
                 level: Optional[str] = None,
                 log_file: Optional[str] = None,
@@ -86,7 +76,7 @@ def setup_logger(name: str = 'regime_system',
                 file_logging: bool = True,
                 json_format: bool = False) -> logging.Logger:
     """
-    Setup logger—timed files (new per run), no duplicates, pretty console (INFO, colored), deep file (DEBUG).
+    Setup logger—timed files, no duplicates, console INFO (pretty summaries), file DEBUG (details).
     """
     logger = logging.getLogger(name)
     
@@ -98,18 +88,16 @@ def setup_logger(name: str = 'regime_system',
     
     if console:
         console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging.INFO)  # Console pretty/less noise (INFO+)
-        
+        console_handler.setLevel(logging.INFO)  # Console: Pretty, summaries only
         if json_format:
             console_formatter = JsonFormatter()
         else:
             console_formatter = ColoredFormatter(LOG_FORMAT)
-        
         console_handler.setFormatter(console_formatter)
         logger.addHandler(console_handler)
     
     if file_logging:
-        timestamp = datetime.now().strftime("%Y-%m-%m-%d_%H-%M-%S")
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         module_dir = os.path.join(LOG_DIR, name.lower())
         os.makedirs(module_dir, exist_ok=True)
         
@@ -121,17 +109,15 @@ def setup_logger(name: str = 'regime_system',
             maxBytes=10*1024*1024,
             backupCount=5
         )
-        file_handler.setLevel(logging.DEBUG)  # File deep (DEBUG+)
-        
+        file_handler.setLevel(logging.DEBUG)  # File: Detailed, all info
         if json_format:
             file_formatter = JsonFormatter()
         else:
             file_formatter = logging.Formatter(LOG_FORMAT)
-        
         file_handler.setFormatter(file_formatter)
         logger.addHandler(file_handler)
     
-    # Filter for "sloppy" duplicates
+    # Filter to skip duplicates
     class NoDuplicateFilter(logging.Filter):
         def __init__(self):
             self.last_log = None
@@ -143,7 +129,7 @@ def setup_logger(name: str = 'regime_system',
             self.last_log = current_log
             return 1
     
-    logger.addFilter(NoDuplicateFilter())  # Fixed: Suppress repeats
+    logger.addFilter(NoDuplicateFilter())  # Fixed: Suppress repeats for clean output
     
     return logger
 
