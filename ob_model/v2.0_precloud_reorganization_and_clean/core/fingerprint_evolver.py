@@ -27,9 +27,6 @@ from config.settings import VERBOSE
 
 logger = get_logger('fingerprint_evolver')  # Define logger first
 
-if not VERBOSE:
-    logger.setLevel(logging.WARNING)  # Suppress INFO if not VERBOSE
-
 @log_execution_time(logger)
 @log_errors(logger)
 def evolve_edges(tagged_map: dict, df: pd.DataFrame, window_size: int = 252, plot_enabled: bool = True) -> dict:
