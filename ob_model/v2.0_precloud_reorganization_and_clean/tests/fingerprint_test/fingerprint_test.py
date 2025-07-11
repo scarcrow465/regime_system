@@ -5,10 +5,9 @@
 
 
 """
-Test Script for Fingerprint Core Chain
-Runs scan → classify → evolve on selected timeframe data—simple check to see the "treasure hunter" work.
-Why: Lets you visually see edges detected (printed map like a treasure list), with logs painting progress (bars in terminal, details in files).
-Ties to vision: Shows how fingerprint extracts "why" OB wins (e.g., trending edge across scopes from scalping to position).
+Test Script for Pattern Checker
+Checks data for trade patterns on chosen time (1h, daily, weekly)—easy test to see wins.
+Why: Shows simple "win chances" like "upward pull" or "bounce after drop", how they change.
 """
 
 import pandas as pd
@@ -22,66 +21,115 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich import box
+import matplotlib.pyplot as plt  # For table PNG
 
-console = Console()  # Rich for pretty output
-logger = get_logger('fingerprint_test')
+console = Console()  # Pretty output
+logger = get_logger('pattern_test')
 
-# Timeframe variable - change this to 'daily', '1h', 'weekly', etc.
-TIMEFRAME = '1h'  # Select here; run script for that timeframe
+# Choose time: '1h', 'daily', 'weekly'
+TIMEFRAME = '1h'
 
-# Load data based on timeframe (assume CSVs named like combined_NQ_[timeframe]_data.csv)
+# Load data (change path if needed)
 data_path = r'C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean'
 df = pd.read_csv(f'{data_path}\\combined_NQ_{TIMEFRAME}_data.csv')
-df.index = pd.to_datetime(df.index)  # Ensure datetime index
-df['returns'] = df['close'].pct_change()  # Calculate returns if missing
-df['vol'] = df['returns'].rolling(window=20).std() * np.sqrt(252)  # Annualized vol (adjust window for timeframe)
+df.index = pd.to_datetime(df.index)
+df['returns'] = df['close'].pct_change()  # Win % change
+df['vol'] = df['returns'].rolling(20).std() * np.sqrt(252)  # Market wildness
 
-console.print(Panel(f"Fingerprint Chain Test Starting on {TIMEFRAME.capitalize()} Data", style="bold green", box=box.ROUNDED))
-console.print(f"VERBOSE mode: {'On' if VERBOSE else 'Off'} - Clean summaries (toggle in settings.py for full details).", style="italic")
+console.print(Panel(f"Pattern Check Starting on {TIMEFRAME.upper()} Data", style="bold green", box=box.ROUNDED))
+console.print(f"Detail Mode: {'On' if VERBOSE else 'Off'} - Flip in settings.py for more.", style="italic")
 
-# Run chain
+# Quick Guide
+console.print("Quick Guide:", style="bold yellow")
+console.print("- Patterns: 8 types like 'Upward Pull' (prices go up more than down).")
+console.print("- Strength: 0-1 number (higher = better win chance).")
+console.print("- Hold Times: How long to keep trade (short/medium—best one highlighted).")
+console.print("- Changes: If getting better/worse, how long it lasts, any sudden shift.")
+
+# Run check
 edge_map = scan_for_edges(df)
 tagged_map = classify_edges(edge_map, TIMEFRAME)
 evolved_map = evolve_edges(tagged_map, df, plot_enabled=PLOT_ENABLED)
 
-# Display raw edge map
-console.print(f"{TIMEFRAME.capitalize()} scan complete. Here's the raw edge map:", style="green")
+# Patterns Found Table
+console.print(f"{TIMEFRAME.upper()} Patterns Found: (Higher Strength = Better Win Chance)", style="green")
 table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
-table.add_column("Category")
-table.add_column("Broad Score")
-table.add_column("Conditional Score")
-table.add_column("Scopes")
+table.add_column("Pattern Type")
+table.add_column("Overall Strength")
+table.add_column("Better Conditions Strength")
+table.add_column("Hold Times")
 for category, data in edge_map.items():
-    table.add_row(category, str(data['broad_score']), str(data['conditional_score']), str(data['scopes']))
+    table.add_row(category.capitalize(), str(data['broad_strength']), str(data['conditional_strength']), str(data['scopes']))
 console.print(table)
+console.print("What It Means: Overall = average win chance. Better Conditions = win chance in calm markets. Hold Times = strength for short/medium trades.", style="dim")
 
-# Display tagged map
-console.print(f"{TIMEFRAME.capitalize()} classification complete. Here's the tagged map:", style="green")
+# Export table
+pd.DataFrame(edge_map).T.to_csv(f'docs/tables/{TIMEFRAME}_patterns_found.csv')
+fig, ax = plt.subplots()  # PNG of table
+ax.axis('off')
+ax.table(cellText=table.rows, colLabels=table.columns, loc='center')
+fig.savefig(f'docs/plots/{TIMEFRAME}_patterns_found.png')
+
+# Best Ways Table
+console.print(f"Best Ways to Use Patterns: (Strength >0.1 = Good for Trades)", style="green")
 table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
-table.add_column("Category")
-table.add_column("Desc")
-table.add_column("Final Score")
-table.add_column("Best Scope")
+table.add_column("Pattern Type")
+table.add_column("Simple Name")
+table.add_column("Strength")
+table.add_column("Best Hold Time")
 for category, data in tagged_map.items():
-    table.add_row(category, data['primary_desc'], str(data['final_score']), data['sub']['best_scope'])
+    table.add_row(category.capitalize(), data['name'], str(data['strength']), data['best_hold'])
 console.print(table)
+console.print("What It Means: Simple Name = easy description. Strength = win chance (higher = better). Best Hold = time to keep trade for max win.", style="dim")
 
-# Display evolved map
-console.print(f"{TIMEFRAME.capitalize()} evolution complete. Here's the final evolved map:", style="green")
+# Export
+pd.DataFrame(tagged_map).T.to_csv(f'docs/tables/{TIMEFRAME}_best_ways.csv')
+fig, ax = plt.subplots()
+ax.axis('off')
+ax.table(cellText=table.rows, colLabels=table.columns, loc='center')
+fig.savefig(f'docs/plots/{TIMEFRAME}_best_ways.png')
+
+# Hold Times Table (New)
+console.print(f"Hold Times for Patterns: (Higher = Better for That Length)", style="green")
 table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
-table.add_column("Category")
-table.add_column("Final Score")
-table.add_column("Rolling Avg")
-table.add_column("Intensity Slope")
-table.add_column("Persistence Days")
-table.add_column("Break Detected")
-for category, data in evolved_map.items():
-    evolution = data['evolution']
-    slope = str(evolution.get('intensity_slope', 'N/A'))
-    break_d = str(evolution.get('break_detected', 'N/A'))
-    table.add_row(category, str(data['final_score']), str(evolution['rolling_avg']), slope, str(evolution['persistence_days']), break_d)
+table.add_column("Pattern Type")
+for hold in SCOPES[TIMEFRAME]:
+    table.add_column(hold.capitalize() + " Strength")
+for category, data in tagged_map.items():
+    row = [category.capitalize()]
+    for hold in SCOPES[TIMEFRAME]:
+        row.append(str(data['all_holds'].get(hold, 0)))
+    table.add_row(*row)
 console.print(table)
-console.print("Explanation: Evolution = trends (rolling_avg = average strength, intensity_slope = change rate, persistence_days = how long it holds). Plots in docs/plots/ show lines (rising = strengthening) and bars (tall = strong categories).", style="dim")
+console.print("What It Means: Shows win chance for short vs. medium holds—pick highest for your style.", style="dim")
 
-console.print(Panel("Test Complete\nCheck logs/fingerprint_test/[name]_[yyyy-mm-dd_hh-mm-ss].log for details. Plots in docs/plots/. Toggle VERBOSE=True for more scan info. Real data next for stronger edges!", style="bold green", box=box.ROUNDED))
+# Export
+pd.DataFrame([data['all_holds'] for data in tagged_map.values()], index=tagged_map.keys()).to_csv(f'docs/tables/{TIMEFRAME}_hold_times.csv')
+fig, ax = plt.subplots()
+ax.axis('off')
+ax.table(cellText=table.rows, colLabels=table.columns, loc='center')
+fig.savefig(f'docs/plots/{TIMEFRAME}_hold_times.png')
+
+# Changes Table
+console.print(f"How Patterns Change: (Positive Trend = Getting Better)", style="green")
+table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
+table.add_column("Pattern Type")
+table.add_column("Average Strength")
+table.add_column("Change Trend")
+table.add_column("Lasts (Days)")
+table.add_column("Sudden Shift")
+for category, data in evolved_map.items():
+    changes = data['changes']
+    table.add_row(category.capitalize(), str(changes['avg_strength']), str(changes['change_trend']), str(changes['lasts_days']), changes['change_date'])
+console.print(table)
+console.print("What It Means: Average Strength = typical win chance over time. Change Trend = if improving (positive) or weakening (negative). Lasts = how many days reliable. Sudden Shift = date it changed big (or None).", style="dim")
+
+# Export
+pd.DataFrame([data['changes'] for data in evolved_map.values()], index=evolved_map.keys()).to_csv(f'docs/tables/{TIMEFRAME}_changes.csv')
+fig, ax = plt.subplots()
+ax.axis('off')
+ax.table(cellText=table.rows, colLabels=table.columns, loc='center')
+fig.savefig(f'docs/plots/{TIMEFRAME}_changes.png')
+
+console.print(Panel("Check Complete—See tables/plots in docs/ for saves. Flip VERBOSE for details. Next: Add patterns like 'Bounce After Drop' for higher strengths!", style="bold green", box=box.ROUNDED))
 
