@@ -62,114 +62,120 @@ class LowerTimeframeEarlyWarningSystem:
         self.multiplier = int(timeframe[:-1]) if timeframe != '1H' else 1  # Hours per period
         self.lookback_periods = lookback_periods * self.multiplier
         
-        # Default config (scalable by multiplier where needed)
-        self.config = {
-            '1h': {'thresholds': {
-                'direction_strong': 0.25,
-                'direction_neutral': 0.1,
-                'strength_strong': 0.35,
-                'strength_moderate': 0.2,
-                'vol_low': 20,
-                'vol_normal': 70,
-                'vol_high': 85,
-                'efficiency_trending': 0.2,
-                'efficiency_ranging': 0.12,
-                'smoothing_periods': 6 * self.multiplier,  # Scale smoothing
-                'min_divergence_periods': 8 * self.multiplier,
+        # Default configs per timeframe (scalable by multiplier where needed)
+        self.configs = {
+            '1H': {
+                'thresholds': {
+                    'direction_strong': 0.25,
+                    'direction_neutral': 0.1,
+                    'strength_strong': 0.35,
+                    'strength_moderate': 0.2,
+                    'vol_low': 20,
+                    'vol_normal': 70,
+                    'vol_high': 85,
+                    'efficiency_trending': 0.2,
+                    'efficiency_ranging': 0.12,
+                    'smoothing_periods': 6 * self.multiplier,  # Scale smoothing
+                    'min_divergence_periods': 8 * self.multiplier,
+                },
+                'warning_levels': {
+                    'weak': 0.3,
+                    'moderate': 0.55,
+                    'strong': 0.7,
+                    'critical': 0.85
+                },
+                'divergence_weights': {
+                    'direction': 0.6,  # High for trend changes
+                    'strength': 0.3,  # Medium for mean reversion signals
+                    'volatility': 0.05,  # Low, as vol varies naturally
+                    'character': 0.05   # Low, as ranging is LTF noise
+                },
+                'indicator_periods': {
+                    'sma_short': 8 * self.multiplier,  # Scale periods
+                    'sma_long': 40 * self.multiplier,
+                    'trend_slope_short': 4 * self.multiplier,
+                    'trend_slope_long': 12 * self.multiplier,
+                    'efficiency_period': 10 * self.multiplier,
+                    'vol_window': 24 * self.multiplier,
+                }
             },
-            'warning_levels': {
-                'weak': 0.3,
-                'moderate': 0.55,
-                'strong': 0.7,
-                'critical': 0.85
+            '4H': {
+                'thresholds': {
+                    'direction_strong': 0.25,
+                    'direction_neutral': 0.1,
+                    'strength_strong': 0.35,
+                    'strength_moderate': 0.2,
+                    'vol_low': 20,
+                    'vol_normal': 70,
+                    'vol_high': 85,
+                    'efficiency_trending': 0.2,
+                    'efficiency_ranging': 0.12,
+                    'smoothing_periods': 6 * self.multiplier,  # Scale smoothing
+                    'min_divergence_periods': 8 * self.multiplier,
+                },
+                'warning_levels': {
+                    'weak': 0.3,
+                    'moderate': 0.55,
+                    'strong': 0.7,
+                    'critical': 0.85
+                },
+                'divergence_weights': {
+                    'direction': 0.6,  # High for trend changes
+                    'strength': 0.3,  # Medium for mean reversion signals
+                    'volatility': 0.05,  # Low, as vol varies naturally
+                    'character': 0.05   # Low, as ranging is LTF noise
+                },
+                'indicator_periods': {
+                    'sma_short': 8 * self.multiplier,  # Scale periods
+                    'sma_long': 40 * self.multiplier,
+                    'trend_slope_short': 4 * self.multiplier,
+                    'trend_slope_long': 12 * self.multiplier,
+                    'efficiency_period': 10 * self.multiplier,
+                    'vol_window': 24 * self.multiplier,
+                }
             },
-            'divergence_weights': {
-                'direction': 0.6,  # High for trend changes
-                'strength': 0.3,  # Medium for mean reversion signals
-                'volatility': 0.05,  # Low, as vol varies naturally
-                'character': 0.05   # Low, as ranging is LTF noise
-            },
-            'indicator_periods': {
-                'sma_short': 8 * self.multiplier,  # Scale periods
-                'sma_long': 40 * self.multiplier,
-                'trend_slope_short': 4 * self.multiplier,
-                'trend_slope_long': 12 * self.multiplier,
-                'efficiency_period': 10 * self.multiplier,
-                'vol_window': 24 * self.multiplier,
-            }
-        },
-        '4h': {'thresholds': {
-                'direction_strong': 0.25,
-                'direction_neutral': 0.1,
-                'strength_strong': 0.35,
-                'strength_moderate': 0.2,
-                'vol_low': 20,
-                'vol_normal': 70,
-                'vol_high': 85,
-                'efficiency_trending': 0.2,
-                'efficiency_ranging': 0.12,
-                'smoothing_periods': 6 * self.multiplier,  # Scale smoothing
-                'min_divergence_periods': 8 * self.multiplier,
-            },
-            'warning_levels': {
-                'weak': 0.3,
-                'moderate': 0.55,
-                'strong': 0.7,
-                'critical': 0.85
-            },
-            'divergence_weights': {
-                'direction': 0.6,  # High for trend changes
-                'strength': 0.3,  # Medium for mean reversion signals
-                'volatility': 0.05,  # Low, as vol varies naturally
-                'character': 0.05   # Low, as ranging is LTF noise
-            },
-            'indicator_periods': {
-                'sma_short': 8 * self.multiplier,  # Scale periods
-                'sma_long': 40 * self.multiplier,
-                'trend_slope_short': 4 * self.multiplier,
-                'trend_slope_long': 12 * self.multiplier,
-                'efficiency_period': 10 * self.multiplier,
-                'vol_window': 24 * self.multiplier,
-            }
-        },
-        '8h': {'thresholds': {
-                'direction_strong': 0.25,
-                'direction_neutral': 0.1,
-                'strength_strong': 0.35,
-                'strength_moderate': 0.2,
-                'vol_low': 20,
-                'vol_normal': 70,
-                'vol_high': 85,
-                'efficiency_trending': 0.2,
-                'efficiency_ranging': 0.12,
-                'smoothing_periods': 6 * self.multiplier,  # Scale smoothing
-                'min_divergence_periods': 8 * self.multiplier,
-            },
-            'warning_levels': {
-                'weak': 0.3,
-                'moderate': 0.55,
-                'strong': 0.7,
-                'critical': 0.85
-            },
-            'divergence_weights': {
-                'direction': 0.6,  # High for trend changes
-                'strength': 0.3,  # Medium for mean reversion signals
-                'volatility': 0.05,  # Low, as vol varies naturally
-                'character': 0.05   # Low, as ranging is LTF noise
-            },
-            'indicator_periods': {
-                'sma_short': 8 * self.multiplier,  # Scale periods
-                'sma_long': 40 * self.multiplier,
-                'trend_slope_short': 4 * self.multiplier,
-                'trend_slope_long': 12 * self.multiplier,
-                'efficiency_period': 10 * self.multiplier,
-                'vol_window': 24 * self.multiplier,
+            '8H': {
+                'thresholds': {
+                    'direction_strong': 0.25,
+                    'direction_neutral': 0.1,
+                    'strength_strong': 0.35,
+                    'strength_moderate': 0.2,
+                    'vol_low': 20,
+                    'vol_normal': 70,
+                    'vol_high': 85,
+                    'efficiency_trending': 0.2,
+                    'efficiency_ranging': 0.12,
+                    'smoothing_periods': 6 * self.multiplier,  # Scale smoothing
+                    'min_divergence_periods': 8 * self.multiplier,
+                },
+                'warning_levels': {
+                    'weak': 0.3,
+                    'moderate': 0.55,
+                    'strong': 0.7,
+                    'critical': 0.85
+                },
+                'divergence_weights': {
+                    'direction': 0.6,  # High for trend changes
+                    'strength': 0.3,  # Medium for mean reversion signals
+                    'volatility': 0.05,  # Low, as vol varies naturally
+                    'character': 0.05   # Low, as ranging is LTF noise
+                },
+                'indicator_periods': {
+                    'sma_short': 8 * self.multiplier,  # Scale periods
+                    'sma_long': 40 * self.multiplier,
+                    'trend_slope_short': 4 * self.multiplier,
+                    'trend_slope_long': 12 * self.multiplier,
+                    'efficiency_period': 10 * self.multiplier,
+                    'vol_window': 24 * self.multiplier,
+                }
             }
         }
-        }
+        # Select the config for this timeframe (default to '1H')
+        self.config = self.configs.get(self.timeframe, self.configs['1H'])
+        
         if config:
             self._update_config(self.config, config)
-        self.config = self.configs.get(self.timeframe, self.configs['1H'])  # Default to 1H
+        
         # Stateful storage for walk-forward
         self.ltf_data: pd.DataFrame = pd.DataFrame()
         self.daily_regimes: pd.DataFrame = pd.DataFrame()
