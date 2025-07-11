@@ -1,0 +1,12 @@
+2025-07-11 10:23:34,040 - edge_scanner - INFO - Scanning temporal: Calendar patterns (e.g., day-of-week returns diffs)
+2025-07-11 10:23:34,047 - edge_scanner - INFO - Scanning directional: Long/short bias (e.g., positive drift in sims)
+2025-07-11 10:23:34,051 - edge_scanner - INFO - Scanning behavioral: Trend/reversion/chop (e.g., autocorrelation tests)
+2025-07-11 10:23:34,054 - edge_scanner - ERROR - Error in scan_for_edges: 'behavioral'
+Traceback (most recent call last):
+  File "C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean\utils\logger.py", line 307, in wrapper
+    return func(*args, **kwargs)
+  File "C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean\core\edge_scanner.py", line 49, in scan_for_edges
+    edge_map[category]['conditional_score'] = conditional_score  # Unlock latent
+    ~~~~~~~~^^^^^^^^^^
+KeyError: 'behavioral'
+2025-07-11 10:23:34,056 - edge_scanner - ERROR - scan_for_edges failed after 0.02s: 'behavioral'
