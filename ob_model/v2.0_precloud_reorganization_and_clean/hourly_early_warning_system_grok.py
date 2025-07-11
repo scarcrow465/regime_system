@@ -59,8 +59,8 @@ class LowerTimeframeEarlyWarningSystem:
         """
         self.daily_classifier = daily_classifier
         self.timeframe = timeframe
-        self.lookback_periods = lookback_periods * self.multiplier
         self.multiplier = int(timeframe[:-1]) if timeframe != '1H' else 1  # Hours per period
+        self.lookback_periods = lookback_periods * self.multiplier
         
         # Default config (scalable by multiplier where needed)
         self.config = {
@@ -391,8 +391,8 @@ class LowerTimeframeEarlyWarningSystem:
         periods = self.config['indicator_periods']
         
         if 'close' in df.columns:
-            df['SMA_short'] = df['close'].rolling(periods['sma_short']).mean()
-            df['SMA_long'] = df['close'].rolling(periods['sma_long']).mean()
+            df['SMA_short'] = df['close'].rolling(periods['sma_short'], min_periods=1).mean()
+            df['SMA_long'] = df['close'].rolling(periods['sma_long'], min_periods=1).mean()
             df['price_vs_sma_short'] = (df['close'] - df['SMA_short']) / df['SMA_short']
             df['price_vs_sma_long'] = (df['close'] - df['SMA_long']) / df['SMA_long']
             df['sma_short_vs_long'] = (df['SMA_short'] - df['SMA_long']) / df['SMA_long']
@@ -408,7 +408,7 @@ class LowerTimeframeEarlyWarningSystem:
     
     def _calculate_efficiency_ratio(self, price_series: pd.Series, period: int) -> pd.Series:
         net_change = abs(price_series - price_series.shift(period))
-        total_change = price_series.diff().abs().rolling(period).sum()
+        total_change = price_series.diff().abs().rolling(period, min_periods=1).sum()
         return (net_change / total_change).fillna(0.5)
     
     # _classify_ltf_* methods: Similar to original, but use self.config['thresholds']
@@ -449,7 +449,7 @@ class LowerTimeframeEarlyWarningSystem:
         thresh = self.config['thresholds']
         
         # Use trend consistency over shorter window
-        df['trend_consistency'] = df['close'].pct_change().rolling(12 * self.multiplier).apply(
+        df['trend_consistency'] = df['close'].pct_change().rolling(12 * self.multiplier, min_periods=1).apply(
             lambda x: (x > 0).sum() / len(x) if len(x) > 0 else 0.5
         )
         
@@ -474,7 +474,7 @@ class LowerTimeframeEarlyWarningSystem:
         if 'realized_vol' in df.columns:
             # Use rolling window scaled by multiplier for percentile
             df['vol_percentile'] = df['realized_vol'].rolling(
-                24 * 7 * self.multiplier, min_periods=24 * self.multiplier
+                24 * 7 * self.multiplier, min_periods=1
             ).rank(pct=True) * 100
             
             df['volatility_score'] = df['vol_percentile'] / 100
