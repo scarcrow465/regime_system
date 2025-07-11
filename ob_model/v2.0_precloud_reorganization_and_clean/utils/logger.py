@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 import json
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+from tqdm import tqdm  # Added for visual progress bars in terminal (pip install if needed)
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -81,7 +82,7 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(log_data)
 
 # =============================================================================
-# LOGGER SETUP
+# LOGGER SETUP (Enhanced with subdirs and tqdm integration)
 # =============================================================================
 
 def setup_logger(name: str = 'regime_system',
@@ -91,7 +92,7 @@ def setup_logger(name: str = 'regime_system',
                 file_logging: bool = True,
                 json_format: bool = False) -> logging.Logger:
     """
-    Setup a logger with console and file handlers
+    Setup a logger with console and file handlers. Enhanced: Dated subdirs for files (e.g., logs/regime_system/2025-07-11_detailed.txt) to avoid mess; tqdm support for visual bars in terminal summaries.
     
     Args:
         name: Logger name
@@ -127,11 +128,15 @@ def setup_logger(name: str = 'regime_system',
         console_handler.setFormatter(console_formatter)
         logger.addHandler(console_handler)
     
-    # File handler
+    # File handler with dated subdir
     if file_logging:
+        # Create dated subdir (e.g., logs/regime_system/2025-07-11)
+        timestamp = datetime.now().strftime("%Y-%m-%d")
+        module_dir = os.path.join(LOG_DIR, name.lower(), timestamp)
+        os.makedirs(module_dir, exist_ok=True)
+        
         if log_file is None:
-            timestamp = datetime.now().strftime("%Y%m%d")
-            log_file = os.path.join(LOG_DIR, f'{name}_{timestamp}.log')
+            log_file = os.path.join(module_dir, f'{name}_{timestamp}.log')
         
         # Create rotating file handler (10MB max, keep 5 backups)
         file_handler = RotatingFileHandler(
@@ -250,6 +255,10 @@ class TradingLogger:
 
 # =============================================================================
 # LOGGING DECORATORS
+# =============================================================================
+
+# =============================================================================
+# LOGGING DECORATORS (Enhanced with tqdm for bars)
 # =============================================================================
 
 def log_execution_time(logger: Optional[logging.Logger] = None):
@@ -391,4 +400,14 @@ def log_warning(message: str, **kwargs):
 def log_debug(message: str, **kwargs):
     """Log debug message"""
     main_logger.debug(message, extra=kwargs)
+
+def progress_wrapper(iterable, desc="Progress", logger=main_logger, level='INFO'):
+    """
+    Wraps iterable with tqdm bar for visual progress in terminal (INFO level).
+    - Why: Makes long runs feel "alive" and trackable, like a video game loading screen—your visual style.
+    - Use: for item in progress_wrapper(range(100), desc="Scanning edges"):
+    """
+    if logger.level <= logging.INFO:
+        return tqdm(iterable, desc=desc, file=sys.stdout)  # Visual bar in terminal
+    return iterable  # No bar if higher level
 
