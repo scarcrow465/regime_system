@@ -18,7 +18,6 @@ from .checkpoint import (
 )
 
 from .logger import (
-    setup_logger,
     get_logger,
     PerformanceLogger,
     TradingLogger,
@@ -32,7 +31,6 @@ __all__ = [
     'OptimizationStateManager',
     'CloudCostMonitor',
     # Logger
-    'setup_logger',
     'get_logger',
     'PerformanceLogger',
     'TradingLogger',
