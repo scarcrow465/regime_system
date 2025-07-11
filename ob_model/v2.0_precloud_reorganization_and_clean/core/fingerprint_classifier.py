@@ -5,15 +5,14 @@
 
 
 """
-Fingerprint Classifier for Edge Taxonomy
-Tags edges with primary/sub descriptions, scopes, analytical metrics.
-Why: Classifies "what" the edge is (e.g., behavioral reversion in day trading scope)—extracts "why" OB wins from latent asymmetries.
-Use: Input edge_map, output tagged_map with taxonomy.
+Pattern Classifier for Easy Tags
+Tags patterns with simple names, best hold times.
+Why: Turns numbers into "what it is" (e.g., "Upward Pull: Better for medium holds")—easy "why" for trades.
+Use: Input edge_map/timeframe, output tagged_map with names/strengths.
 """
 
-import pandas as pd
 from utils.logger import get_logger, log_execution_time, log_errors
-from config.edge_taxonomy import PRIMARY_CATEGORIES, SUB_CLASSIFIERS, THRESHOLDS, SCOPES  # Add SCOPES
+from config.edge_taxonomy import PRIMARY_CATEGORIES, SCOPES, THRESHOLDS
 
 logger = get_logger('fingerprint_classifier')
 
@@ -21,26 +20,24 @@ logger = get_logger('fingerprint_classifier')
 @log_errors()
 def classify_edges(edge_map: dict, timeframe: str = 'daily') -> dict:
     """
-    Classify edges with taxonomy, adjust scopes for timeframe.
+    Tag patterns with easy names, best hold time.
     - Input: edge_map, timeframe ('1h', 'daily', 'weekly').
-    - Output: tagged_map with desc, scores, scopes (multiplied for timeframe).
+    - Output: Tagged map with name, strength (0-1: higher = better), best hold.
     """
     tagged_map = {}
-    scope_multipliers = SCOPES.get(timeframe, SCOPES['daily'])  # Default daily
+    hold_multipliers = SCOPES.get(timeframe, SCOPES['daily'])  # Adjust for timeframe
     for category, data in edge_map.items():
-        logger.info(f"Classifying {category}")
-        primary_desc = PRIMARY_CATEGORIES.get(category, 'Unknown')
-        all_scopes = {scope: data['scopes'].get(scope, 0) * mult for scope, mult in scope_multipliers.items()}
-        best_scope = max(all_scopes, key=all_scopes.get) if all_scopes else 'unknown'
-        sub = {'best_scope': best_scope, 'all_scopes': all_scopes}
-        analytical = {'robustness': 0}  # Placeholder (e.g., bootstrap tests later)
-        final_score = data['broad_score'] * 0.5 + data['conditional_score'] * 0.5
+        logger.info(f"Tagging {category}")
+        name = PRIMARY_CATEGORIES.get(category, 'Unknown Pattern')
+        all_holds = {hold: data['scopes'].get(hold, 0) * mult for hold, mult in hold_multipliers.items()}
+        best_hold = max(all_holds, key=all_holds.get) if all_holds else 'unknown'
+        strength = data['broad_strength'] * 0.5 + data['conditional_strength'] * 0.5  # Average overall/better conditions
         tagged_map[category] = {
-            'primary_desc': primary_desc,
-            'sub': sub,
-            'analytical': analytical,
-            'final_score': final_score
+            'name': name,
+            'strength': strength,
+            'best_hold': best_hold,
+            'all_holds': all_holds
         }
-    logger.info(f"Classification complete: {len(tagged_map)} tagged edges")
+    logger.info(f"Tagging complete: {len(tagged_map)} patterns named")
     return tagged_map
 
