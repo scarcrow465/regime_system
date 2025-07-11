@@ -19,11 +19,6 @@ logger = get_logger('fingerprint_classifier')
 @log_execution_time
 @log_errors()
 def classify_edges(edge_map: dict, timeframe: str = 'daily') -> dict:
-    """
-    Tag patterns with easy names, best hold time.
-    - Input: edge_map, timeframe ('1h', 'daily', 'weekly').
-    - Output: Tagged map with name, strength (0-1: higher = better), best hold.
-    """
     tagged_map = {}
     hold_multipliers = SCOPES.get(timeframe, SCOPES['daily'])  # Adjust for timeframe
     for category, data in edge_map.items():

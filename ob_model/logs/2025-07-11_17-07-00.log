@@ -1,0 +1,3 @@
+2025-07-11 17:54:55.580 | INFO     | utils.logger:wrapper:135 - decorator completed in 0.00s
+2025-07-11 17:54:55.580 | ERROR    | utils.logger:wrapper:156 - Error in classify_edges: 'function' object has no attribute 'items'
+2025-07-11 17:54:55.581 | ERROR    | utils.logger:wrapper:139 - classify_edges failed after 0.00s: 'function' object has no attribute 'items'
