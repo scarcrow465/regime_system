@@ -4,6 +4,13 @@
 # In[ ]:
 
 
+"""
+Backtester for Strategy Evidence
+Runs simple backtests on strategies to prove "edge or not" with net $/% after costs.
+Why: Gives real P&L proof (e.g., "RSI reversion long 3-day: Yes, +$150 net avg")—answers "does it make money?"
+Use: Input df, strategy params (style, long_short, hold_days), output metrics dict (expectancy, win %, yearly %).
+"""
+
 import pandas as pd
 import numpy as np
 import talib  # For indicators like RSI, ADX (your TA-Lib 0.11.0)
@@ -38,7 +45,6 @@ class Backtester:
         self.df['bb_width'] = (self.df['bb_upper'] - self.df['bb_lower']) / self.df['bb_mid']  # For chop
         # Drop rows with NaN in indicators
         self.df = self.df.dropna(subset=['rsi', 'adx', 'bb_width'])  # After indicators
-        print(f"Rows after dropna: {len(self.df)}")
 
     def get_instrument_specs(self) -> tuple:
         """Auto specs for futures (tick_value $, point mult)"""
@@ -74,9 +80,7 @@ class Backtester:
         while i < len(self.df) - hold_days:
             row = self.df.iloc[i]
             
-            
             # Entry condition based on style/strategy (long/short flip for short)
-            logger.info(f"Style: {style}, Strategy: {strategy_name}, Long/Short: {long_short}")
             entry = False
             if style == 'temporal':
                 if strategy_name == 'monday_buy' and row.name.weekday() == 0:  # Monday
@@ -84,8 +88,8 @@ class Backtester:
             elif style == 'directional':
                 if strategy_name == 'ma_above' and row['close'] > row['close'].rolling(50).mean():
                     entry = True if long_short == 'long' else False
-            elif style == 'behavioral'/'rsi_reversion':
-                if strategy_name == 'behavioral'/'rsi_reversion' and row['rsi'] < 30:
+            elif style == 'behavioral' or style == 'rsi_reversion':  # Add or condition for mismatch
+                if strategy_name == 'rsi_reversion' and row['rsi'] < 30:
                     entry = True if long_short == 'long' else (row['rsi'] > 70 if long_short == 'short' else False)
             elif style == 'conditional':
                 if strategy_name == 'low_vol_reversion' and row['vol'] < self.df['vol'].mean() and row['rsi'] < 30:
