@@ -43,10 +43,11 @@ class Backtester:
         if 'bb_upper' not in self.df or 'bb_lower' not in self.df:
             self.df['bb_upper'], self.df['bb_mid'], self.df['bb_lower'] = talib.BBANDS(self.df['close'], timeperiod=20)
         self.df['bb_width'] = (self.df['bb_upper'] - self.df['bb_lower']) / self.df['bb_mid']  # For chop
-        # Pre-compute rolling max high for breakout
-        self.df['rolling_max_high'] = self.df['high'].rolling(20).max().shift(1)
+        # Pre-compute rolling for ma_above and high_vol_breakout
+        self.df['ma50'] = self.df['close'].rolling(50).mean()
+        self.df['high20_max'] = self.df['high'].rolling(20).max()
         # Drop rows with NaN in indicators
-        self.df = self.df.dropna(subset=['rsi', 'adx', 'bb_width', 'rolling_max_high'])  # After indicators
+        self.df = self.df.dropna(subset=['rsi', 'adx', 'bb_width', 'ma50', 'high20_max'])  # After indicators
 
     def get_instrument_specs(self) -> tuple:
         """Auto specs for futures (tick_value $, point mult)"""
@@ -90,9 +91,9 @@ class Backtester:
                 elif strategy_name == 'friday_sell' and row.name.weekday() == 4:  # Friday
                     entry = True if long_short == 'short' else False
             elif style == 'directional':
-                if strategy_name == 'ma_above' and row['close'] > row['close'].rolling(50).mean():
+                if strategy_name == 'ma_above' and row['close'] > row['ma50']:
                     entry = True if long_short == 'long' else False
-                elif strategy_name == 'ma_crossover' and row['close'] > row['close'].rolling(50).mean():
+                elif strategy_name == 'ma_crossover' and row['close'] > row['ma50']:
                     entry = True if long_short == 'long' else False
             elif style == 'behavioral':
                 if strategy_name == 'rsi_reversion' and row['rsi'] < 30:
@@ -103,7 +104,7 @@ class Backtester:
             elif style == 'conditional':
                 if strategy_name == 'low_vol_reversion' and row['vol'] < self.df['vol'].mean() and row['rsi'] < 30:
                     entry = True if long_short == 'long' else (row['rsi'] > 70 if long_short == 'short' else False)
-                elif strategy_name == 'high_vol_breakout' and row['vol'] > self.df['vol'].mean() and row['close'] > row['rolling_max_high']:
+                elif strategy_name == 'high_vol_breakout' and row['vol'] > self.df['vol'].mean() and row['close'] > row['high20_max']:
                     entry = True if long_short == 'long' else False
             # Add more for other styles/strategies...
             
