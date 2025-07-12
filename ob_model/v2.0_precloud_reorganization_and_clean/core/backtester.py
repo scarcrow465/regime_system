@@ -30,7 +30,6 @@ class Backtester:
         """
         self.df = check_data_sanity(df, logger, 'backtester')
         self.df['date'] = pd.to_datetime(self.df.index)
-        self.df = self.df.dropna(subset=['rsi', 'adx', 'bb_width'])  # After indicators
         self.df = self.df.dropna(subset=['close'])  # Ensure no NaN closes
         self.instrument = instrument
         self.contracts = contracts
@@ -45,6 +44,8 @@ class Backtester:
         if 'bb_upper' not in self.df or 'bb_lower' not in self.df:
             self.df['bb_upper'], self.df['bb_mid'], self.df['bb_lower'] = talib.BBANDS(self.df['close'], timeperiod=20)
         self.df['bb_width'] = (self.df['bb_upper'] - self.df['bb_lower']) / self.df['bb_mid']  # For chop
+        # Drop rows with NaN in indicators
+        self.df = self.df.dropna(subset=['rsi', 'adx', 'bb_width'])  # After indicators
 
     def get_instrument_specs(self) -> tuple:
         """Auto specs for futures (tick_value $, point mult)"""
