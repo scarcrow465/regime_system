@@ -73,7 +73,7 @@ class Backtester:
         i = 0
         while i < len(self.df) - hold_days:
             row = self.df.iloc[i]
-            logger.info(f"i={i}, rsi={row['rsi']}, adx={row['adx']}, entry={entry}")
+            
             
             # Entry condition based on style/strategy (long/short flip for short)
             entry = False
@@ -118,6 +118,8 @@ class Backtester:
                 i += hold_days  # No overlap
             else:
                 i += 1
+
+            logger.info(f"i={i}, rsi={row['rsi']}, adx={row['adx']}, entry={entry}")
         
         if not trades:
             return {'edge': 'No', 'reason': 'No Trades', 'trades_count': 0}
