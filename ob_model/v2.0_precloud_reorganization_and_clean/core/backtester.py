@@ -76,6 +76,7 @@ class Backtester:
             
             
             # Entry condition based on style/strategy (long/short flip for short)
+            entry = True
             if style == 'temporal':
                 if strategy_name == 'monday_buy' and row.name.weekday() == 0:  # Monday
                     entry = True if long_short == 'long' else False
@@ -118,7 +119,7 @@ class Backtester:
             else:
                 i += 1
 
-            # logger.info(f"i={i}, rsi={row['rsi']}, adx={row['adx']}, entry={entry}")
+            logger.info(f"i={i}, rsi={row['rsi']}, adx={row['adx']}, entry={entry}")
         
         if not trades:
             return {'edge': 'No', 'reason': 'No Trades', 'trades_count': 0}
