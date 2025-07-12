@@ -32,7 +32,7 @@ console = Console()  # Pretty output
 logger = get_logger('pattern_test')
 
 # Choose time: '1h', 'daily', 'weekly'
-TIMEFRAME = '1h'
+TIMEFRAME = 'daily'
 
 # Load data (change path if needed)
 data_path = r'C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean'
