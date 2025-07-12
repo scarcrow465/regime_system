@@ -148,7 +148,7 @@ console.print(Panel("Check Complete—See tables/plots in docs/ for saves. Flip 
 # Strategy Backtests (Evidence)
 console.print(f"{TIMEFRAME.upper()} Strategy Tests: Real Proof (Made Money After Fees?)", style="green")
 backtest_results = []
-styles = ['temporal', 'directional', 'behavioral', 'conditional']  # Focus 4
+styles = ['temporal', 'directional', 'rsi_reversion', 'conditional']  # Focus 4
 holds = [1, 3, 5, 8, 13, 21, 34, 55]  # All separate
 
 for style in styles:
