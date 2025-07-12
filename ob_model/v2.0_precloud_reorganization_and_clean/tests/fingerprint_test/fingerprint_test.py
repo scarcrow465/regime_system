@@ -12,11 +12,11 @@ Why: Shows simple "win chances" like "upward pull" or "bounce after drop", how t
 
 import pandas as pd
 import numpy as np
-from datetime import datetime  # Added for date/time in exports
-from pathlib import Path  # Future-proof paths (cross-OS, safe)
+from datetime import datetime
 from core.edge_scanner import scan_for_edges
 from core.fingerprint_classifier import classify_edges
 from core.fingerprint_evolver import evolve_edges
+from core.backtester import Backtester  # New import
 from utils.logger import get_logger
 from config.settings import PLOT_ENABLED, VERBOSE  # Toggle for detail
 from config.edge_taxonomy import SCOPES
@@ -25,6 +25,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich import box
 import matplotlib.pyplot as plt  # For table PNG
+import os  # For folders
 
 console = Console()  # Pretty output
 logger = get_logger('pattern_test')
@@ -54,16 +55,11 @@ edge_map = scan_for_edges(df)
 tagged_map = classify_edges(edge_map, TIMEFRAME)
 evolved_map = evolve_edges(tagged_map, df, plot_enabled=PLOT_ENABLED)
 
-# Create export folder (future-proof: Path, try/except, log)
+# Create export folder
 date = datetime.now().strftime('%Y-%m-%d')
 time = datetime.now().strftime('%H-%M')
-export_path = Path('docs') / f"fingerprint_test_{TIMEFRAME}_{date}_{time}"
-try:
-    export_path.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Export folder created: {export_path}")
-except Exception as e:
-    logger.error(f"Folder creation failed: {e}—using default docs/")
-    export_path = Path('docs')
+export_dir = f'docs/fingerprint_test_{TIMEFRAME}_{date}_{time}'
+os.makedirs(export_dir, exist_ok=True)
 
 # Patterns Found Table
 console.print(f"{TIMEFRAME.upper()} Patterns Found: (Higher Strength = Better Win Chance)", style="green")
@@ -78,11 +74,11 @@ console.print(table)
 console.print("What It Means: Overall = average win chance. Better Conditions = win chance in calm markets. Hold Times = strength for short/medium trades.", style="dim")
 
 # Export table
-pd.DataFrame(edge_map).T.to_csv(export_path / f'{TIMEFRAME}_patterns_found.csv')
+pd.DataFrame(edge_map).T.to_csv(f'{export_dir}/{TIMEFRAME}_patterns_found.csv')
 fig, ax = plt.subplots()  # PNG of table
 ax.axis('off')
 ax.table(cellText=[ [category.capitalize(), str(data['broad_strength']), str(data['conditional_strength']), str(data['scopes'])] for category, data in edge_map.items()], colLabels=["Pattern Type", "Overall Strength", "Better Conditions Strength", "Hold Times"], loc='center')
-fig.savefig(export_path / f'{TIMEFRAME}_patterns_found.png', dpi=300, bbox_inches='tight')
+fig.savefig(f'{export_dir}/{TIMEFRAME}_patterns_found.png', dpi=300, bbox_inches='tight')
 
 # Best Ways Table
 console.print(f"Best Ways to Use Patterns: (Strength >0.1 = Good for Trades)", style="green")
@@ -97,11 +93,11 @@ console.print(table)
 console.print("What It Means: Simple Name = easy description. Strength = win chance (higher = better). Best Hold = time to keep trade for max win.", style="dim")
 
 # Export
-pd.DataFrame(tagged_map).T.to_csv(export_path / f'{TIMEFRAME}_best_ways.csv')
+pd.DataFrame(tagged_map).T.to_csv(f'{export_dir}/{TIMEFRAME}_best_ways.csv')
 fig, ax = plt.subplots()
 ax.axis('off')
 ax.table(cellText=[ [category.capitalize(), data['name'], str(data['strength']), data['best_hold']] for category, data in tagged_map.items()], colLabels=["Pattern Type", "Simple Name", "Strength", "Best Hold Time"], loc='center')
-fig.savefig(export_path / f'{TIMEFRAME}_best_ways.png', dpi=300, bbox_inches='tight')
+fig.savefig(f'{export_dir}/{TIMEFRAME}_best_ways.png', dpi=300, bbox_inches='tight')
 
 # Hold Times Table (New)
 console.print(f"Hold Times for Patterns: (Higher = Better for That Length)", style="green")
@@ -118,11 +114,11 @@ console.print(table)
 console.print("What It Means: Shows win chance for short vs. medium holds—pick highest for your style.", style="dim")
 
 # Export
-pd.DataFrame([data['all_holds'] for data in tagged_map.values()], index=tagged_map.keys()).to_csv(export_path / f'{TIMEFRAME}_hold_times.csv')
+pd.DataFrame([data['all_holds'] for data in tagged_map.values()], index=tagged_map.keys()).to_csv(f'{export_dir}/{TIMEFRAME}_hold_times.csv')
 fig, ax = plt.subplots()
 ax.axis('off')
 ax.table(cellText=[ [category.capitalize()] + [str(data['all_holds'].get(hold, 0)) for hold in SCOPES[TIMEFRAME]] for category, data in tagged_map.items()], colLabels=["Pattern Type"] + [hold.capitalize() + " Strength" for hold in SCOPES[TIMEFRAME]], loc='center')
-fig.savefig(export_path / f'{TIMEFRAME}_hold_times.png', dpi=300, bbox_inches='tight')
+fig.savefig(f'{export_dir}/{TIMEFRAME}_hold_times.png', dpi=300, bbox_inches='tight')
 
 # Changes Table
 console.print(f"How Patterns Change: (Positive Trend = Getting Better)", style="green")
@@ -139,11 +135,11 @@ console.print(table)
 console.print("What It Means: Average Strength = typical win chance over time. Change Trend = if improving (positive) or weakening (negative). Lasts = how many days reliable. Sudden Shift = date it changed big (or None).", style="dim")
 
 # Export
-pd.DataFrame([data['changes'] for data in evolved_map.values()], index=evolved_map.keys()).to_csv(export_path / f'{TIMEFRAME}_changes.csv')
+pd.DataFrame([data['changes'] for data in evolved_map.values()], index=evolved_map.keys()).to_csv(f'{export_dir}/{TIMEFRAME}_changes.csv')
 fig, ax = plt.subplots()
 ax.axis('off')
 ax.table(cellText=[ [category.capitalize(), str(changes['avg_strength']), str(changes['change_trend']), str(changes['lasts_days']), changes['change_date']] for category, data in evolved_map.items() for changes in [data['changes']]], colLabels=["Pattern Type", "Average Strength", "Change Trend", "Lasts (Days)", "Sudden Shift"], loc='center')
-fig.savefig(export_path / f'{TIMEFRAME}_changes.png', dpi=300, bbox_inches='tight')
+fig.savefig(f'{export_dir}/{TIMEFRAME}_changes.png', dpi=300, bbox_inches='tight')
 
 console.print(Panel("Check Complete—See tables/plots in docs/ for saves. Flip VERBOSE for details. Next: Add patterns like 'Bounce After Drop' for higher strengths!", style="bold green", box=box.ROUNDED))
 
