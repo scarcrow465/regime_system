@@ -38,6 +38,7 @@ class Backtester:
         self.df['bb_width'] = (self.df['bb_upper'] - self.df['bb_lower']) / self.df['bb_mid']  # For chop
         # Drop rows with NaN in indicators
         self.df = self.df.dropna(subset=['rsi', 'adx', 'bb_width'])  # After indicators
+        print(f"Rows after dropna: {len(self.df)}")
 
     def get_instrument_specs(self) -> tuple:
         """Auto specs for futures (tick_value $, point mult)"""

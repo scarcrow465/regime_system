@@ -1,0 +1,174 @@
+2025-07-11 23:43:42.436 | WARNING  | utils.debug_utils:check_data_sanity:18 - edge_scanner: NaNs found—filling with 0
+2025-07-11 23:43:42.438 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning temporal: Calendar patterns (e.g., day-of-week returns diffs)
+2025-07-11 23:43:42.441 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(0.0004747480053472638), 'signif': np.float64(0.024475765684454545)}...
+2025-07-11 23:43:42.441 | WARNING  | core.edge_scanner:scan_for_edges:61 - temporal low overall/better conditions—check if hidden in other types
+2025-07-11 23:43:42.442 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning directional: Long/short bias (e.g., positive drift in sims)
+2025-07-11 23:43:42.445 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(0.0004747480053472638), 'signif': np.float64(0.024475765684454545)}...
+2025-07-11 23:43:42.445 | WARNING  | core.edge_scanner:scan_for_edges:61 - directional low overall/better conditions—check if hidden in other types
+2025-07-11 23:43:42.445 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning behavioral: Trend/reversion/chop (e.g., autocorrelation tests)
+2025-07-11 23:43:42.447 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(0.0004747480053472638), 'signif': np.float64(0.024475765684454545)}...
+2025-07-11 23:43:42.447 | WARNING  | core.edge_scanner:scan_for_edges:61 - behavioral low overall/better conditions—check if hidden in other types
+2025-07-11 23:43:42.448 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning conditional: Regime-dependent (e.g., subset tests on vol)
+2025-07-11 23:43:42.450 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(0.0004747480053472638), 'signif': np.float64(0.024475765684454545)}...
+2025-07-11 23:43:42.450 | WARNING  | core.edge_scanner:scan_for_edges:61 - conditional low overall/better conditions—check if hidden in other types
+2025-07-11 23:43:42.450 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning event_driven: News reactions (e.g., isolate Fed days)
+2025-07-11 23:43:42.454 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(0.0004747480053472638), 'signif': np.float64(0.024475765684454545)}...
+2025-07-11 23:43:42.454 | WARNING  | core.edge_scanner:scan_for_edges:61 - event_driven low overall/better conditions—check if hidden in other types
+2025-07-11 23:43:42.454 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning intermarket: Cross-asset links (e.g., correlation tests)
+2025-07-11 23:43:42.457 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(0.0004747480053472638), 'signif': np.float64(0.024475765684454545)}...
+2025-07-11 23:43:42.457 | WARNING  | core.edge_scanner:scan_for_edges:61 - intermarket low overall/better conditions—check if hidden in other types
+2025-07-11 23:43:42.457 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning microstructural: Volume/VWAP patterns
+2025-07-11 23:43:42.460 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(0.0004747480053472638), 'signif': np.float64(0.024475765684454545)}...
+2025-07-11 23:43:42.460 | WARNING  | core.edge_scanner:scan_for_edges:61 - microstructural low overall/better conditions—check if hidden in other types
+2025-07-11 23:43:42.460 | INFO     | core.edge_scanner:scan_for_edges:42 - Scanning sentiment_flow: Positioning extremes (e.g., COT data if available)
+2025-07-11 23:43:42.462 | DEBUG    | utils.debug_utils:log_var_state:23 - broad_results: {'strength': np.float64(0.0004747480053472638), 'signif': np.float64(0.024475765684454545)}...
+2025-07-11 23:43:42.463 | WARNING  | core.edge_scanner:scan_for_edges:61 - sentiment_flow low overall/better conditions—check if hidden in other types
+2025-07-11 23:43:42.463 | INFO     | core.edge_scanner:scan_for_edges:63 - Scan complete: 8 potential patterns found
+2025-07-11 23:43:42.463 | INFO     | utils.logger:wrapper:135 - scan_for_edges completed in 0.03s
+2025-07-11 23:43:42.463 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging temporal
+2025-07-11 23:43:42.463 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging directional
+2025-07-11 23:43:42.464 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging behavioral
+2025-07-11 23:43:42.464 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging conditional
+2025-07-11 23:43:42.464 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging event_driven
+2025-07-11 23:43:42.464 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging intermarket
+2025-07-11 23:43:42.464 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging microstructural
+2025-07-11 23:43:42.464 | INFO     | core.fingerprint_classifier:classify_edges:28 - Tagging sentiment_flow
+2025-07-11 23:43:42.464 | INFO     | core.fingerprint_classifier:classify_edges:39 - Tagging complete: 8 patterns named
+2025-07-11 23:43:42.465 | INFO     | utils.logger:wrapper:135 - classify_edges completed in 0.00s
+2025-07-11 23:43:42.466 | WARNING  | utils.debug_utils:check_data_sanity:18 - pattern_evolver: NaNs found—filling with 0
+2025-07-11 23:43:42.471 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking temporal
+2025-07-11 23:43:42.475 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(0.0005696904683710595), np.float64(0.0006274049058415094), np.float64(0.0006237777711452673), np.float64(0.0006727835268229889), np.float64(0.0005789649660373099), np.float64(0.00053458399...
+2025-07-11 23:43:42.815 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\23-43-42/temporal_change_2025-07-11_23-43-42.png
+2025-07-11 23:43:42.815 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\23-43-42/temporal_change_2025-07-11_23-43-42.png
+2025-07-11 23:43:42.851 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking directional
+2025-07-11 23:43:42.855 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(0.0005685279184615808), np.float64(0.0006141851341400602), np.float64(0.000605792090611283), np.float64(0.0007075034674339393), np.float64(0.0006576989014096522), np.float64(0.000589608196...
+2025-07-11 23:43:43.062 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\23-43-43/directional_change_2025-07-11_23-43-43.png
+2025-07-11 23:43:43.062 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\23-43-43/directional_change_2025-07-11_23-43-43.png
+2025-07-11 23:43:43.087 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking behavioral
+2025-07-11 23:43:43.091 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(0.0005613865683597825), np.float64(0.0006781202706050191), np.float64(0.0006124199611709639), np.float64(0.0006238860075985875), np.float64(0.0006790346851040323), np.float64(0.00063691366...
+2025-07-11 23:43:43.285 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\23-43-43/behavioral_change_2025-07-11_23-43-43.png
+2025-07-11 23:43:43.286 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\23-43-43/behavioral_change_2025-07-11_23-43-43.png
+2025-07-11 23:43:43.310 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking conditional
+2025-07-11 23:43:43.314 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(0.0007005147659489596), np.float64(0.0005591406235080131), np.float64(0.0006248506961758984), np.float64(0.000594394621100095), np.float64(0.0005901860518466044), np.float64(0.000517629401...
+2025-07-11 23:43:43.513 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\23-43-43/conditional_change_2025-07-11_23-43-43.png
+2025-07-11 23:43:43.513 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\23-43-43/conditional_change_2025-07-11_23-43-43.png
+2025-07-11 23:43:43.541 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking event_driven
+2025-07-11 23:43:43.545 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(0.0006914880370170815), np.float64(0.0005743617197838714), np.float64(0.0005269580036343532), np.float64(0.0005925709013522144), np.float64(0.0006171943894422381), np.float64(0.00074237279...
+2025-07-11 23:43:43.757 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\23-43-43/event_driven_change_2025-07-11_23-43-43.png
+2025-07-11 23:43:43.757 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\23-43-43/event_driven_change_2025-07-11_23-43-43.png
+2025-07-11 23:43:43.785 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking intermarket
+2025-07-11 23:43:43.789 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(0.0005976204675208879), np.float64(0.0006092315733871327), np.float64(0.0006238543082156678), np.float64(0.0005976873006263314), np.float64(0.0005461577627134624), np.float64(0.00053596795...
+2025-07-11 23:43:43.992 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\23-43-43/intermarket_change_2025-07-11_23-43-43.png
+2025-07-11 23:43:43.992 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\23-43-43/intermarket_change_2025-07-11_23-43-43.png
+2025-07-11 23:43:44.019 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking microstructural
+2025-07-11 23:43:44.023 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(0.0006172776570144266), np.float64(0.0007296981210833462), np.float64(0.0006272108190438331), np.float64(0.0006520911010052374), np.float64(0.000597639381459194), np.float64(0.000492839738...
+2025-07-11 23:43:44.219 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\23-43-44/microstructural_change_2025-07-11_23-43-44.png
+2025-07-11 23:43:44.220 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\23-43-44/microstructural_change_2025-07-11_23-43-44.png
+2025-07-11 23:43:44.245 | INFO     | core.fingerprint_evolver:evolve_edges:40 - Tracking sentiment_flow
+2025-07-11 23:43:44.249 | DEBUG    | utils.debug_utils:log_var_state:23 - rolling_strengths: [np.float64(0.0006080119717201184), np.float64(0.0005831764307597607), np.float64(0.0005830083855210467), np.float64(0.0006615057071991769), np.float64(0.0006014445969953689), np.float64(0.00066038094...
+2025-07-11 23:43:44.443 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\23-43-44/sentiment_flow_change_2025-07-11_23-43-44.png
+2025-07-11 23:43:44.444 | INFO     | core.fingerprint_evolver:evolve_edges:88 - Saved line plot: docs\plots\2025-07-11\23-43-44/sentiment_flow_change_2025-07-11_23-43-44.png
+2025-07-11 23:43:44.709 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\23-43-44/all_patterns_bar_2025-07-11_23-43-44.png
+2025-07-11 23:43:44.709 | INFO     | core.fingerprint_evolver:evolve_edges:104 - Saved bar plot: docs\plots\2025-07-11\23-43-44/all_patterns_bar_2025-07-11_23-43-44.png
+2025-07-11 23:43:44.734 | INFO     | utils.logger:wrapper:135 - evolve_edges completed in 2.27s
+2025-07-11 23:43:45.026 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\23-43-44/daily_patterns_found.png_2025-07-11_23-43-44.png
+2025-07-11 23:43:45.298 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\23-43-45/daily_best_ways.png_2025-07-11_23-43-45.png
+2025-07-11 23:43:45.499 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\23-43-45/daily_hold_times.png_2025-07-11_23-43-45.png
+2025-07-11 23:43:45.787 | INFO     | utils.debug_utils:safe_save:44 - Saved PNG file: docs\plots\2025-07-11\23-43-45/daily_changes.png_2025-07-11_23-43-45.png
+2025-07-11 23:43:45.790 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:46.176 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:46.178 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:46.570 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:46.572 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:46.960 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:46.961 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:47.358 | INFO     | utils.logger:wrapper:135 - run completed in 0.39s
+2025-07-11 23:43:47.360 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:47.765 | INFO     | utils.logger:wrapper:135 - run completed in 0.40s
+2025-07-11 23:43:47.766 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:48.159 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:48.160 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:48.550 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:48.552 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:48.943 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:48.945 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:49.332 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:49.334 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:49.731 | INFO     | utils.logger:wrapper:135 - run completed in 0.39s
+2025-07-11 23:43:49.733 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:50.125 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:50.126 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:50.515 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:50.516 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:50.905 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:50.907 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:51.300 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:51.301 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:51.690 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:51.692 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:52.085 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:52.086 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:52.477 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:52.478 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:52.861 | INFO     | utils.logger:wrapper:135 - run completed in 0.37s
+2025-07-11 23:43:52.863 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:53.250 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:53.252 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:53.646 | INFO     | utils.logger:wrapper:135 - run completed in 0.39s
+2025-07-11 23:43:53.648 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:54.035 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:54.036 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:54.429 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:54.431 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:54.820 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:54.822 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:55.209 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:55.210 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:55.609 | INFO     | utils.logger:wrapper:135 - run completed in 0.39s
+2025-07-11 23:43:55.610 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:55.995 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:55.996 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:56.400 | INFO     | utils.logger:wrapper:135 - run completed in 0.39s
+2025-07-11 23:43:56.401 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:56.801 | INFO     | utils.logger:wrapper:135 - run completed in 0.39s
+2025-07-11 23:43:56.803 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:57.193 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:57.194 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:57.590 | INFO     | utils.logger:wrapper:135 - run completed in 0.39s
+2025-07-11 23:43:57.592 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:57.992 | INFO     | utils.logger:wrapper:135 - run completed in 0.39s
+2025-07-11 23:43:57.994 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:58.385 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:58.387 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:58.792 | INFO     | utils.logger:wrapper:135 - run completed in 0.40s
+2025-07-11 23:43:58.794 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:59.184 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:59.185 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:59.572 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:43:59.573 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:43:59.968 | INFO     | utils.logger:wrapper:135 - run completed in 0.39s
+2025-07-11 23:43:59.970 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:44:00.367 | INFO     | utils.logger:wrapper:135 - run completed in 0.39s
+2025-07-11 23:44:00.368 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:44:00.762 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:44:00.763 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:44:01.151 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:44:01.152 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:44:01.539 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:44:01.540 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:44:01.936 | INFO     | utils.logger:wrapper:135 - run completed in 0.39s
+2025-07-11 23:44:01.937 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:44:02.328 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:44:02.329 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:44:02.734 | INFO     | utils.logger:wrapper:135 - run completed in 0.39s
+2025-07-11 23:44:02.735 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:44:03.128 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:44:03.129 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:44:03.523 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:44:03.524 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:44:03.911 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:44:03.912 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:44:04.299 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:44:04.301 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
+2025-07-11 23:44:04.691 | INFO     | utils.logger:wrapper:135 - run completed in 0.38s
+2025-07-11 23:44:04.692 | WARNING  | utils.debug_utils:check_data_sanity:18 - backtester: NaNs found—filling with 0
