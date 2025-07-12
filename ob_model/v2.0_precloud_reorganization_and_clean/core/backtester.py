@@ -8,7 +8,7 @@
 Backtester for Strategy Evidence
 Runs simple backtests on strategies to prove "edge or not" with net $/% after costs.
 Why: Gives real P&L proof (e.g., "RSI reversion long 3-day: Yes, +$150 net avg")—answers "does it make money?"
-Use: Input df, strategy params (style, long_short, hold_days), output metrics dict (expectancy, win %, yearly %).
+Use: Input df, strategy params (style, strategy_name, long_short, hold_days), output metrics dict (expectancy, win %, yearly %).
 """
 
 import pandas as pd
@@ -43,8 +43,12 @@ class Backtester:
         if 'bb_upper' not in self.df or 'bb_lower' not in self.df:
             self.df['bb_upper'], self.df['bb_mid'], self.df['bb_lower'] = talib.BBANDS(self.df['close'], timeperiod=20)
         self.df['bb_width'] = (self.df['bb_upper'] - self.df['bb_lower']) / self.df['bb_mid']  # For chop
+        if 'sma20' not in self.df:
+            self.df['sma20'] = talib.SMA(self.df['close'], timeperiod=20)
+        if 'sma50' not in self.df:
+            self.df['sma50'] = talib.SMA(self.df['close'], timeperiod=50)
         # Drop rows with NaN in indicators
-        self.df = self.df.dropna(subset=['rsi', 'adx', 'bb_width'])  # After indicators
+        self.df = self.df.dropna(subset=['rsi', 'adx', 'bb_width', 'sma20', 'sma50'])  # After indicators
 
     def get_instrument_specs(self) -> tuple:
         """Auto specs for futures (tick_value $, point mult)"""
@@ -80,22 +84,29 @@ class Backtester:
         while i < len(self.df) - hold_days:
             row = self.df.iloc[i]
             
-            
             # Entry condition based on style/strategy (long/short flip for short)
             entry = False
             if style == 'temporal':
                 if strategy_name == 'monday_buy' and row.name.weekday() == 0:  # Monday
                     entry = True if long_short == 'long' else False
+                elif strategy_name == 'friday_sell' and row.name.weekday() == 4:  # Friday
+                    entry = True if long_short == 'short' else False
             elif style == 'directional':
-                if strategy_name == 'ma_above' and row['close'] > row['close'].rolling(50).mean():
+                if strategy_name == 'ma_above' and row['close'] > row['sma50']:
+                    entry = True if long_short == 'long' else False
+                elif strategy_name == 'ma_crossover' and row['sma20'] > row['sma50'] and self.df.iloc[i-1]['sma20'] <= self.df.iloc[i-1]['sma50']:
                     entry = True if long_short == 'long' else False
             elif style == 'behavioral':
                 if strategy_name == 'rsi_reversion' and row['rsi'] < 30:
                     entry = True if long_short == 'long' else (row['rsi'] > 70 if long_short == 'short' else False)
                     logger.info(f"RSI condition checked: {row['rsi'] < 30 if long_short=='long' else row['rsi'] > 70}")
+                elif strategy_name == 'adx_trend' and row['adx'] > 25:
+                    entry = True if long_short == 'long' else False  # Trend strong for long; add short logic if needed
             elif style == 'conditional':
                 if strategy_name == 'low_vol_reversion' and row['vol'] < self.df['vol'].mean() and row['rsi'] < 30:
                     entry = True if long_short == 'long' else (row['rsi'] > 70 if long_short == 'short' else False)
+                elif strategy_name == 'high_vol_breakout' and row['vol'] > self.df['vol'].mean() and row['close'] > row['high'].rolling(20).max():
+                    entry = True if long_short == 'long' else False
             # Add more for other styles/strategies...
             
             if entry:
