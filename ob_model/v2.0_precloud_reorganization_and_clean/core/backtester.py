@@ -118,7 +118,7 @@ class Backtester:
             else:
                 i += 1
 
-            logger.info(f"i={i}, rsi={row['rsi']}, adx={row['adx']}, entry={entry}")
+            # logger.info(f"i={i}, rsi={row['rsi']}, adx={row['adx']}, entry={entry}")
         
         if not trades:
             return {'edge': 'No', 'reason': 'No Trades', 'trades_count': 0}
