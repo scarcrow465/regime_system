@@ -17,7 +17,6 @@ from core.fingerprint_classifier import classify_edges
 from core.fingerprint_evolver import evolve_edges
 from utils.logger import get_logger
 from config.settings import PLOT_ENABLED, VERBOSE  # Toggle for detail
-from config.edge_taxonomy import SCOPES  # Add this import for hold times table
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -28,7 +27,7 @@ console = Console()  # Pretty output
 logger = get_logger('pattern_test')
 
 # Choose time: '1h', 'daily', 'weekly'
-TIMEFRAME = 'daily'
+TIMEFRAME = '1h'
 
 # Load data (change path if needed)
 data_path = r'C:\Users\rs\GitProjects\regime_system\ob_model\v2.0_precloud_reorganization_and_clean'
