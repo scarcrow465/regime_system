@@ -40,6 +40,7 @@ df = pd.read_csv(f'{data_path}\\combined_NQ_{TIMEFRAME}_data.csv')
 df.index = pd.to_datetime(df.index)
 df['returns'] = df['close'].pct_change()  # Win % change
 df['vol'] = df['returns'].rolling(20).std() * np.sqrt(252)  # Market wildness
+df = df.dropna(subset=['returns', 'vol'])
 
 console.print(Panel(f"Pattern Check Starting on {TIMEFRAME.upper()} Data", style="bold green", box=box.ROUNDED))
 console.print(f"Detail Mode: {'On' if VERBOSE else 'Off'} - Flip in settings.py for more.", style="italic")
@@ -147,7 +148,7 @@ console.print(Panel("Check Complete—See tables/plots in docs/ for saves. Flip 
 # Strategy Backtests (Evidence)
 console.print(f"{TIMEFRAME.upper()} Strategy Tests: Real Proof (Made Money After Fees?)", style="green")
 backtest_results = []
-styles = ['temporal', 'directional', 'behavioral', 'conditional']  # Focus 4
+styles = ['temporal', 'directional', 'rsi_reversion', 'conditional']  # Focus 4
 holds = [1, 3, 5, 8, 13, 21, 34, 55]  # All separate
 
 for style in styles:
