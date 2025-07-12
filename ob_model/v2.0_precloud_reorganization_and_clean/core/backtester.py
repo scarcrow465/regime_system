@@ -4,14 +4,6 @@
 # In[ ]:
 
 
-# core/backtester.py - Backtest Function for Strategy Evidence
-"""
-Backtester for Strategy Evidence
-Runs simple backtests on strategies to prove "edge or not" with net $/% after costs.
-Why: Gives real P&L proof (e.g., "RSI reversion long 3-day: Yes, +$150 net avg")—answers "does it make money?"
-Use: Input df, strategy params (style, long_short, hold_days), output metrics dict (expectancy, win %, yearly %).
-"""
-
 import pandas as pd
 import numpy as np
 import talib  # For indicators like RSI, ADX (your TA-Lib 0.11.0)
@@ -95,7 +87,7 @@ class Backtester:
             elif style == 'conditional':
                 if strategy_name == 'low_vol_reversion' and row['vol'] < self.df['vol'].mean() and row['rsi'] < 30:
                     entry = True if long_short == 'long' else (row['rsi'] > 70 if long_short == 'short' else False)
-            # Add more for other strategies/styles...
+            # Add more for other styles/strategies...
             
             if entry:
                 entry_price = row['close']
