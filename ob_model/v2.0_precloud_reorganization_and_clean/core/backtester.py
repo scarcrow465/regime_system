@@ -76,7 +76,6 @@ class Backtester:
             
             
             # Entry condition based on style/strategy (long/short flip for short)
-            entry = False
             if style == 'temporal':
                 if strategy_name == 'monday_buy' and row.name.weekday() == 0:  # Monday
                     entry = True if long_short == 'long' else False
