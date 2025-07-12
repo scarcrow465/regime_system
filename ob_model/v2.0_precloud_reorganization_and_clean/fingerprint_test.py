@@ -145,41 +145,49 @@ safe_save(fig, f'{export_dir}/{TIMEFRAME}_changes.png')
 
 console.print(Panel("Check Complete—See tables/plots in docs/ for saves. Flip VERBOSE for details. Next: Add patterns like 'Bounce After Drop' for higher strengths!", style="bold green", box=box.ROUNDED))
 
-# Strategy Backtests (Evidence)
+# Strategy Backtests (Evidence) - Run all in one loop
 console.print(f"{TIMEFRAME.upper()} Strategy Tests: Real Proof (Made Money After Fees?)", style="green")
 backtest_results = []
-styles = ['temporal', 'directional', 'behavioral', 'conditional']  # Focus 4
+styles_strategies = {
+    'temporal': ['monday_buy', 'friday_sell'],
+    'directional': ['ma_above', 'ma_crossover'],
+    'behavioral': ['rsi_reversion', 'adx_trend'],
+    'conditional': ['low_vol_reversion', 'high_vol_breakout']
+}  # Strategies per style
 holds = [1, 3, 5, 8, 13, 21, 34, 55]  # All separate
 
-for style in styles:
-    for long_short in ['long', 'short']:
-        for hold_days in holds:
-            bt = Backtester(df, 'NQ')
-            strategy = 'rsi_reversion' if style == 'behavioral' else 'default'
-            metrics = bt.run(style, strategy, long_short, hold_days)  # Updated call with strategy
-            backtest_results.append({
-                'style': style,
-                'long_short': long_short,
-                'hold_days': hold_days,
-                'metrics': metrics
-            })
+for style, strategies in styles_strategies.items():
+    for strategy in strategies:
+        for long_short in ['long', 'short']:
+            for hold_days in holds:
+                bt = Backtester(df, 'NQ')
+                metrics = bt.run(style, strategy, long_short, hold_days)
+                backtest_results.append({
+                    'style': style,
+                    'strategy': strategy,
+                    'long_short': long_short,
+                    'hold_days': hold_days,
+                    'metrics': metrics
+                })
 
-# Edge Summary Table
+# Edge Summary Table (All together)
+console.print("All Strategy Results (Sorted by Avg Net Profit %):", style="green")
+backtest_results.sort(key=lambda x: x['metrics'].get('avg_net_pct', 0), reverse=True)  # Sort by profit
 table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE)
-table.add_column("Style - Side - Hold (Days)")
+table.add_column("Style - Strategy - Side - Hold (Days)")
 table.add_column("Edge? (Yes/No)")
 table.add_column("Net Avg Profit % (After Fees)")
 table.add_column("Win Trades %")
 table.add_column("Trades # (1000+ = Reliable)")
 for result in backtest_results:
     m = result['metrics']
-    avg_net_pct = str(round(m['avg_net_pct'], 2)) if 'avg_net_pct' in m else 'N/A'
-    win_pct = str(round(m['win_pct'], 1)) if 'win_pct' in m else 'N/A'
-    trades_count = str(m['trades_count']) if 'trades_count' in m else 'N/A'
-    table.add_row(f"{result['style'].capitalize()} - {result['long_short'].capitalize()} - {result['hold_days']}", m['edge'], avg_net_pct, win_pct, trades_count)
+    avg_net_pct = str(round(m.get('avg_net_pct', 0), 2))
+    win_pct = str(round(m.get('win_pct', 0), 1))
+    trades_count = str(m.get('trades_count', 0))
+    table.add_row(f"{result['style'].capitalize()} - {result['strategy'].capitalize()} - {result['long_short'].capitalize()} - {result['hold_days']}", m.get('edge', 'No'), avg_net_pct, win_pct, trades_count)
 console.print(table)
 
-# Yearly Performance Plot (Statoasis-Style)
+# Yearly Performance Plot (Statoasis-Style) for each
 for result in backtest_results:
     m = result['metrics']
     if 'yearly_net_pct' in m and m['yearly_net_pct']:
@@ -188,13 +196,13 @@ for result in backtest_results:
         profits = list(m['yearly_net_pct'].values())
         colors = ['green' if p > 0 else 'red' for p in profits]
         ax.bar(years, profits, color=colors)
-        ax.set_title(f"{result['style'].capitalize()} {result['long_short'].capitalize()} Yearly Net Profit % - Green = Made Money")
+        ax.set_title(f"{result['style'].capitalize()} {result['strategy'].capitalize()} {result['long_short'].capitalize()} Yearly Net Profit % - Green = Made Money")
         ax.set_xlabel("Years")
         ax.set_ylabel("Net Profit %")
         # Highlight start of strong period (e.g., first positive year)
         first_positive = next((i for i, p in enumerate(profits) if p > 0), None)
         if first_positive is not None:
             ax.axvspan(first_positive - 0.5, len(years) - 0.5, color='blue', alpha=0.3)
-        safe_save(fig, f"{export_dir}/yearly_{result['style']}_{result['long_short']}_{result['hold_days']}")
+        safe_save(fig, f"{export_dir}/yearly_{result['style']}_{result['strategy']}_{result['long_short']}_{result['hold_days']}")
         plt.close()
 
