@@ -73,6 +73,7 @@ class Backtester:
         i = 0
         while i < len(self.df) - hold_days:
             row = self.df.iloc[i]
+            logger.info(f"i={i}, rsi={row['rsi']}, adx={row['adx']}, entry={entry}")
             
             # Entry condition based on style/strategy (long/short flip for short)
             entry = False
