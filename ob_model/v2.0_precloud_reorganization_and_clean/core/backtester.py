@@ -84,8 +84,8 @@ class Backtester:
             elif style == 'directional':
                 if strategy_name == 'ma_above' and row['close'] > row['close'].rolling(50).mean():
                     entry = True if long_short == 'long' else False
-            elif style == 'behavioral':
-                if strategy_name == 'rsi_reversion' and row['rsi'] < 30:
+            elif style == 'behavioral'/'rsi_reversion':
+                if strategy_name == 'behavioral'/'rsi_reversion' and row['rsi'] < 30:
                     entry = True if long_short == 'long' else (row['rsi'] > 70 if long_short == 'short' else False)
             elif style == 'conditional':
                 if strategy_name == 'low_vol_reversion' and row['vol'] < self.df['vol'].mean() and row['rsi'] < 30:
