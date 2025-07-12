@@ -18,6 +18,7 @@ from core.fingerprint_classifier import classify_edges
 from core.fingerprint_evolver import evolve_edges
 from core.backtester import Backtester  # New import
 from utils.logger import get_logger
+from utils.debug_utils import safe_save  # Added for safe_save
 from config.settings import PLOT_ENABLED, VERBOSE  # Toggle for detail
 from config.edge_taxonomy import SCOPES
 from rich.console import Console
