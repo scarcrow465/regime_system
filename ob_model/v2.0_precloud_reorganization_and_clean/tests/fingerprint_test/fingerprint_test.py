@@ -155,7 +155,7 @@ for style in styles:
     for long_short in ['long', 'short']:
         for hold_days in holds:
             bt = Backtester(df, 'NQ')
-            metrics = bt.run(style, 'default', long_short, hold_days)  # 'default' placeholder; add strategy param later
+            metrics = bt.run(style, 'temporal', long_short, hold_days)  # 'default' placeholder; add strategy param later
             backtest_results.append({
                 'style': style,
                 'long_short': long_short,
