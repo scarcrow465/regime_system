@@ -30,6 +30,7 @@ class Backtester:
         """
         self.df = check_data_sanity(df, logger, 'backtester')
         self.df['date'] = pd.to_datetime(self.df.index)
+        self.df = self.df.dropna(subset=['rsi', 'adx', 'bb_width'])  # After indicators
         self.df = self.df.dropna(subset=['close'])  # Ensure no NaN closes
         self.instrument = instrument
         self.contracts = contracts
