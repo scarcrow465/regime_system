@@ -26,12 +26,12 @@ def add_session_labels(df):
     df['full_session'] = 'Other'
     df.loc[(df['hour'] >= 18) | (df['hour'] < 2), 'full_session'] = 'Sydney'  # 6pm-2am ET
     df.loc[(df['hour'] >= 20) | (df['hour'] < 5), 'full_session'] = 'Tokyo'  # 6pm-2am ET
-    df.loc[(df['hour'] >= 3) & (df['hour'] < 12), 'full_session'] = 'London'  # 2-8am (overlaps NY open at 8)
+    df.loc[(df['hour'] >= 2) & (df['hour'] < 12), 'full_session'] = 'London'  # 2-8am (overlaps NY open at 8)
     df.loc[(df['hour'] >= 7) & (df['hour'] < 16), 'full_session'] = 'NY'  # 8am-4pm (overlaps London close)
     
     # Refined sessions (no overlap between them, within full)
     df['refined_session'] = 'Other'
-    df.loc[(df['hour'] >= 20) & (df['hour'] < 0), 'refined_session'] = 'Asia_Open'  # Example sub: 6-8pm
+    df.loc[(df['hour'] >= 20)] = 'Asia_Open'  # Example sub: 6-8pm
     df.loc[(df['hour'] >= 2) & (df['hour'] < 5), 'refined_session'] = 'London_Open'  # 2-4am
     df.loc[(df['hour'] >= 7) & (df['hour'] < 12), 'refined_session'] = 'NY_Open'  # 8-11am
     df.loc[(df['hour'] >= 13) & (df['hour'] < 15), 'refined_session'] = 'NY_Afternoon'  # 11am-3pm
@@ -110,6 +110,9 @@ if __name__ == "__main__":
         log_message("Insufficient data—need 5+ rows", 'error')
         exit(1)
     model, n = fit_gmm(features)
+    # In main, after fit
+    cluster_names = name_clusters(model, features)
+    log_message(f"Cluster Names: {cluster_names}", 'info')
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     export_model(model, timestamp)
 
