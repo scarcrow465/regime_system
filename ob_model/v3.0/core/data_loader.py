@@ -8,7 +8,7 @@
 import pandas as pd
 import os
 
-# Reuse your parse_symbol logic here (paste from ob_15m_hold_time_test_1.py)
+
 def parse_symbol(symbol_str):
     """Extract base symbol from futures contract notation."""
     if not isinstance(symbol_str, str) or pd.isna(symbol_str):
