@@ -6,7 +6,7 @@
 
 # validation/test_utils.py
 import pytest
-import sys
+import sys; sys.path.append(BASE_DIR)
 import os
 from config.settings import BASE_DIR
 sys.path.append(BASE_DIR)  # For package imports
