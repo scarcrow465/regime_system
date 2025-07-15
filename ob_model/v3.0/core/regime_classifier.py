@@ -29,12 +29,10 @@ def add_session_labels(df):
     return df
 
 def fit_gmm(features, n_components_range=[2,5], walk_forward=True):
-    # Select only numeric columns for GMM
-    numeric_features = features.select_dtypes(include=[np.number])
-    
-    if len(numeric_features) < n_components_range[1]:
-        log_message("Insufficient numeric data for GMM—need > max n_components rows", 'error')
+    if len(features) < n_components_range[1]:
+        log_message("Insufficient data for GMM—need > max n_components rows", 'error')
         return None, None
+    numeric_features = features.select_dtypes(include=[np.number]).fillna(0)  # Extra fill for safety
     
     best_model = None
     best_bic = float('inf')
