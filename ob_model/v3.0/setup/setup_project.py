@@ -30,13 +30,6 @@ def create_dirs():
         os.makedirs(d, exist_ok=True)
         log_message(f"Created/verified dir: {d}", 'info')
 
-def init_git():
-    os.chdir(BASE_DIR)
-    subprocess.run(["git", "init"])
-    with open(os.path.join(BASE_DIR, ".gitignore"), "w") as f:
-        f.write("*.pyc\n__pycache__/\nexports/*\n")
-    print("Git initialized with .gitignore.")
-
 if __name__ == "__main__":
     create_dirs()
     log_message("Phase 0 setup complete!", 'info')
