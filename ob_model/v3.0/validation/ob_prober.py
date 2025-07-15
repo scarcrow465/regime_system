@@ -44,6 +44,9 @@ def merge_regimes(ob_df, df, model):
 
 def probe_filtering(merged):
     """Probe lifts by regime combo."""
+    if merged.empty:
+        log_message("Empty merged DF—no probes possible", 'error')
+        return pd.DataFrame(), None
     baseline_win = merged['outcome_win'].mean() * 100
     combos = merged.groupby('regime').agg(
         trades=('pnl', 'count'),
@@ -63,8 +66,11 @@ def probe_filtering(merged):
         for idx, row in combos.iterrows():
             table.add_row(str(idx), *[f"{v:.1f}" for v in row])
         console.print(table)
-        sns.heatmap(combos[['lift']], annot=True)
-        plt.savefig(os.path.join(BASE_DIR, 'exports', 'plots', 'probes_heatmap.png'))
+        if not combos.empty:
+            sns.heatmap(combos[['lift']], annot=True)
+            plt.savefig(os.path.join(BASE_DIR, 'exports', 'plots', 'probes_heatmap.png'))
+        else:
+            log_message("No probed trades—skipping heatmap", 'info')
     return combos, crosstab
 
 def validate_oos(merged):
