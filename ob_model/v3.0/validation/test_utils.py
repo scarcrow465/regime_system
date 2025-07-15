@@ -12,7 +12,7 @@ from config.settings import BASE_DIR  # Import first
 sys.path.append(BASE_DIR)  # Now BASE_DIR is defined
 from core.data_loader import load_csv_data  # Updated import
 
-SAMPLE_CSV = os.path.join(BASE_DIR, "C:\Users\rs\GitProjects\regime_system\ob_model\v3.0\tests\sample_data.csv")  # Create a sample in /tests/ for real testing
+SAMPLE_CSV = os.path.join(BASE_DIR, "tests\sample_data.csv")  # Create a sample in /tests/ for real testing
 
 def test_data_loader():
     df = load_csv_data([SAMPLE_CSV], ["NQ"])
