@@ -4,9 +4,6 @@
 # In[ ]:
 
 
-#!/usr/bin/env python
-# coding: utf-8
-
 import pytest
 import pandas as pd
 from core.indicators import select_and_compute_indicators
