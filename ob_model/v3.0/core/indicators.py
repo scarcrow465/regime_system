@@ -49,6 +49,9 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility']
         std = ind_df[col].rolling(window=36).std()
         ind_df[col] = (ind_df[col] - mean) / std.where(std != 0)  # Avoid div0
     
+    # Fill NaNs (ffill then 0 for initial)
+    ind_df = ind_df.fillna(method='ffill').fillna(0)
+    
     # Corr check (<0.7)
     corr = ind_df.corr()
     high_corr = (corr.abs() > 0.7) & (corr.abs() < 1.0)
