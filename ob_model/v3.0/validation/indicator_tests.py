@@ -11,7 +11,7 @@ from core.regime_classifier import add_session_labels, fit_gmm
 from core.data_loader import load_csv_data
 from config.settings import BASE_DIR
 
-SAMPLE_CSV = os.path.join(BASE_DIR, "tests/sample_data.csv")
+SAMPLE_CSV = r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\7.1 Master 15m Data - Updated - Nearest Unadjusted - 2014_01_01 - 2025_04_01 - Most removed.csv" #os.path.join(BASE_DIR, "tests/sample_data.csv")
 
 @pytest.fixture
 def sample_df():
