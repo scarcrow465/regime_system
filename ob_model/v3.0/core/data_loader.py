@@ -4,10 +4,14 @@
 # In[ ]:
 
 
+#!/usr/bin/env python
+# coding: utf-8
+
 import pandas as pd
 import os
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, SYMBOLS, START_DATE, END_DATE
+import re  # For case-insensitive matching
 
 def parse_symbol(symbol_str):
     """Extract base symbol from futures contract notation."""
@@ -31,11 +35,11 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
     for csv_path in progress_bar(csv_paths, desc="Loading CSVs"):
         try:
             chunks = pd.read_csv(csv_path, parse_dates=['Date'], index_col='Date', chunksize=100000, dtype={'Symbol': str})
-            num_chunks = None  # Could estimate via file size if needed
+            num_chunks = None
             for chunk in progress_bar(chunks, desc="Processing chunks", total=num_chunks if DEBUG_LEVEL in ['debug', 'verbose'] else None):
                 chunk = chunk.copy()
                 
-                # Handle timezone (unchanged)
+                # Handle timezone
                 try:
                     if chunk.index.tz is None:
                         chunk.index = chunk.index.tz_localize('America/New_York', 
@@ -48,65 +52,68 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
                         log_message("Timezone handling skipped for chunk", 'info')
                     continue
                 
-                # Find all symbol columns (unchanged)
-                symbol_cols = [col for col in chunk.columns if col.startswith('Symbol')]
+                # Find all symbol columns (case-insensitive, e.g., Symbol, SYMBOL, symbol)
+                symbol_cols = [col for col in chunk.columns if re.match(r'^(symbol|Symbol|SYMBOL)(\.\d+)?$', col, re.IGNORECASE)]
                 
                 if not symbol_cols:
+                    if DEBUG_LEVEL == 'verbose':
+                        log_message("No symbol columns found in chunk", 'info')
                     continue
                 
-                # Process each instrument's columns
                 for sym_col in symbol_cols:
-                    # Extract suffix... (unchanged)
-                    suffix = sym_col.replace('Symbol', '')
+                    suffix = sym_col[sym_col.find('.'):] if '.' in sym_col else ''
                     
-                    # Expected columns... (unchanged)
-                    expected_cols = {
-                        'symbol': sym_col,
-                        'open': f'Open{suffix}',
-                        'high': f'High{suffix}',
-                        'low': f'Low{suffix}',
-                        'close': f'Close{suffix}',
-                        'volume': f'Volume{suffix}',
-                        'openinterest': f'OpenInterest{suffix}'
-                    }
+                    # Expected columns (case-insensitive match in chunk.columns)
+                    base_cols = ['open', 'high', 'low', 'close', 'volume']
+                    optional_cols = ['openinterest']
                     
-                    # Check if all expected... (unchanged)
-                    if not all(col in chunk.columns for col in expected_cols.values()):
+                    # Find actual column names (case-insensitive)
+                    actual_cols = {}
+                    for base in base_cols + optional_cols + ['symbol']:
+                        for c in chunk.columns:
+                            if c.lower() == f'{base}{suffix.lower()}':
+                                actual_cols[base] = c
+                                break
+                    
+                    # Required: symbol + base_cols
+                    if not all(base in actual_cols for base in ['symbol'] + base_cols):
+                        if DEBUG_LEVEL == 'verbose':
+                            log_message(f"Missing required columns for {sym_col}", 'info')
                         continue
                     
-                    # Extract... (unchanged)
-                    sub_df = chunk[list(expected_cols.values())].copy()
-                    sub_df.columns = ['symbol', 'open', 'high', 'low', 'close', 'volume', 'openinterest']
+                    # Extract data
+                    extract_cols = [actual_cols['symbol']] + [actual_cols[base] for base in base_cols]
+                    if 'openinterest' in actual_cols:
+                        extract_cols.append(actual_cols['openinterest'])
                     
-                    # Clean numeric... (unchanged)
-                    for col in ['open', 'high', 'low', 'close', 'volume', 'openinterest']:
+                    sub_df = chunk[extract_cols].copy()
+                    new_cols = ['symbol', 'open', 'high', 'low', 'close', 'volume']
+                    if 'openinterest' in actual_cols:
+                        new_cols.append('openinterest')
+                    sub_df.columns = new_cols
+                    
+                    # Clean numeric
+                    for col in sub_df.columns[1:]:  # Skip symbol
                         sub_df[col] = sub_df[col].astype(str).str.replace(',', '', regex=False)
                         sub_df[col] = pd.to_numeric(sub_df[col], errors='coerce')
                     
-                    # Drop invalid... (unchanged)
                     sub_df = sub_df.dropna(subset=['open', 'high', 'low', 'close'])
                     
                     if sub_df.empty:
                         continue
                     
-                    # Get first valid... (unchanged)
-                    symbol_series = sub_df['symbol'].dropna()
-                    if symbol_series.empty:
-                        continue
+                    sub_df['BaseSymbol'] = sub_df['symbol'].apply(parse_symbol)
                     
-                    symbol_value = symbol_series.iloc[0]
-                    base_symbol = parse_symbol(symbol_value)
+                    if symbols:
+                        sub_df = sub_df[sub_df['BaseSymbol'].isin(symbols)]
                     
-                    if base_symbol and base_symbol in symbols:
-                        sub_df['symbol'] = symbol_value
-                        sub_df['BaseSymbol'] = base_symbol
+                    if not sub_df.empty:
                         all_dfs.append(sub_df)
                         if DEBUG_LEVEL in ['debug', 'verbose']:
-                            log_message(f"Processed {sym_col} (base: {base_symbol}) with {len(sub_df)} rows", 'info')
+                            log_message(f"Processed {sym_col} with {len(sub_df)} rows", 'info')
                 
                 if DEBUG_LEVEL == 'verbose':
                     log_message(f"Processed chunk with {len(chunk)} rows", 'info')
-                # Removed duplicate append here (was outside loop)
         except Exception as e:
             log_message(f"Error loading {csv_path}: {str(e)}", 'error')
     
@@ -115,19 +122,17 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
         return pd.DataFrame()
     
     combined_df = pd.concat(all_dfs)
-    # Sort by index and remove duplicates (unchanged)
     combined_df = combined_df.sort_index()
     
-    # Apply date filters (unchanged)
     if start_date is not None:
         combined_df = combined_df[combined_df.index >= pd.to_datetime(start_date)]
     if end_date is not None:
         combined_df = combined_df[combined_df.index <= pd.to_datetime(end_date)]
     
     combined_df = combined_df.reset_index().groupby(['Date', 'BaseSymbol']).first().reset_index()
-    combined_df.set_index('Date', inplace=True)    
-
-    if DEBUG_LEVEL != 'none':
-        log_message(f"Loaded {len(combined_df)} total rows for symbols: {combined_df['BaseSymbol'].unique()}", 'info')
+    combined_df.set_index('Date', inplace=True)
+    
+    log_message(f"Loaded {len(combined_df)} total rows for symbols: {combined_df['BaseSymbol'].unique()}", 'info')
+    
     return combined_df
 
