@@ -10,12 +10,13 @@ BASE_DIR = r"C:\Users\rs\GitProjects\regime_system\ob_model\v3.0"  # Hardcode if
 sys.path.append(BASE_DIR)
 import pandas as pd
 import numpy as np
+from sklearn.mixture import GaussianMixture
 import optuna
 from optuna.pruners import HyperbandPruner
 from utils.logger import log_message, progress_bar
-from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH, OB_PATH
-from core.regime_classifier import fit_gmm  # Adapted for params
-from validation.ob_prober import merge_regimes, probe_filtering  # Reuse from Phase 1C
+from config.settings import DEBUG_LEVEL, BASE_DIR, OB_PATH, DATA_PATH
+from validation.ob_prober import merge_regimes, probe_filtering, load_ob_csv  # Reuse from Phase 1C
+from validation.persistence_validator import compute_persistence, compare_is_oos  # Reuse from Phase 1B
 from core.indicators import select_and_compute_indicators
 from core.data_loader import load_csv_data
 from core.regime_classifier import add_session_labels
@@ -23,6 +24,7 @@ from rich.table import Table
 from datetime import datetime
 import joblib
 from core.helpers import console
+from core.regime_classifier import export_model
 
 MAX_LOOPS = 4
 N_TRIALS = 10
