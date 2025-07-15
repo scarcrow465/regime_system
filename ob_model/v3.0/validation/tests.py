@@ -59,7 +59,8 @@ def test_merge_regimes(sample_df):
     ob_df = load_ob_csv(OB_PATH)
     merged = merge_regimes(ob_df, sample_df, model)
     assert not merged.empty, "Merge failed"
-    assert 'regime' in merged.columns, "Missing regime column after merge"
+    assert 'regime' in merged.columns, "Missing regime column"
+    assert 'hour' in features.columns, "Missing hour in features"
 
 def test_probe_filtering():
     # Sim merged DF
