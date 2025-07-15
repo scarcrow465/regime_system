@@ -20,8 +20,13 @@ from core.helpers import console
 
 def load_ob_csv(ob_path):
     """Load OB CSV, parse dates."""
-    ob_df = pd.read_csv(ob_path, parse_dates=['entry_date_time', 'exit_date_time'])
-    ob_df['entry_time'] = ob_df['entry_date_time'].dt.floor('15min')  # For merge
+    ob_df = pd.read_csv(ob_path, parse_dates=['entry_time', 'exit_time'])
+    ob_df['entry_time'] = pd.to_datetime(ob_df['entry_time'], utc=True).dt.tz_convert('America/New_York').dt.floor('15min')  # TZ + floor for merge
+    ob_df['outcome_win'] = (ob_df['outcome'] == 'WIN').astype(int)  # For win_rate
+    # Handle pnl_by_candle cols if present (optional)
+    pnl_cols = [col for col in ob_df.columns if col.startswith('pnl_') and col.endswith('m')]
+    if pnl_cols and DEBUG_LEVEL == 'verbose':
+        log_message(f"Found {len(pnl_cols)} pnl_by_candle cols", 'info')
     if DEBUG_LEVEL == 'verbose':
         log_message(f"OB sample: {ob_df.head(1).to_dict()}", 'info')
     return ob_df
