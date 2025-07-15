@@ -9,8 +9,6 @@ import pytest
 import sys
 import os
 from config.settings import BASE_DIR
-sys.path.append(BASE_DIR)
-from config.settings import BASE_DIR
 sys.path.append(BASE_DIR)  # For package imports
 from core.data_loader import load_csv_data  # Updated import
 
