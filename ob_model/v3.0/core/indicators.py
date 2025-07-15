@@ -4,9 +4,6 @@
 # In[ ]:
 
 
-#!/usr/bin/env python
-# coding: utf-8
-
 import pandas as pd
 from ta.trend import EMAIndicator, ADXIndicator  # TA-Lib; pip if needed, but from repo context
 from ta.volatility import AverageTrueRange, BollingerBands
