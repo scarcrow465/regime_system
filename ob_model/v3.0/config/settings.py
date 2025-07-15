@@ -15,7 +15,7 @@ DEBUG_LEVEL = 'verbose'  # Change to toggle output
 TIMEFRAME = '15min'
 SYMBOLS = ['NQ']
 START_DATE = '2008-01-01 00:00:00-05:00'
-END_DATE = '2025-07-14 00:00:00-04:00'  # Current date
+END_DATE = '2025-04-02 00:00:00-04:00'  # Current date
 
 DATA_PATH = [
     r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\7.1 Master 15m Data - Updated - Nearest Unadjusted - 2014_01_01 - 2025_04_01 .csv",
