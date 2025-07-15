@@ -29,7 +29,7 @@ from core.regime_classifier import export_model
 MAX_LOOPS = 4
 N_TRIALS = 10
 
-def optuna_objective(trial, features):
+def optuna_objective(trial, df, features):
     """Optuna objective: GMM params for OB lift + persistence + KS."""
     n_components = trial.suggest_int('n_components', 2, 5)
     cov_type = trial.suggest_categorical('cov_type', ['full', 'diag'])
@@ -41,7 +41,7 @@ def optuna_objective(trial, features):
     
     persistence, _ = compute_persistence(labels)  # From Phase 1B
     _, ks = compare_is_oos(features, model)  # From Phase 1B
-    merged = merge_regimes(load_ob_csv(OB_PATH), features.index.to_frame(), model)  # Sim DF for merge
+    merged = merge_regimes(load_ob_csv(OB_PATH), df, model)  # Pass full df for indicators
     combos = probe_filtering(merged)[0]
     lift = combos['lift'].mean() if not combos.empty else 0
     
@@ -51,10 +51,10 @@ def optuna_objective(trial, features):
     
     return score
 
-def run_optuna_loop(features, loop_num):
+def run_optuna_loop(df, features, loop_num):
     """Single Optuna loop."""
     study = optuna.create_study(direction='maximize', pruner=HyperbandPruner())
-    study.optimize(lambda trial: optuna_objective(trial, features), n_trials=N_TRIALS)
+    study.optimize(lambda trial: optuna_objective(trial, df, features), n_trials=N_TRIALS)
     best_params = study.best_params
     best_score = study.best_value
     if DEBUG_LEVEL in ['debug', 'verbose']:
@@ -75,7 +75,7 @@ def main():
     best_model = None
     for i in progress_bar(range(1, MAX_LOOPS+1), desc="Optuna loops"):
         log_message(f"Loop {i}", 'info')
-        params, score, study = run_optuna_loop(features, i)
+        params, score, study = run_optuna_loop(df, features, i)  # Pass df
         changes.append(f"Loop {i}: Score {score:.2f}, Params {params}")
         if score > 20:  # Sim criteria (lift proxy)
             log_message("Criteria met—exiting", 'info')
