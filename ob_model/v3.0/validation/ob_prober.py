@@ -33,7 +33,7 @@ def load_ob_csv(ob_path):
 
 def merge_regimes(ob_df, df, model):
     """Merge regimes to OB via entry_time."""
-    ind_df = select_and_compute_indicators(df)
+    ind_df = select_and_compute_indicators(df)  # Use passed df
     features = ind_df.select_dtypes(include=[np.number]).dropna()
     labels = pd.Series(model.predict(features), index=features.index, name='regime')
     merged = ob_df.merge(labels, left_on='entry_time', right_index=True, how='left')
