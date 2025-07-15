@@ -10,7 +10,7 @@ import os
 from core.data_loader import load_csv_data
 from config.settings import BASE_DIR
 
-SAMPLE_CSV = os.path.join(BASE_DIR, "tests/sample_data.csv")  # Add a sample CSV in /tests/ for real testing
+SAMPLE_CSV = os.path.join(BASE_DIR, r"C:\Users\rs\OneDrive\Desktop\Excel\Data\New Data\7.1 Master 15m Data - Updated - Nearest Unadjusted - 2014_01_01 - 2025_04_01 - Most removed.csv")  # Add a sample CSV in /tests/ for real testing
 
 def test_data_loader():
     df = load_csv_data([SAMPLE_CSV], ["NQ"])
