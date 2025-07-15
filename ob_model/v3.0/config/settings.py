@@ -24,3 +24,5 @@ EXPORTS_DIR = os.path.join(BASE_DIR, 'exports')
 LOGS_DIR = os.path.join(EXPORTS_DIR, 'logs')
 # etc.
 
+TEST_SLICE = 1000  # Rows to slice for fast tests (0 for full)
+
