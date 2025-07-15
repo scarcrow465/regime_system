@@ -6,9 +6,12 @@
 
 import pandas as pd
 import os
+import sys
+import numpy as np
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, SYMBOLS, START_DATE, END_DATE
-import re  # For case-insensitive matching
+import re  # For case-insensitive
+from config.settings import DATA_PATH  # Import first
 
 def parse_symbol(symbol_str):
     """Extract base symbol from futures contract notation."""
@@ -31,120 +34,57 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
     
     for csv_path in progress_bar(csv_paths, desc="Loading CSVs"):
         try:
-            chunks = pd.read_csv(csv_path, parse_dates=['Date'], date_format='%m/%d/%Y', index_col='Date', chunksize=100000, dtype={'Symbol': str})
-            num_chunks = None
-            for chunk in progress_bar(chunks, desc="Processing chunks", total=num_chunks if DEBUG_LEVEL in ['debug', 'verbose'] else None):
-                chunk = chunk.copy()
-                
-                # Handle timezone
-                try:
-                    if chunk.index.tz is None:
-                        chunk.index = chunk.index.tz_localize('America/New_York', 
-                                                             ambiguous='raise', 
-                                                             nonexistent='shift_forward')
-                    else:
-                        chunk.index = chunk.index.tz_convert('America/New_York')
-                except Exception:
-                    if DEBUG_LEVEL in ['debug', 'verbose']:
-                        log_message("Timezone handling skipped for chunk", 'info')
+            df = pd.read_csv(csv_path, parse_dates=['Date'], date_format='%m/%d/%Y', index_col='Date', low_memory=False)
+            if df.index.tz is None:
+                df.index = df.index.tz_localize('America/New_York', ambiguous='infer')
+            else:
+                df.index = df.index.tz_convert('America/New_York')
+            # Find positions of 'Symbol' columns (case-insensitive)
+            symbol_positions = [i for i, col in enumerate(df.columns) if re.match(r'^symbol$', col.lower())]
+            if not symbol_positions and DEBUG_LEVEL == 'verbose':
+                log_message("No 'Symbol' columns found—checking all", 'info')
+                symbol_positions = range(0, len(df.columns), 7)  # Fallback to every 7 columns
+            for pos in symbol_positions:
+                if pos + 7 > len(df.columns):
                     continue
-                
-                # Find all symbol columns (case-insensitive, handles duplicates as Symbol.1 etc.)
-                symbol_cols = sorted([col for col in chunk.columns if re.match(r'^(symbol|Symbol|SYMBOL)(\.\d+)?$', col, re.IGNORECASE)])  # Sorted for consistency
-                
-                if not symbol_cols:
-                    if DEBUG_LEVEL == 'verbose':
-                        log_message("No symbol columns found in chunk", 'info')
+                block = df.iloc[:, pos:pos+7].copy()
+                block.columns = ['symbol', 'open', 'high', 'low', 'close', 'volume', 'openinterest']
+                # Clean numeric (handle commas, empty)
+                for col in ['open', 'high', 'low', 'close', 'volume', 'openinterest']:
+                    block[col] = block[col].astype(str).str.replace(',', '').replace('', np.nan)
+                    block[col] = pd.to_numeric(block[col], errors='coerce')
+                block = block.dropna(subset=['open', 'high', 'low', 'close'], how='all')  # Allow partial NaN but not all
+                if block.empty:
                     continue
-                
-                for sym_col in symbol_cols:
-                    suffix = sym_col[sym_col.find('.'):] if '.' in sym_col else ''
-                    
-                    # Expected columns (case-insensitive)
-                    base_cols = ['open', 'high', 'low', 'close', 'volume']
-                    optional_cols = ['openinterest']
-                    
-                    # Find actual columns
-                    actual_cols = {}
-                    for base in ['symbol'] + base_cols + optional_cols:
-                        for c in chunk.columns:
-                            if c.lower() == f'{base}{suffix}'.lower():
-                                actual_cols[base] = c
-                                break
-                    
-                    # Required: symbol + base_cols
-                    if not all(base in actual_cols for base in ['symbol'] + base_cols):
-                        if DEBUG_LEVEL == 'verbose':
-                            log_message(f"Missing required columns for {sym_col}", 'info')
-                        continue
-                    
-                    # Extract
-                    extract_cols = [actual_cols['symbol']] + [actual_cols[base] for base in base_cols]
-                    if 'openinterest' in actual_cols:
-                        extract_cols.append(actual_cols['openinterest'])
-                    
-                    sub_df = chunk[extract_cols].copy()
-                    new_cols = ['symbol', 'open', 'high', 'low', 'close', 'volume']
-                    if 'openinterest' in actual_cols:
-                        new_cols.append('openinterest')
-                    sub_df.columns = new_cols
-                    
-                    # Clean numeric
-                    for col in sub_df.columns[1:]:
-                        sub_df[col] = sub_df[col].astype(str).str.replace(',', '', regex=False)
-                        sub_df[col] = pd.to_numeric(sub_df[col], errors='coerce')
-                    
-                    sub_df = sub_df.dropna(subset=['open', 'high', 'low', 'close'])
-                    
-                    if sub_df.empty:
-                        continue
-                    
-                    sub_df['BaseSymbol'] = sub_df['symbol'].apply(parse_symbol)
-                    
-                    if symbols:
-                        sub_df = sub_df[sub_df['BaseSymbol'].isin(symbols)]
-                    
-                    if not sub_df.empty:
-                        all_dfs.append(sub_df)
-                        if DEBUG_LEVEL in ['debug', 'verbose']:
-                            log_message(f"Processed {sym_col} with {len(sub_df)} rows", 'info')
-
-                    if DEBUG_LEVEL == 'verbose':
-                        log_message(f"Found columns for {sym_col}: {actual_cols}", 'info')
-                
+                block['BaseSymbol'] = block['symbol'].apply(parse_symbol)
+                if symbols and block['BaseSymbol'].iloc[0] not in symbols if not block.empty else True:
+                    continue
+                all_dfs.append(block)
                 if DEBUG_LEVEL == 'verbose':
-                    log_message(f"Processed chunk with {len(chunk)} rows", 'info')
+                    log_message(f"Processed block for {block['symbol'].iloc[0]} with {len(block)} rows", 'info')
         except Exception as e:
             log_message(f"Error loading {csv_path}: {str(e)}", 'error')
     
     if not all_dfs:
-        log_message("No valid data loaded", 'error')
+        log_message("No valid data loaded—check CSV structure", 'error')
         return pd.DataFrame()
     
     combined_df = pd.concat(all_dfs)
     combined_df = combined_df.sort_index()
-    
-    # Apply date filters with tz-aware
-    if start_date is not None:
-        start_dt = pd.to_datetime(start_date)
-        if start_dt.tz is None:
-            start_dt = start_dt.tz_localize('America/New_York')
-        else:
-            start_dt = start_dt.tz_convert('America/New_York')
+    # Date filters (tz-aware)
+    if start_date:
+        start_dt = pd.to_datetime(start_date, utc=True).tz_convert('America/New_York')
         combined_df = combined_df[combined_df.index >= start_dt]
-    
-    if end_date is not None:
-        end_dt = pd.to_datetime(end_date)
-        if end_dt.tz is None:
-            end_dt = end_dt.tz_localize('America/New_York')
-        else:
-            end_dt = end_dt.tz_convert('America/New_York')
+    if end_date:
+        end_dt = pd.to_datetime(end_date, utc=True).tz_convert('America/New_York')
         combined_df = combined_df[combined_df.index <= end_dt]
-    
     combined_df = combined_df.reset_index().groupby(['Date', 'BaseSymbol']).first().reset_index()
     combined_df.set_index('Date', inplace=True)
-    
-    log_message(f"Loaded {len(combined_df)} total rows for symbols: {combined_df['BaseSymbol'].unique()}", 'info')
-    
+    log_message(f"Loaded {len(combined_df)} rows for symbols: {combined_df['BaseSymbol'].unique()}", 'info')
     return combined_df
+
+if __name__ == "__main__":
+    csv_paths = [DATA_PATH]  # From settings
+    df = load_csv_data(csv_paths)
+    print(df.head())
 
