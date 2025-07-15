@@ -8,9 +8,10 @@ import sys
 import os
 BASE_DIR = r"C:\Users\rs\GitProjects\regime_system\ob_model\v3.0"  # Hardcode if not importing settings yet
 sys.path.append(BASE_DIR)
+import pandas as pd
+import numpy as np
 import optuna
 from optuna.pruners import HyperbandPruner
-import pandas as pd
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH, OB_PATH
 from core.regime_classifier import fit_gmm  # Adapted for params
