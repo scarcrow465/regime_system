@@ -4,9 +4,6 @@
 # In[ ]:
 
 
-#!/usr/bin/env python
-# coding: utf-8
-
 import pandas as pd
 import os
 from utils.logger import log_message, progress_bar
@@ -52,7 +49,7 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
                         log_message("Timezone handling skipped for chunk", 'info')
                     continue
                 
-                # Find all symbol columns (case-insensitive, e.g., Symbol, SYMBOL, symbol)
+                # Find all symbol columns (case-insensitive, handles duplicates as Symbol.1 etc.)
                 symbol_cols = [col for col in chunk.columns if re.match(r'^(symbol|Symbol|SYMBOL)(\.\d+)?$', col, re.IGNORECASE)]
                 
                 if not symbol_cols:
@@ -61,17 +58,17 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
                     continue
                 
                 for sym_col in symbol_cols:
-                    suffix = sym_col[sym_col.find('.'):] if '.' in sym_col else ''
+                    suffix = col[col.find('.'):] if '.' in col else ''
                     
-                    # Expected columns (case-insensitive match in chunk.columns)
+                    # Expected columns (case-insensitive)
                     base_cols = ['open', 'high', 'low', 'close', 'volume']
                     optional_cols = ['openinterest']
                     
-                    # Find actual column names (case-insensitive)
+                    # Find actual columns
                     actual_cols = {}
-                    for base in base_cols + optional_cols + ['symbol']:
+                    for base in ['symbol'] + base_cols + optional_cols:
                         for c in chunk.columns:
-                            if c.lower() == f'{base}{suffix.lower()}':
+                            if c.lower() == f'{base}{suffix}'.lower():
                                 actual_cols[base] = c
                                 break
                     
@@ -81,7 +78,7 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
                             log_message(f"Missing required columns for {sym_col}", 'info')
                         continue
                     
-                    # Extract data
+                    # Extract
                     extract_cols = [actual_cols['symbol']] + [actual_cols[base] for base in base_cols]
                     if 'openinterest' in actual_cols:
                         extract_cols.append(actual_cols['openinterest'])
@@ -93,7 +90,7 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
                     sub_df.columns = new_cols
                     
                     # Clean numeric
-                    for col in sub_df.columns[1:]:  # Skip symbol
+                    for col in sub_df.columns[1:]:
                         sub_df[col] = sub_df[col].astype(str).str.replace(',', '', regex=False)
                         sub_df[col] = pd.to_numeric(sub_df[col], errors='coerce')
                     
@@ -124,10 +121,22 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
     combined_df = pd.concat(all_dfs)
     combined_df = combined_df.sort_index()
     
+    # Apply date filters with tz-aware
     if start_date is not None:
-        combined_df = combined_df[combined_df.index >= pd.to_datetime(start_date)]
+        start_dt = pd.to_datetime(start_date)
+        if start_dt.tz is None:
+            start_dt = start_dt.tz_localize('America/New_York')
+        else:
+            start_dt = start_dt.tz_convert('America/New_York')
+        combined_df = combined_df[combined_df.index >= start_dt]
+    
     if end_date is not None:
-        combined_df = combined_df[combined_df.index <= pd.to_datetime(end_date)]
+        end_dt = pd.to_datetime(end_date)
+        if end_dt.tz is None:
+            end_dt = end_dt.tz_localize('America/New_York')
+        else:
+            end_dt = end_dt.tz_convert('America/New_York')
+        combined_df = combined_df[combined_df.index <= end_dt]
     
     combined_df = combined_df.reset_index().groupby(['Date', 'BaseSymbol']).first().reset_index()
     combined_df.set_index('Date', inplace=True)
