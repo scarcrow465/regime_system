@@ -69,6 +69,25 @@ def export_model(model, timestamp):
     joblib.dump(model, export_path)
     log_message(f"Exported model to {export_path}", 'info')
 
+def name_clusters(model, features):
+    labels = model.predict(features)
+    cluster_means = features.groupby(labels).mean()
+    names = []
+    for i in range(model.n_components):
+        mean = cluster_means.loc[i]
+        if mean['ADX_14'] > 30 and mean['BB_width'] < 0.05:
+            names.append("Strong Trend Low Vol")
+        elif mean['ADX_14'] < 20 and mean['BB_width'] > 0.1:
+            names.append("Sideways High Vol")
+        # Add rules for other indicators/classes
+        else:
+            names.append(f"Regime {i}")
+    return dict(enumerate(names))
+
+# In main, after fit
+cluster_names = name_clusters(model, features)
+log_message(f"Cluster Names: {cluster_names}", 'info')
+
 if __name__ == "__main__":
     df = load_csv_data([DATA_PATH])
     if df.empty:
