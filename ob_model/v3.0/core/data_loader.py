@@ -106,6 +106,7 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
         combined_df = combined_df[combined_df.index <= end_dt]
     combined_df = combined_df.reset_index().groupby(['Date', 'BaseSymbol']).first().reset_index()
     combined_df.set_index('Date', inplace=True)
+    combined_df = combined_df[(combined_df.index.hour >= 4) & (combined_df.index.hour < 16)] # Remove when using Full day OBs scanning
     log_message(f"Loaded {len(combined_df)} rows for symbols: {combined_df['BaseSymbol'].unique()}", 'info')
     return combined_df
 
