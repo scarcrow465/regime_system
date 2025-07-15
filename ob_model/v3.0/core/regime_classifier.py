@@ -17,15 +17,28 @@ from core.data_loader import load_csv_data
 import numpy as np
 
 def add_session_labels(df):
-    """Incorporate session labels (e.g., NY Open)."""
+    """Add full (overlapping) and refined (non-overlapping) session labels."""
     if len(df) == 0:
         log_message("Empty DF for session labels", 'error')
         return df
     df['hour'] = df.index.hour
-    df['session'] = 'Other'
-    df.loc[(df['hour'] >= 8) & (df['hour'] < 11), 'session'] = 'NY_Open'
+    # Full sessions (can overlap)
+    df['full_session'] = 'Other'
+    df.loc[(df['hour'] >= 18) | (df['hour'] < 2), 'full_session'] = 'Asia'  # 6pm-2am ET
+    df.loc[(df['hour'] >= 2) & (df['hour'] < 8), 'full_session'] = 'London'  # 2-8am (overlaps NY open at 8)
+    df.loc[(df['hour'] >= 8) & (df['hour'] < 16), 'full_session'] = 'NY'  # 8am-4pm (overlaps London close)
+    
+    # Refined sessions (no overlap between them, within full)
+    df['refined_session'] = 'Other'
+    df.loc[(df['hour'] >= 18) & (df['hour'] < 20), 'refined_session'] = 'Asia_Open'  # Example sub: 6-8pm
+    df.loc[(df['hour'] >= 2) & (df['hour'] < 4), 'refined_session'] = 'London_Open'  # 2-4am
+    df.loc[(df['hour'] >= 8) & (df['hour'] < 11), 'refined_session'] = 'NY_Open'  # 8-11am
+    df.loc[(df['hour'] >= 11) & (df['hour'] < 15), 'refined_session'] = 'NY_Afternoon'  # 11am-3pm
+    df.loc[(df['hour'] >= 15) & (df['hour'] < 16), 'refined_session'] = 'Power_Hour'  # 3-4pm
+    
     if DEBUG_LEVEL == 'verbose':
-        log_message(f"Session distribution: {df['session'].value_counts()}", 'info')
+        log_message(f"Full session dist: {df['full_session'].value_counts()}", 'info')
+        log_message(f"Refined session dist: {df['refined_session'].value_counts()}", 'info')
     return df
 
 def fit_gmm(features, n_components_range=[2,5], walk_forward=True):
