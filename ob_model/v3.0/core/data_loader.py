@@ -14,6 +14,7 @@ def parse_symbol(symbol_str):
     """Extract base symbol from futures contract notation."""
     if not isinstance(symbol_str, str) or pd.isna(symbol_str):
         return None
+    symbol_str = str(symbol_str).strip("'\"")  # Strip quotes
     if len(symbol_str) < 3:
         return symbol_str
     year = symbol_str[-2:]
@@ -31,35 +32,32 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
     
     for csv_path in progress_bar(csv_paths, desc="Loading CSVs"):
         try:
-            df = pd.read_csv(csv_path, index_col='Date', low_memory=False)
-            # Force to datetime (handle format)
-            df.index = pd.to_datetime(df.index, errors='coerce', format='%m/%d/%Y %H:%M')
-            df = df.dropna()  # Drop invalid dates
-            # Handle tz
-            if df.index.tz is None:
-                df.index = df.index.tz_localize('America/New_York', ambiguous='infer', nonexistent='shift_forward')
-            else:
-                df.index = df.index.tz_convert('America/New_York')
+            df = pd.read_csv(csv_path, low_memory=False)
+            # Force index to datetime
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce', format='%m/%d/%Y %H:%M')
+            df = df.dropna(subset=['Date']).set_index('Date')
+            if df.empty:
+                log_message("No valid dates in CSV", 'error')
+                continue
+            # Tz localize
+            df.index = df.index.tz_localize('America/New_York', ambiguous='infer', nonexistent='shift_forward')
             if DEBUG_LEVEL == 'verbose':
-                log_message("Index converted to DatetimeIndex with tz", 'info')
-            # Find 'Symbol' columns (case-insensitive)
-            symbol_cols = [col for col in df.columns if col.lower() == 'symbol']
-            if not symbol_cols:
-                log_message("No 'Symbol' columns—assuming repeating blocks", 'info')
-                block_size = 7
-                symbol_positions = range(0, len(df.columns), block_size)
-            else:
-                symbol_positions = [df.columns.get_loc(col) for col in symbol_cols]
+                log_message("Index set to tz-aware DatetimeIndex", 'info')
+            # Find symbol columns (positions where column == 'Symbol' or starts with letter+number)
+            symbol_positions = [i for i, col in enumerate(df.columns) if 'symbol' in col.lower() or re.match(r'^[A-Z]+[A-Z0-9]*$', col)]
             for pos in symbol_positions:
                 block_end = min(pos + 7, len(df.columns))
                 block = df.iloc[:, pos:block_end].copy()
-                if len(block.columns) < 5: continue  # Min for OHLC
-                # Set columns assuming order
-                block.columns = ['symbol', 'open', 'high', 'low', 'close', 'volume', 'openinterest'][:len(block.columns)]
-                # Clean numeric
+                if len(block.columns) < 5: continue
+                # Normalize column names
+                block.columns = [col.lower().replace('.', '') for col in block.columns]
+                expected = ['symbol', 'open', 'high', 'low', 'close', 'volume', 'openinterest']
+                block = block.rename(columns=dict(zip(block.columns[:7], expected)))
+                # Clean numeric (remove commas, quotes, convert)
                 for col in ['open', 'high', 'low', 'close', 'volume', 'openinterest']:
-                    if col in block.columns:
-                        block[col] = block[col].astype(str).str.replace(',', '').replace('', np.nan).astype(float, errors='ignore')
+                    if col in block:
+                        block[col] = block[col].astype(str).str.replace(',', '').str.replace('"', '').str.replace("'", '')
+                        block[col] = pd.to_numeric(block[col], errors='coerce')
                 block = block.dropna(subset=['open', 'high', 'low', 'close'], how='all')
                 if block.empty:
                     continue
@@ -73,16 +71,16 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
             log_message(f"Error loading {csv_path}: {str(e)}", 'error')
     
     if not all_dfs:
-        log_message("No valid data loaded—check CSV columns/date format", 'error')
+        log_message("No valid data loaded—check CSV for 'Date' format and columns", 'error')
         return pd.DataFrame()
     
     combined_df = pd.concat(all_dfs)
     combined_df = combined_df.sort_index()
     # Date filters
     if start_date:
-        combined_df = combined_df[combined_df.index >= pd.to_datetime(start_date, utc=True).tz_convert('America/New_York')]
+        combined_df = combined_df[combined_df.index >= pd.to_datetime(start_date).tz_localize('America/New_York')]
     if end_date:
-        combined_df = combined_df[combined_df.index <= pd.to_datetime(end_date, utc=True).tz_convert('America/New_York')]
+        combined_df = combined_df[combined_df.index <= pd.to_datetime(end_date).tz_localize('America/New_York')]
     combined_df = combined_df.reset_index().groupby(['Date', 'BaseSymbol']).first().reset_index()
     combined_df.set_index('Date', inplace=True)
     log_message(f"Loaded {len(combined_df)} rows for symbols: {combined_df['BaseSymbol'].unique()}", 'info')
