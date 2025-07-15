@@ -10,6 +10,7 @@ from ta.volatility import AverageTrueRange, BollingerBands
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL
 from config.settings import DATA_PATH
+
 def select_and_compute_indicators(df, regime_classes=['direction', 'volatility']):
     """Select 2-3 low-corr indicators per class and compute."""
     if len(df) < 50:  # Min for EMA_50
