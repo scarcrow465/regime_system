@@ -4,9 +4,11 @@
 # In[ ]:
 
 
+import optuna
+from optuna.pruners import HyperbandPruner
 import pandas as pd
-from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH, OB_PATH
 from utils.logger import log_message, progress_bar
+from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH, OB_PATH
 from core.regime_classifier import fit_gmm  # Adapted for params
 from validation.ob_prober import merge_regimes, probe_filtering  # Reuse from Phase 1C
 from core.indicators import select_and_compute_indicators
@@ -17,11 +19,9 @@ import os
 from datetime import datetime
 import joblib
 from core.helpers import console
-import optuna
-from optuna.pruners import HyperbandPruner
 
 MAX_LOOPS = 4
-N_TRIALS = 10
+N_TRIALS = 50
 
 def optuna_objective(trial, features):
     """Optuna objective: GMM params for OB lift + persistence + KS."""
