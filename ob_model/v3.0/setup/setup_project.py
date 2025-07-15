@@ -8,7 +8,7 @@
 import os
 import subprocess
 
-BASE_DIR = os.path.join(os.path.expanduser("~"), "Users", "rs", "GitProjects", "regime_system", "v3.0")  # Align with your GitHub repo path
+BASE_DIR = os.path.join(os.path.expanduser("~"), "rs", "GitProjects", "regime_system", "v3.0")  # Align with your GitHub repo path
 
 DIRS = [
     os.path.join(BASE_DIR, "core"),  # For classifiers, indicators, data_loader
