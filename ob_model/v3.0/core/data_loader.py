@@ -50,7 +50,7 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
                     continue
                 
                 # Find all symbol columns (case-insensitive, handles duplicates as Symbol.1 etc.)
-                symbol_cols = [col for col in chunk.columns if re.match(r'^(symbol|Symbol|SYMBOL)(\.\d+)?$', col, re.IGNORECASE)]
+                symbol_cols = sorted([col for col in chunk.columns if re.match(r'^(symbol|Symbol|SYMBOL)(\.\d+)?$', col, re.IGNORECASE)])  # Sorted for consistency
                 
                 if not symbol_cols:
                     if DEBUG_LEVEL == 'verbose':
