@@ -98,10 +98,6 @@ def name_clusters(model, features):
             names.append(f"Regime {i}")
     return dict(enumerate(names))
 
-# In main, after fit
-cluster_names = name_clusters(model, features)
-log_message(f"Cluster Names: {cluster_names}", 'info')
-
 if __name__ == "__main__":
     df = load_csv_data([DATA_PATH])
     if df.empty:
