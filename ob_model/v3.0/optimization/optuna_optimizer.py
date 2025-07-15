@@ -30,7 +30,6 @@ MAX_LOOPS = 4
 N_TRIALS = 10
 
 def optuna_objective(trial, df, features):
-    """Optuna objective: GMM params for OB lift + persistence + KS."""
     n_components = trial.suggest_int('n_components', 2, 5)
     cov_type = trial.suggest_categorical('cov_type', ['full', 'diag'])
     
@@ -39,15 +38,26 @@ def optuna_objective(trial, df, features):
     
     labels = pd.Series(model.predict(features), index=features.index)
     
-    persistence, _ = compute_persistence(labels)  # From Phase 1B
-    _, ks = compare_is_oos(features, model)  # From Phase 1B
-    merged = merge_regimes(load_ob_csv(OB_PATH), df, model)  # Pass full df for indicators
+    persistence, _ = compute_persistence(labels)
+    _, ks = compare_is_oos(features, model)
+    merged = merge_regimes(load_ob_csv(OB_PATH), df, model)
     combos = probe_filtering(merged)[0]
     lift = combos['lift'].mean() if not combos.empty else 0
     
-    score = 0.4 * lift + 0.3 * persistence + 0.3 * ks
+    # New metrics from pnl in combos
+    pnl = merged['pnl']
+    returns = pnl / 100  # Sim, adjust to % if needed
+    sharpe = returns.mean() / returns.std() if returns.std() != 0 else 0
+    wins = pnl[pnl > 0].sum()
+    losses = abs(pnl[pnl < 0].sum())
+    profit_factor = wins / losses if losses > 0 else 0
+    cum_pnl = pnl.cumsum()
+    dd = (cum_pnl - cum_pnl.cummax()).min()
+    dd_penalty = abs(dd) / 15 if dd < 0 else 0  # Normalize <15% =0 penalty
+    
+    score = 0.3 * lift + 0.3 * sharpe + 0.2 * profit_factor + 0.1 * (1 - dd_penalty) + 0.1 * persistence
     if DEBUG_LEVEL == 'verbose':
-        log_message(f"Trial params: n={n_components}, cov={cov_type}, score={score}", 'info')
+        log_message(f"Trial: n={n_components}, cov={cov_type}, score={score} (lift={lift}, sharpe={sharpe}, pf={profit_factor}, dd_pen={dd_penalty}, pers={persistence})", 'info')
     
     return score
 
@@ -77,7 +87,7 @@ def main():
         log_message(f"Loop {i}", 'info')
         params, score, study = run_optuna_loop(df, features, i)  # Pass df
         changes.append(f"Loop {i}: Score {score:.2f}, Params {params}")
-        if score > 20:  # Sim criteria (lift proxy)
+        if score > 3 and sharpe > 1.2 and profit_factor > 1.3 and dd_penalty < 0.15 and persistence > 75:
             log_message("Criteria met—exiting", 'info')
             model = GaussianMixture(**params, random_state=42)
             model.fit(features)
