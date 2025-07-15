@@ -108,6 +108,9 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
                         all_dfs.append(sub_df)
                         if DEBUG_LEVEL in ['debug', 'verbose']:
                             log_message(f"Processed {sym_col} with {len(sub_df)} rows", 'info')
+
+                    if DEBUG_LEVEL == 'verbose':
+                        log_message(f"Found columns for {sym_col}: {actual_cols}", 'info')
                 
                 if DEBUG_LEVEL == 'verbose':
                     log_message(f"Processed chunk with {len(chunk)} rows", 'info')
