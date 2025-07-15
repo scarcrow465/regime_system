@@ -21,7 +21,7 @@ import joblib
 from core.helpers import console
 
 MAX_LOOPS = 4
-N_TRIALS = 50
+N_TRIALS = 10
 
 def optuna_objective(trial, features):
     """Optuna objective: GMM params for OB lift + persistence + KS."""
