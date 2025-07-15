@@ -18,6 +18,7 @@ from rich.table import Table
 import os
 from datetime import datetime
 import joblib
+from core.helpers import console
 
 MAX_LOOPS = 4
 N_TRIALS = 50
