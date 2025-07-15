@@ -28,18 +28,22 @@ def add_session_labels(df):
     return df
 
 def fit_gmm(features, n_components_range=[2,5], walk_forward=True):
-    if len(features) < n_components_range[1]:
-        log_message("Insufficient data for GMM—need > max n_components rows", 'error')
+    # Select only numeric columns for GMM
+    numeric_features = features.select_dtypes(include=[np.number])
+    
+    if len(numeric_features) < n_components_range[1]:
+        log_message("Insufficient numeric data for GMM—need > max n_components rows", 'error')
         return None, None
+    
     best_model = None
     best_bic = float('inf')
     best_n = None
     
     if walk_forward:
-        train_size = int(len(features) * 0.8)
-        train, test = features.iloc[:train_size], features.iloc[train_size:]
+        train_size = int(len(numeric_features) * 0.8)
+        train, test = numeric_features.iloc[:train_size], numeric_features.iloc[train_size:]
     else:
-        train, test = features, None
+        train, test = numeric_features, None
     
     for n in progress_bar(range(n_components_range[0], n_components_range[1]+1), desc="GMM tuning"):
         gmm = GaussianMixture(n_components=n, covariance_type='diag', random_state=42)
