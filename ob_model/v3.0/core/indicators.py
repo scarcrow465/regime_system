@@ -4,61 +4,62 @@
 # In[ ]:
 
 
-import pytest
 import pandas as pd
-from core.indicators import select_and_compute_indicators
-from core.regime_classifier import add_session_labels, fit_gmm
-from utils.logger import log_message
-from config.settings import DATA_PATH  # Use real for optional full test
+from ta.trend import EMAIndicator, ADXIndicator
+from ta.volatility import AverageTrueRange, BollingerBands
+from utils.logger import log_message, progress_bar
+from config.settings import DEBUG_LEVEL
 
-@pytest.fixture
-def mock_df():
-    # Mock 50 rows for TA-Lib (safe for window=50)
-    dates = pd.date_range('2025-03-12 01:00:00', periods=50, freq='15min', tz='America/New_York')
-    data = {
-        'open': [100 + i * 0.5 for i in range(50)],
-        'high': [105 + i * 0.5 for i in range(50)],
-        'low': [95 + i * 0.5 for i in range(50)],
-        'close': [102 + i * 0.5 for i in range(50)],
-        'volume': [50 + i for i in range(50)],
-        'BaseSymbol': ['NQ'] * 50,
-        'symbol': ['NQH25'] * 50
-    }
-    df = pd.DataFrame(data, index=dates)
-    return df
+def select_and_compute_indicators(df, regime_classes=['direction', 'volatility']):
+    """Select 2-3 low-corr indicators per class and compute."""
+    if len(df) < 50:  # Min for EMA_50
+        log_message("Insufficient data length for indicators—skipping", 'error')
+        return pd.DataFrame(index=df.index)
+    
+    indicators = {}
+    
+    if DEBUG_LEVEL in ['debug', 'verbose']:
+        log_message("Selecting and computing indicators", 'info')
+    
+    # Direction: EMA_50, ADX_14
+    if 'direction' in regime_classes:
+        ema = EMAIndicator(df['close'], window=50).ema_indicator()
+        adx = ADXIndicator(df['high'], df['low'], df['close'], window=14).adx()
+        indicators['EMA_50'] = ema
+        indicators['ADX_14'] = adx
+        if DEBUG_LEVEL == 'verbose':
+            log_message(f"Computed direction indicators: {list(indicators.keys())}", 'info')
+    
+    # Volatility: ATR_14, BB_width
+    if 'volatility' in regime_classes:
+        atr = AverageTrueRange(df['high'], df['low'], df['close'], window=14).average_true_range()
+        bb = BollingerBands(df['close'], window=20)
+        bb_width = (bb.bollinger_hband() - bb.bollinger_lband()) / bb.bollinger_mavg()
+        indicators['ATR_14'] = atr
+        indicators['BB_width'] = bb_width
+        if DEBUG_LEVEL == 'verbose':
+            log_message(f"Computed volatility indicators: {list(indicators.keys())}", 'info')
+    
+    ind_df = pd.DataFrame(indicators, index=df.index)
+    
+    # Normalize (z-score example)
+    for col in progress_bar(ind_df.columns, desc="Normalizing indicators"):
+        mean = ind_df[col].rolling(window=36).mean()
+        std = ind_df[col].rolling(window=36).std()
+        ind_df[col] = (ind_df[col] - mean) / std.where(std != 0)  # Avoid div0
+    
+    # Corr check (<0.7)
+    corr = ind_df.corr()
+    high_corr = (corr.abs() > 0.7) & (corr.abs() < 1.0)
+    if high_corr.any().any():
+        log_message("High correlation detected—consider dropping", 'info')
+    
+    return ind_df
 
-def test_indicators(mock_df):
-    ind_df = select_and_compute_indicators(mock_df)
-    assert not ind_df.empty, "Indicators computation failed"
-    assert 'EMA_50' in ind_df.columns, "Missing direction indicator"
-    log_message("Indicators test passed", 'info')
-
-def test_sessions(mock_df):
-    # Add NY_Open hour
-    df = mock_df.copy()
-    df.loc[df.index[0], 'hour'] = 9  # Force NY_Open
-    df = add_session_labels(df)
-    assert 'session' in df.columns, "Missing session labels"
-    assert 'NY_Open' in df['session'].values, "No NY Open detected"
-    log_message("Sessions test passed", 'info')
-
-def test_gmm(mock_df):
-    ind_df = select_and_compute_indicators(mock_df)
-    if len(ind_df) < 2:  # GMM needs 2+ rows
-        pytest.skip("Insufficient data for GMM")
-    model, n = fit_gmm(ind_df.dropna())
-    assert model is not None, "GMM fit failed"
-    assert 2 <= n <= 5, "Invalid n_components"
-    log_message("GMM test passed", 'info')
-
-# Optional: Test with real data (comment out if large)
-# @pytest.fixture
-# def sample_df():
-#     return load_csv_data([DATA_PATH])
-# 
-# def test_indicators_real(sample_df):
-#     ind_df = select_and_compute_indicators(sample_df)
-#     assert not ind_df.empty, "Real data indicators failed"
-
-# Run: pytest validation/indicator_tests.py
+if __name__ == "__main__":
+    from core.data_loader import load_csv_data
+    csv_paths = [DATA_PATH]  # From settings
+    df = load_csv_data(csv_paths)
+    ind_df = select_and_compute_indicators(df)
+    log_message("Indicators computed successfully", 'info')
 
