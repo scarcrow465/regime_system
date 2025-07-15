@@ -4,6 +4,10 @@
 # In[ ]:
 
 
+import sys
+import os
+BASE_DIR = r"C:\Users\rs\GitProjects\regime_system\ob_model\v3.0"  # Hardcode if not importing settings yet
+sys.path.append(BASE_DIR)
 import optuna
 from optuna.pruners import HyperbandPruner
 import pandas as pd
@@ -15,13 +19,12 @@ from core.indicators import select_and_compute_indicators
 from core.data_loader import load_csv_data
 from core.regime_classifier import add_session_labels
 from rich.table import Table
-import os
 from datetime import datetime
 import joblib
 from core.helpers import console
 
 MAX_LOOPS = 4
-N_TRIALS = 50
+N_TRIALS = 10
 
 def optuna_objective(trial, features):
     """Optuna objective: GMM params for OB lift + persistence + KS."""
