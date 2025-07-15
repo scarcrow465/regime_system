@@ -14,8 +14,8 @@ DEBUG_LEVEL = 'summary'  # Change to toggle output
 # Other settings (expand as needed)
 TIMEFRAME = '15min'
 SYMBOLS = ['NQ']
-START_DATE = '2008-01-01'
-END_DATE = '2025-07-14'  # Current date
+START_DATE = '2008-01-01 00:00:00-05:00'
+END_DATE = '2025-07-14 00:00:00-04:00'  # Current date
 
 # Dirs (already created, but for reference)
 EXPORTS_DIR = os.path.join(BASE_DIR, 'exports')
