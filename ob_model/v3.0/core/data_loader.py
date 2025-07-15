@@ -31,7 +31,7 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
     
     for csv_path in progress_bar(csv_paths, desc="Loading CSVs"):
         try:
-            chunks = pd.read_csv(csv_path, parse_dates=['Date'], index_col='Date', chunksize=100000, dtype={'Symbol': str})
+            chunks = pd.read_csv(csv_path, parse_dates=['Date'], date_format='%m/%d/%Y', index_col='Date', chunksize=100000, dtype={'Symbol': str})
             num_chunks = None
             for chunk in progress_bar(chunks, desc="Processing chunks", total=num_chunks if DEBUG_LEVEL in ['debug', 'verbose'] else None):
                 chunk = chunk.copy()
