@@ -4,8 +4,6 @@
 # In[ ]:
 
 
-import optuna
-from optuna.pruners import HyperbandPruner
 import pandas as pd
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH, OB_PATH
@@ -19,6 +17,8 @@ import os
 from datetime import datetime
 import joblib
 from core.helpers import console
+import optuna
+from optuna.pruners import HyperbandPruner
 
 MAX_LOOPS = 4
 N_TRIALS = 10
