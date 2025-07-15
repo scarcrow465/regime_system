@@ -5,11 +5,15 @@
 
 
 import pandas as pd
-import os
 import numpy as np
+import logging
+import os
+import re
+import pytz
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, SYMBOLS, START_DATE, END_DATE, DATA_PATH
-import re
+
+logger = logging.getLogger(__name__)
 
 def parse_symbol(symbol_str):
     if not isinstance(symbol_str, str) or pd.isna(symbol_str):
@@ -30,24 +34,23 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
     if DEBUG_LEVEL in ['debug', 'verbose']:
         log_message(f"Loading CSVs: {csv_paths}", 'info')
     
+    tz = pytz.timezone('America/New_York')
+    
     for csv_path in progress_bar(csv_paths, desc="Loading CSVs"):
         try:
-            # Read with parse_dates
-            df = pd.read_csv(csv_path, parse_dates=['Date'], low_memory=False)
+            df = pd.read_csv(csv_path, low_memory=False)
             if DEBUG_LEVEL == 'verbose':
                 log_message(f"Raw columns: {df.columns.tolist()}", 'info')
                 log_message(f"Sample row: {df.iloc[0].to_dict()}", 'info')
-            # Force datetime on 'Date'
             df['Date'] = pd.to_datetime(df['Date'], errors='coerce', format='%m/%d/%Y %H:%M')
             df = df.dropna(subset=['Date']).set_index('Date')
             if df.empty:
                 log_message("No valid 'Date' after parsing", 'error')
                 continue
-            # Tz localize
-            df.index = df.index.tz_localize('America/New_York', ambiguous='infer', nonexistent='shift_forward')
+            df.index = df.index.tz_localize(tz, ambiguous='infer', nonexistent='shift_forward')
             if DEBUG_LEVEL == 'verbose':
-                log_message("Index set to tz-aware DatetimeIndex", 'info')
-            # Find symbol positions (where column contains 'symbol' or is uppercase code)
+                log_message("Index localized with pytz", 'info')
+            # Find symbol positions
             symbol_positions = [i for i, col in enumerate(df.columns) if 'symbol' in col.lower() or re.match(r'^[A-Z]+[A-Z0-9]*$', col)]
             if not symbol_positions:
                 log_message("No symbol columns found—check CSV headers", 'error')
@@ -56,24 +59,22 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
                 block_end = min(pos + 7, len(df.columns))
                 block = df.iloc[:, pos:block_end].copy()
                 if len(block.columns) < 5: continue
-                # Normalize names
-                block.columns = [col.lower().replace('.', '') for col in block.columns]
+                block.columns = [col.strip().lower() for col in block.columns]
                 expected = ['symbol', 'open', 'high', 'low', 'close', 'volume', 'openinterest']
-                block = block.rename(columns=dict(zip(block.columns[:7], expected)))
-                if DEBUG_LEVEL == 'verbose':
-                    log_message(f"Block columns after rename: {block.columns.tolist()}", 'info')
-                # Clean numeric
+                block = block.rename(columns=dict(zip(block.columns, expected[:len(block.columns)])))
                 for col in ['open', 'high', 'low', 'close', 'volume', 'openinterest']:
                     if col in block:
                         block[col] = block[col].astype(str).str.replace(',', '').str.replace('"', '').str.replace("'", '')
                         block[col] = pd.to_numeric(block[col], errors='coerce')
                 block = block.dropna(subset=['open', 'high', 'low', 'close'], how='all')
                 if block.empty:
-                    log_message("Block empty after clean—check numeric values", 'info')
+                    log_message("Block empty after numeric clean", 'info')
                     continue
                 block['BaseSymbol'] = block['symbol'].apply(parse_symbol)
                 if symbols and block['BaseSymbol'].iloc[0] not in symbols:
                     continue
+                # Claude's cleaning
+                block = validate_and_clean_data(block)
                 all_dfs.append(block)
                 if DEBUG_LEVEL == 'verbose':
                     log_message(f"Processed block for {block['symbol'].iloc[0]} with {len(block)} rows", 'info')
@@ -81,12 +82,11 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
             log_message(f"Error loading {csv_path}: {str(e)}", 'error')
     
     if not all_dfs:
-        log_message("No valid data loaded—check logs for details", 'error')
+        log_message("No valid data loaded—check CSV for 'Date' and OHLC columns", 'error')
         return pd.DataFrame()
     
     combined_df = pd.concat(all_dfs)
     combined_df = combined_df.sort_index()
-    # Date filters
     if start_date:
         combined_df = combined_df[combined_df.index >= pd.to_datetime(start_date).tz_localize('America/New_York')]
     if end_date:
@@ -95,6 +95,36 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
     combined_df.set_index('Date', inplace=True)
     log_message(f"Loaded {len(combined_df)} rows for symbols: {combined_df['BaseSymbol'].unique()}", 'info')
     return combined_df
+
+def validate_and_clean_data(df: pd.DataFrame) -> pd.DataFrame:
+    # From Claude
+    initial_rows = len(df)
+    
+    # Remove duplicates
+    df = df[~df.index.duplicated(keep='first')]
+    
+    # Remove rows with any NaN in OHLC
+    ohlc_cols = ['open', 'high', 'low', 'close']
+    existing_ohlc = [col for col in ohlc_cols if col in df.columns]
+    df = df.dropna(subset=existing_ohlc)
+    
+    # Validate price relationships
+    if all(col in df.columns for col in ['open', 'high', 'low', 'close']):
+        invalid_hl = df['high'] < df['low']
+        if invalid_hl.any():
+            log_message(f"Found {invalid_hl.sum()} rows with high < low, fixing...", 'info')
+            df.loc[invalid_hl, 'high'] = df.loc[invalid_hl, ['open', 'close']].max(axis=1)
+            df.loc[invalid_hl, 'low'] = df.loc[invalid_hl, ['open', 'close']].min(axis=1)
+    
+    # Remove rows with zero or negative prices
+    for col in existing_ohlc:
+        df = df[df[col] > 0]
+    
+    final_rows = len(df)
+    if final_rows < initial_rows:
+        log_message(f"Data cleaning removed {initial_rows - final_rows} rows", 'info')
+    
+    return df
 
 if __name__ == "__main__":
     csv_paths = [DATA_PATH]
