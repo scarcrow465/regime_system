@@ -4,9 +4,6 @@
 # In[ ]:
 
 
-#!/usr/bin/env python
-# coding: utf-8
-
 # validation/test_utils.py
 import pytest
 import sys
