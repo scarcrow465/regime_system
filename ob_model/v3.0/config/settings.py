@@ -26,3 +26,5 @@ LOGS_DIR = os.path.join(EXPORTS_DIR, 'logs')
 
 TEST_SLICE = 0  # Rows to slice for fast tests (0 for full)
 
+OB_PATH = r"your/sample.csv"
+
