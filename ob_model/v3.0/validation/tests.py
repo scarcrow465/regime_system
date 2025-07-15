@@ -15,6 +15,7 @@ from core.regime_classifier import add_session_labels, fit_gmm
 from validation.ob_prober import load_ob_csv, merge_regimes, probe_filtering
 from optimization.optuna_optimizer import optuna_objective
 from utils.logger import log_message
+import optuna
 
 @pytest.fixture
 def sample_df():
