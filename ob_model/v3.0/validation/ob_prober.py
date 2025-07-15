@@ -85,9 +85,20 @@ def validate_oos(merged):
     return delta
 
 def main():
-    df = load_csv_data([DATA_PATH])  # OHLC for regimes
+    df = load_csv_data(DATA_PATH)  # Use the list directly
+    if df.empty:
+        log_message("No OHLC data loaded—check paths/columns", 'error')
+        return
     ob_df = load_ob_csv(OB_PATH)  # OB trades
-    model, _ = fit_gmm(select_and_compute_indicators(df))  # Sim from Phase 1B
+    ind_df = select_and_compute_indicators(df)
+    features = ind_df.select_dtypes(include=[np.number]).dropna()
+    if len(features) < 5:
+        log_message("Insufficient features for GMM", 'error')
+        return
+    model, _ = fit_gmm(features)  # Sim from Phase 1B
+    if model is None:
+        log_message("GMM fit failed—no model", 'error')
+        return
     merged = merge_regimes(ob_df, df, model)
     combos, crosstab = probe_filtering(merged)
     delta = validate_oos(merged)
