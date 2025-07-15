@@ -5,6 +5,7 @@
 
 
 # validation/test_utils.py
+sys.path.append(BASE_DIR)
 import pytest
 import sys
 import os
