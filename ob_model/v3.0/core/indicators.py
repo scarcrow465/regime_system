@@ -41,15 +41,15 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility']
         if DEBUG_LEVEL == 'verbose':
             log_message(f"Computed volatility indicators: {list(indicators.keys())}", 'info')
     
-    ind_df = pd.DataFrame(indicators, index=df.index)
+    ind_df = pd.DataFrame(indicators, index=df.index).fillna(0)  # Fill initial NaNs from TA windows
     
     # Normalize (z-score example)
     for col in progress_bar(ind_df.columns, desc="Normalizing indicators"):
         mean = ind_df[col].rolling(window=36).mean()
         std = ind_df[col].rolling(window=36).std()
-        ind_df[col] = (ind_df[col] - mean) / std.where(std != 0)  # Avoid div0
+        ind_df[col] = (ind_df[col] - mean) / std.where(std != 0, 1e-8)  # Avoid div0 with small epsilon
     
-    # Fill NaNs (ffill then 0 for initial)
+    # Fill any remaining NaNs after normalize
     ind_df = ind_df.fillna(method='ffill').fillna(0)
     
     # Corr check (<0.7)
