@@ -6,7 +6,8 @@
 
 # setup_project.py
 import os
-import subprocess
+from config.settings import BASE_DIR
+from utils.logger import log_message
 
 BASE_DIR = os.path.join(os.path.expanduser("~"), "rs", "GitProjects", "regime_system", "v3.0")  # Align with your GitHub repo path
 
@@ -27,7 +28,7 @@ DIRS = [
 def create_dirs():
     for d in DIRS:
         os.makedirs(d, exist_ok=True)
-    print("Directories created.")
+        log_message(f"Created/verified dir: {d}", 'info')
 
 def init_git():
     os.chdir(BASE_DIR)
@@ -38,5 +39,5 @@ def init_git():
 
 if __name__ == "__main__":
     create_dirs()
-    init_git()
+    log_message("Phase 0 setup complete!", 'info')
 
