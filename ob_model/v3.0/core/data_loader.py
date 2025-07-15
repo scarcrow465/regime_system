@@ -31,13 +31,29 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
     for csv_path in progress_bar(csv_paths, desc="Loading CSVs"):
         try:
             # Read CSV with date parsing
-            df = pd.read_csv(csv_path, parse_dates=['Date'], date_format='%m/%d/%Y', index_col='Date')
+            df = pd.read_csv(csv_path, 
+                 parse_dates=['Date'], 
+                 date_format='%m/%d/%Y', 
+                 index_col='Date',
+                 low_memory=False)  # Add this to fix the mixed types warning
             
             # Localize timezone if not already set
-            if df.index.tz is None:
-                df.index = df.index.tz_localize('America/New_York')
+            # Check if we have a DatetimeIndex first
+            if isinstance(df.index, pd.DatetimeIndex):
+                # Localize timezone if not already set
+                if df.index.tz is None:
+                    df.index = df.index.tz_localize('America/New_York')
+                else:
+                    df.index = df.index.tz_convert('America/New_York')
             else:
-                df.index = df.index.tz_convert('America/New_York')
+                log_message(f"Warning: Index is not DatetimeIndex, it's {type(df.index)}", 'warning')
+                # Try to convert to datetime
+                try:
+                    df.index = pd.to_datetime(df.index)
+                    df.index = df.index.tz_localize('America/New_York')
+                except Exception as e:
+                    log_message(f"Failed to convert index to datetime: {str(e)}", 'error')
+                    return pd.DataFrame()  # Return empty DataFrame on failure
             
             # Identify symbol columns (every 7th column starting at 0, 7, 14, etc.)
             symbol_indices = range(0, len(df.columns), 7)
