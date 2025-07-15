@@ -4,6 +4,9 @@
 # In[ ]:
 
 
+#!/usr/bin/env python
+# coding: utf-8
+
 import pandas as pd
 import numpy as np
 import logging
@@ -47,7 +50,10 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
             if df.empty:
                 log_message("No valid 'Date' after parsing", 'error')
                 continue
-            df.index = df.index.tz_localize(tz, ambiguous='infer', nonexistent='shift_forward')
+            if df.index.tz is None:
+                df.index = df.index.tz_localize(tz, ambiguous='infer', nonexistent='shift_forward')
+            else:
+                df.index = df.index.tz_convert(tz)
             if DEBUG_LEVEL == 'verbose':
                 log_message("Index localized with pytz", 'info')
             # Find symbol positions
@@ -73,7 +79,6 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
                 block['BaseSymbol'] = block['symbol'].apply(parse_symbol)
                 if symbols and block['BaseSymbol'].iloc[0] not in symbols:
                     continue
-                # Claude's cleaning
                 block = validate_and_clean_data(block)
                 all_dfs.append(block)
                 if DEBUG_LEVEL == 'verbose':
@@ -87,17 +92,27 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
     
     combined_df = pd.concat(all_dfs)
     combined_df = combined_df.sort_index()
+    # Date filters with tz check
     if start_date:
-        combined_df = combined_df[combined_df.index >= pd.to_datetime(start_date).tz_localize('America/New_York')]
+        start_dt = pd.to_datetime(start_date)
+        if start_dt.tz is None:
+            start_dt = start_dt.tz_localize(tz)
+        else:
+            start_dt = start_dt.tz_convert(tz)
+        combined_df = combined_df[combined_df.index >= start_dt]
     if end_date:
-        combined_df = combined_df[combined_df.index <= pd.to_datetime(end_date).tz_localize('America/New_York')]
+        end_dt = pd.to_datetime(end_date)
+        if end_dt.tz is None:
+            end_dt = end_dt.tz_localize(tz)
+        else:
+            end_dt = end_dt.tz_convert(tz)
+        combined_df = combined_df[combined_df.index <= end_dt]
     combined_df = combined_df.reset_index().groupby(['Date', 'BaseSymbol']).first().reset_index()
     combined_df.set_index('Date', inplace=True)
     log_message(f"Loaded {len(combined_df)} rows for symbols: {combined_df['BaseSymbol'].unique()}", 'info')
     return combined_df
 
 def validate_and_clean_data(df: pd.DataFrame) -> pd.DataFrame:
-    # From Claude
     initial_rows = len(df)
     
     # Remove duplicates
