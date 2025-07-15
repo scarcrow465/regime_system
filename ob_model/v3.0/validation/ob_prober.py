@@ -75,10 +75,18 @@ def probe_filtering(merged):
 
 def validate_oos(merged):
     """OOS validation on probes."""
+    if merged.empty:
+        log_message("Empty merged DF—no OOS validation", 'error')
+        return 0.0
     train_size = int(len(merged) * 0.8)
     train, test = merged.iloc[:train_size], merged.iloc[train_size:]
-    train_lift = probe_filtering(train)['lift'].mean()
-    test_lift = probe_filtering(test)['lift'].mean()
+    train_combos = probe_filtering(train)[0]
+    test_combos = probe_filtering(test)[0]
+    if train_combos.empty or test_combos.empty:
+        log_message("Empty combos in OOS—skipping", 'info')
+        return 0.0
+    train_lift = train_combos['lift'].mean()
+    test_lift = test_combos['lift'].mean()
     delta = abs(train_lift - test_lift)
     if DEBUG_LEVEL != 'none':
         log_message(f"OOS lift delta: {delta:.1f}%", 'info')
