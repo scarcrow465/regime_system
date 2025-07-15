@@ -4,24 +4,21 @@
 # In[ ]:
 
 
-# config/settings.py
-import yaml
+import os
 
-DEFAULTS = {
-    "symbols": ["NQ"],
-    "timeframe": "15min",
-    "gmm_components": [2, 5],
-    "persistence_target": 0.75,
-    "oos_drop_max": 0.10,
-    "cloud": {"instance": "t3.medium", "budget": 50},
-    # Add OB-specific: "ob_csv_path": "path/to/backtest.csv"
-}
+BASE_DIR = r"C:\Users\rs\GitProjects\regime_system\ob_model\v3.0"
 
-def load_config(file="config.yaml"):
-    if os.path.exists(file):
-        with open(file, "r") as f:
-            return yaml.safe_load(f)
-    return DEFAULTS
+# Debug levels: 'none', 'summary', 'debug', 'verbose'
+DEBUG_LEVEL = 'summary'  # Change to toggle output
 
-# Usage: config = load_config()
+# Other settings (expand as needed)
+TIMEFRAME = '15min'
+SYMBOLS = ['NQ']
+START_DATE = '2008-01-01'
+END_DATE = '2025-07-14'  # Current date
+
+# Dirs (already created, but for reference)
+EXPORTS_DIR = os.path.join(BASE_DIR, 'exports')
+LOGS_DIR = os.path.join(EXPORTS_DIR, 'logs')
+# etc.
 
