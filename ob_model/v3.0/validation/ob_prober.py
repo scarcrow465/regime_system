@@ -10,7 +10,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, OB_PATH, DATA_PATH  # Add OB_PATH = r"your/sample.csv" in settings
-from core.regime_classifier import fit_gmm  # For labels (assume from Phase 1B model load if needed)
+from core.regime_classifier import fit_gmm, add_session_labels  # For labels (assume from Phase 1B model load if needed)
 from core.indicators import select_and_compute_indicators
 from core.data_loader import load_csv_data
 from rich.table import Table
@@ -34,6 +34,7 @@ def load_ob_csv(ob_path):
 def merge_regimes(ob_df, df, model):
     """Merge regimes to OB via entry_time."""
     ind_df = select_and_compute_indicators(df)  # Use passed df
+    ind_df = add_session_labels(ind_df)  # Add to include 'hour'
     features = ind_df.select_dtypes(include=[np.number]).dropna()
     labels = pd.Series(model.predict(features), index=features.index, name='regime')
     merged = ob_df.merge(labels, left_on='entry_time', right_index=True, how='left')
