@@ -8,6 +8,7 @@
 import pytest
 import sys
 import os
+from config.settings import BASE_DIR
 sys.path.append(BASE_DIR)
 from config.settings import BASE_DIR
 sys.path.append(BASE_DIR)  # For package imports
