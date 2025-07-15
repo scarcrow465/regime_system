@@ -58,7 +58,7 @@ def load_csv_data(csv_paths, symbols=SYMBOLS, start_date=START_DATE, end_date=EN
                     continue
                 
                 for sym_col in symbol_cols:
-                    suffix = col[col.find('.'):] if '.' in col else ''
+                    suffix = sym_col[sym_col.find('.'):] if '.' in sym_col else ''
                     
                     # Expected columns (case-insensitive)
                     base_cols = ['open', 'high', 'low', 'close', 'volume']
