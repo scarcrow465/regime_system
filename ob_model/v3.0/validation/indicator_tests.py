@@ -9,7 +9,7 @@ from core.indicators import select_and_compute_indicators
 from core.regime_classifier import add_session_labels, fit_gmm
 from core.data_loader import load_csv_data
 from utils.logger import log_message
-from config.settings import DATA_PATH, TEST_SLICE  # Slice for fast tests
+from config.settings import DATA_PATH, TEST_SLICE
 import pandas as pd
 
 @pytest.fixture
@@ -17,9 +17,9 @@ def real_df():
     df = load_csv_data([DATA_PATH])
     if len(df) == 0:
         log_message("Failed to load real data—check path/CSV", 'error')
-        return pd.DataFrame()  # Return empty to allow tests to run partial
+        return pd.DataFrame()  # Continue with empty, tests will skip
     if TEST_SLICE > 0:
-        df = df.head(TEST_SLICE)  # Slice for quick tests
+        df = df.head(TEST_SLICE)
         log_message(f"Sliced to {TEST_SLICE} rows for testing", 'info')
     return df
 
@@ -45,7 +45,7 @@ def test_gmm(real_df):
     ind_df = select_and_compute_indicators(real_df)
     features = ind_df.dropna()
     if len(features) < 50:
-        pytest.skip("Insufficient real data for GMM (need 50+ rows)")
+        pytest.skip("Insufficient data for GMM (need 50+ rows)")
     model, n = fit_gmm(features)
     assert model is not None, "GMM fit failed"
     assert 2 <= n <= 5, "Invalid n_components"
