@@ -45,7 +45,12 @@ def merge_regimes(ob_df, df, model):
         # If no timezone, localize it
         features.index = features.index.tz_localize('America/New_York')
     
-    labels = pd.Series(model.predict(features), index=features.index, name='regime')
+    # Get raw labels first
+    raw_labels = pd.Series(model.predict(features), index=features.index, name='regime')
+
+    # Apply smoothing
+    from core.regime_classifier import smooth_regime_labels
+    labels = smooth_regime_labels(raw_labels, min_persistence=3)
     
     # Also get session info for merge
     session_info = ind_df[['full_session', 'refined_session', 'hour']].copy()
