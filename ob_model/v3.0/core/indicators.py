@@ -6,9 +6,9 @@
 
 import pandas as pd
 import numpy as np
-from ta.trend import EMAIndicator, ADXIndicator, MACD  # For Direction/Trend
+from ta.trend import EMAIndicator, ADXIndicator, MACD, PPOIndicator  # For Direction/Trend/Momentum (PPO in trend)
 from ta.volatility import AverageTrueRange, BollingerBands
-from ta.momentum import RSIIndicator, StochasticOscillator, ROCIndicator, PPOIndicator, CCIIndicator  # For Strength/Momentum
+from ta.momentum import RSIIndicator, StochasticOscillator, ROCIndicator, CCIIndicator  # For Strength/Momentum
 from ta.volume import OnBalanceVolumeIndicator, VolumeWeightedAveragePrice, ChaikinMoneyFlowIndicator  # For Structure
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, DATA_PATH
