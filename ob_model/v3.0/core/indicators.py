@@ -69,10 +69,12 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
         stoch = ta.stoch(df['high'], df['low'], df['close'], length=14)['STOCHk_14_3_3']
         adx_full = ta.adx(df['high'], df['low'], df['close'], length=14)
         dmi_plus = adx_full['DMP_14']
+        dmi_minus = adx_full['DMN_14']
         indicators['RSI_7'] = rsi_7
         indicators['RSI_14'] = rsi_14
         indicators['Stoch'] = stoch
         indicators['DMI_Plus'] = dmi_plus
+        indicators['DMI_Minus'] = dmi_minus
         if DEBUG_LEVEL == 'verbose':
             log_message("Trend Strength indicators computed", 'info')
     
@@ -80,9 +82,13 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     if 'momentum' in regime_classes:
         roc = ta.roc(df['close'], length=12)
         ppo = ta.ppo(df['close'])['PPO_12_26_9']
+        ppo_hist = ta.ppo(df['close'])['PPOh_12_26_9']  # NEW: PPO histogram
+        ppo_signal = ta.ppo(df['close'])['PPOs_12_26_9']  # NEW: PPO signal line
         cci = ta.cci(df['high'], df['low'], df['close'], length=20)
         indicators['ROC_12'] = roc
         indicators['PPO'] = ppo
+        indicators['PPO_Hist'] = ppo_hist  # NEW
+        indicators['PPO_Signal'] = ppo_signal  # NEW
         indicators['CCI_20'] = cci
         if DEBUG_LEVEL == 'verbose':
             log_message("Momentum indicators computed", 'info')
@@ -113,6 +119,21 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
         indicators['CMF_20'] = cmf
     
     ind_df = pd.DataFrame(indicators, index=df.index).fillna(0)  # Fill NaNs
+
+    # NEW: #2 Constraint - Check rows per class (simple log if <50)
+    class_groups = {
+        'direction': [col for col in ind_df if col.startswith('EMA') or col in ['ADX_14', 'MACD']],
+        'volatility': [col for col in ind_df if col.startswith('ATR') or col in ['BB_width', 'Hist_Vol', 'KC_width']],
+        'trend_strength': [col for col in ind_df if col.startswith('RSI') or col in ['Stoch', 'DMI_Plus', 'DMI_Minus']],
+        'momentum': [col for col in ind_df if col in ['ROC_12', 'PPO', 'PPO_Hist', 'PPO_Signal', 'CCI_20']],
+        'session': [col for col in ind_df if 'session' in col.lower()],
+        'structure': [col for col in ind_df if col in ['OBV', 'VWAP_14', 'CMF_20']]
+    }
+    for cls, cols in class_groups.items():
+        if cols:
+            class_df = ind_df[cols].dropna(how='all')
+            if len(class_df) < 50:
+                log_message(f"Warning: {cls} class has only {len(class_df)} rows (<50)—may need more data", 'warning')
     
     # Normalize - use robust scaling to handle outliers
     for col in progress_bar(ind_df.columns, desc="Normalizing"):
