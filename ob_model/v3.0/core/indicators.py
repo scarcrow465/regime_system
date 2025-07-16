@@ -29,10 +29,14 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     
     # Direction: EMA_50, ADX_14, MACD
     if 'direction' in regime_classes:
-        ema = ta.ema(df['close'], length=50)
+        ema_20 = ta.ema(df['close'], length=20)
+        ema_50 = ta.ema(df['close'], length=50)
+        ema_200 = ta.ema(df['close'], length=200)
         adx = ta.adx(df['high'], df['low'], df['close'], length=14)['ADX_14']
         macd = ta.macd(df['close'])['MACD_12_26_9']
-        indicators['EMA_50'] = ema
+        indicators['EMA_20'] = ema_20
+        indicators['EMA_50'] = ema_50
+        indicators['EMA_200'] = ema_200
         indicators['ADX_14'] = adx
         indicators['MACD'] = macd
         if DEBUG_LEVEL == 'verbose':
@@ -40,23 +44,46 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     
     # Volatility: ATR_14, BB_width, Hist Vol (stdev close)
     if 'volatility' in regime_classes:
-        atr = ta.atr(df['high'], df['low'], df['close'], length=14)
+        atr_7 = ta.atr(df['high'], df['low'], df['close'], length=7)
+        atr_14 = ta.atr(df['high'], df['low'], df['close'], length=14)
+        atr_30 = ta.atr(df['high'], df['low'], df['close'], length=30)
         bb = ta.bbands(df['close'], length=20)
         bb_width = (bb['BBU_20_2.0'] - bb['BBL_20_2.0']) / bb['BBM_20_2.0']
         hist_vol = df['close'].pct_change().rolling(20).std() * np.sqrt(252)  # Annualized
-        indicators['ATR_14'] = atr
+
+        # Keltner Channel - CORRECTED COLUMN NAMES
+        kc = ta.kc(df['high'], df['low'], df['close'], length=20)
+        if not kc.empty:
+            kc_cols = kc.columns.tolist()
+            # Find upper, middle, lower columns
+            upper_col = [c for c in kc_cols if 'U' in c][0]  
+            lower_col = [c for c in kc_cols if 'L' in c][0]
+            middle_col = [c for c in kc_cols if 'B' in c or 'M' in c][0]
+            kc_width = (kc[upper_col] - kc[lower_col]) / kc[middle_col]
+            indicators['KC_width'] = kc_width
+        # Check what columns are returned first
+        print(kc.columns)  # Add this temporarily to see exact names
+        # Likely columns: KCLe_20_2, KCBe_20_2, KCUe_20_2
+        kc_width = (kc.iloc[:, 2] - kc.iloc[:, 0]) / kc.iloc[:, 1]  # Upper - Lower / Middle
+
+        indicators['ATR_7'] = atr_7
+        indicators['ATR_14'] = atr_14
+        indicators['ATR_30'] = atr_30
         indicators['BB_width'] = bb_width
         indicators['Hist_Vol'] = hist_vol
+        indicators['KC_width'] = kc_width
         if DEBUG_LEVEL == 'verbose':
             log_message("Volatility indicators computed", 'info')
     
     # Trend Strength: RSI_14, Stochastic, DMI (+DI from ADX)
     if 'trend_strength' in regime_classes:
-        rsi = ta.rsi(df['close'], length=14)
+        rsi_7 = ta.rsi(df['close'], length=7)
+        rsi_14 = ta.rsi(df['close'], length=14)
         stoch = ta.stoch(df['high'], df['low'], df['close'], length=14)['STOCHk_14_3_3']
         adx_full = ta.adx(df['high'], df['low'], df['close'], length=14)
         dmi_plus = adx_full['DMP_14']
-        indicators['RSI_14'] = rsi
+        indicators['RSI_7'] = rsi_7
+        indicators['RSI_14'] = rsi_14
         indicators['Stoch'] = stoch
         indicators['DMI_Plus'] = dmi_plus
         if DEBUG_LEVEL == 'verbose':
@@ -106,19 +133,31 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     
     ind_df = ind_df.fillna(method='ffill').fillna(0)
     
-    # Corr check
+    # Corr check - EXCLUDE SESSION FEATURES
     corr = ind_df.corr()
     import matplotlib.pyplot as plt; plt.matshow(corr); plt.colorbar(); plt.savefig(os.path.join(BASE_DIR, 'exports/plots/corr_matrix.png'))
-    high_corr = (corr.abs() > 0.7) & (corr.abs() < 1.0)
+
+    # Filter out session columns from correlation check
+    non_session_cols = [col for col in ind_df.columns if 'session' not in col.lower()]
+    corr_subset = ind_df[non_session_cols].corr()
+
+    high_corr = (corr_subset.abs() > 0.8) & (corr_subset.abs() < 1.0)  # CHANGED TO 0.8
     if high_corr.any().any():
         log_message("High corr detected—dropping pairs", 'info')
         to_drop = set()
-        for col in high_corr.columns:
-            correlated = high_corr[col][high_corr[col]].index.tolist()
-            if correlated:
-                to_drop.add(correlated[0]) # Drop one
-                log_message(f"Dropping high-corr: {to_drop}", 'info') 
-        ind_df = ind_df.drop(columns=to_drop)
+        for i in range(len(high_corr.columns)):
+            for j in range(i+1, len(high_corr.columns)):
+                if high_corr.iloc[i, j]:
+                    col1, col2 = high_corr.columns[i], high_corr.columns[j]
+                    # Keep the one with less NaN values
+                    if ind_df[col1].isna().sum() > ind_df[col2].isna().sum():
+                        to_drop.add(col1)
+                    else:
+                        to_drop.add(col2)
+        
+        if to_drop:
+            log_message(f"Dropping high-corr indicators: {to_drop}", 'info')
+            ind_df = ind_df.drop(columns=to_drop)
     
     return ind_df
 
