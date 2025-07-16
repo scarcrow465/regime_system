@@ -15,7 +15,7 @@ import os
 from datetime import datetime
 from core.data_loader import load_csv_data
 import numpy as np
-from validation.persistence_validator import compute_persistence
+from utils.metrics import compute_persistence
 
 def add_session_labels(df):
     """Add full (overlapping) and refined (non-overlapping) session labels."""
