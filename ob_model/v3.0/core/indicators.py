@@ -6,14 +6,15 @@
 
 import pandas as pd
 import numpy as np
-from ta.trend import EMAIndicator, ADXIndicator, MACD, DMIIndicator as DMI  # For Direction/Trend
-from ta.volatility import AverageTrueRange, BollingerBands
+from ta.trend import EMAIndicator, ADXIndicator, MACD  # For Direction/Trend
 from ta.momentum import RSIIndicator, StochasticOscillator, ROCIndicator, PPOIndicator, CCIIndicator  # For Strength/Momentum
+from ta.volatility import AverageTrueRange, BollingerBands
 from ta.volume import OnBalanceVolumeIndicator, VolumeWeightedAveragePrice, ChaikinMoneyFlowIndicator  # For Structure
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, DATA_PATH
 from core.data_loader import load_csv_data
 from sklearn.preprocessing import OneHotEncoder  # For Session categorical
+from core.regime_classifier import add_session_labels  # For session features
 
 def select_and_compute_indicators(df, regime_classes=['direction', 'volatility', 'trend_strength', 'momentum', 'session', 'structure']):
     """Compute 2-3 low-corr indicators per class."""
@@ -49,14 +50,14 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
         if DEBUG_LEVEL == 'verbose':
             log_message("Volatility indicators computed", 'info')
     
-    # Trend Strength: RSI_14, Stochastic, DMI
+    # Trend Strength: RSI_14, Stochastic, +DI (from ADX)
     if 'trend_strength' in regime_classes:
         rsi = RSIIndicator(df['close'], window=14).rsi()
         stoch = StochasticOscillator(df['high'], df['low'], df['close'], window=14).stoch()
-        dmi = DMI(df['high'], df['low'], df['close'], window=14)
+        adx_ind = ADXIndicator(df['high'], df['low'], df['close'], window=14)  # Reuse for +DI
         indicators['RSI_14'] = rsi
         indicators['Stoch'] = stoch
-        indicators['DMI_Plus'] = dmi.adx_pos()  # +DI
+        indicators['DMI_Plus'] = adx_ind.adx_pos()  # +DI for strength
         if DEBUG_LEVEL == 'verbose':
             log_message("Trend Strength indicators computed", 'info')
     
@@ -73,7 +74,6 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     
     # Session: One-hot encode as categorical features
     if 'session' in regime_classes:
-        from core.regime_classifier import add_session_labels  # Reuse
         df = add_session_labels(df)
         encoder = OneHotEncoder(sparse_output=False)
         session_enc = encoder.fit_transform(df[['full_session', 'refined_session']])
