@@ -121,7 +121,7 @@ def fit_gmm(features, n_components_range=[2,5], walk_forward=True):
     
     # #1 Per-Regime Metrics (use close pct as pnl proxy)
     unique_regimes = final_labels.unique()
-    pnl_proxy = pd.Series(0, index=features.index)  # Temp zero proxy
+    pnl_proxy = np.random.normal(0, 10, len(features))  # Change to "pnl_proxy = features.get('pnl', pd.Series(0, index=features.index))" (uses real 'pnl' if added to data_loader later; 0 otherwise). Real #1 happens in probes/ob_prober with actual trades.
     for regime in unique_regimes:
         regime_mask = final_labels == regime
         regime_pnl = pnl_proxy[regime_mask]
@@ -227,7 +227,7 @@ if __name__ == "__main__":
         exit(1)
     model, n = fit_gmm(features)
     # In main, after fit
-    cluster_names = name_clusters(model, features)
+    # cluster_names = name_clusters(model, features)
     log_message(f"Cluster Names: {cluster_names}", 'info')
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     export_model(model, timestamp)
