@@ -11,6 +11,7 @@ sys.path.append(BASE_DIR)
 import pandas as pd
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import silhouette_score
+from sklearn.preprocessing import OneHotEncoder
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH
 from core.indicators import select_and_compute_indicators
@@ -44,8 +45,25 @@ def add_session_labels(df):
     df.loc[(df['hour'] >= 15) & (df['hour'] < 16), 'refined_session'] = 'Power_Hour'   # 3-4pm ET
     
     if DEBUG_LEVEL == 'verbose':
-        log_message(f"Full session dist: {df['full_session'].value_counts()}", 'info')
-        log_message(f"Refined session dist: {df['refined_session'].value_counts()}", 'info')
+        full_dist = df['full_session'].value_counts(normalize=True) * 100
+        refined_dist = df['refined_session'].value_counts(normalize=True) * 100
+        log_message(f"Full session dist: {full_dist}", 'info')
+        log_message(f"Refined session dist: {refined_dist}", 'info')
+        
+        # #2 Balance Check (warn if any <10%)
+        for sess, pct in full_dist.items():
+            if pct < 10:
+                log_message(f"Warning: Full session {sess} only {pct:.1f}%—imbalanced", 'warning')
+        for sess, pct in refined_dist.items():
+            if pct < 10:
+                log_message(f"Warning: Refined session {sess} only {pct:.1f}%—imbalanced", 'warning')
+    
+    # One-hot encode for GMM features
+    from sklearn.preprocessing import OneHotEncoder
+    encoder = OneHotEncoder(sparse_output=False)
+    session_enc = encoder.fit_transform(df[['full_session', 'refined_session']])
+    session_df = pd.DataFrame(session_enc, index=df.index, columns=encoder.get_feature_names_out())
+    df = pd.concat([df, session_df], axis=1)
     
     return df
 
