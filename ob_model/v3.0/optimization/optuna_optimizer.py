@@ -48,18 +48,46 @@ def optuna_objective(trial, df, features):
         model.fit(features)
     except Exception as e:
         log_message(f"GMM fit failed: {e}", 'warning')
-        return 0.0  # Return bad score
+        return 0.0, 0, 0, 0, 0, 0  # Defaults
     
     # Get raw labels
     raw_labels = pd.Series(model.predict(features), index=features.index)
-    
+
     # SMOOTH THE LABELS
     from core.regime_classifier import smooth_regime_labels
     labels = smooth_regime_labels(raw_labels, min_persistence=3)
-    
-    # Get OB data and merge
+
+    # Get OB data
     ob_df = load_ob_csv(OB_PATH)
-    merged = merge_regimes(ob_df, df, model)
+
+    # Create a modified merge function that accepts pre-computed labels
+    def merge_with_labels(ob_df, df, labels_series, model):
+        """Modified merge that uses pre-computed smoothed labels"""
+        ind_df = select_and_compute_indicators(df)
+        ind_df = add_session_labels(ind_df)
+        
+        # Ensure timezone compatibility
+        if hasattr(df.index, 'tz') and df.index.tz is not None:
+            labels_series.index = labels_series.index.tz_convert('America/New_York')
+        else:
+            labels_series.index = labels_series.index.tz_localize('America/New_York')
+        
+        # Get session info
+        session_info = ind_df[['full_session', 'refined_session', 'hour']].copy()
+        if hasattr(session_info.index, 'tz'):
+            session_info.index = session_info.index.tz_convert('America/New_York')
+        else:
+            session_info.index = session_info.index.tz_localize('America/New_York')
+        
+        # Merge using the smoothed labels
+        merged = ob_df.merge(labels_series.to_frame('regime'), left_on='entry_time', right_index=True, how='left')
+        merged = merged.merge(session_info, left_on='entry_time', right_index=True, how='left')
+        merged.dropna(subset=['regime'], inplace=True)
+        
+        return merged
+
+    # Use the modified merge
+    merged = merge_with_labels(ob_df, df, labels, model)
     
     if merged.empty:
         return 0.0, 0, 0, 0, 0, 0  # Defaults
