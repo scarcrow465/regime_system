@@ -215,7 +215,7 @@ def name_clusters(model, features):
     return dict(enumerate(names))
 
 if __name__ == "__main__":
-    df = load_csv_data([DATA_PATH])
+    df = load_csv_data(DATA_PATH)
     if df.empty:
         log_message("No data loaded—check path", 'error')
         exit(1)
