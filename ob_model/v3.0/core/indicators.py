@@ -108,6 +108,7 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     
     # Corr check
     corr = ind_df.corr()
+    import matplotlib.pyplot as plt; plt.matshow(corr); plt.colorbar(); plt.savefig(os.path.join(BASE_DIR, 'exports/plots/corr_matrix.png'))
     high_corr = (corr.abs() > 0.7) & (corr.abs() < 1.0)
     if high_corr.any().any():
         log_message("High corr detected—dropping pairs", 'info')
