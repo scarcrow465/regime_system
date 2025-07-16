@@ -18,17 +18,9 @@ import os
 from datetime import datetime
 import matplotlib.pyplot as plt  # For plots if debug
 from rich.table import Table  # For rich tables
+from utils.metrics import compute_persistence, compare_is_oos
 
 MAX_ITERS = 5
-
-def compute_persistence(labels):
-    """Calculate persistence % and transitions."""
-    changes = (labels != labels.shift(1)).cumsum()
-    persistence = labels.groupby(changes).size().mean() / len(labels) * 100
-    transitions = pd.crosstab(labels.shift(1), labels, normalize='index')
-    if DEBUG_LEVEL == 'verbose':
-        log_message(f"Persistence: {persistence:.2f}%", 'info')
-    return persistence, transitions
 
 def analyze_distributions(labels, sessions=None):
     """Distributions with session breakdown."""
@@ -45,20 +37,6 @@ def analyze_distributions(labels, sessions=None):
             table.add_row(str(r), f"{p:.1f}%")
         console.print(table)
     return dist, crosstab
-
-def compare_is_oos(features, model):
-    """IS vs OOS comparison."""
-    train_size = int(len(features) * 0.8)
-    train, test = features.iloc[:train_size], features.iloc[train_size:]
-    train_labels = model.predict(train)
-    test_labels = model.predict(test)
-    train_dist = pd.Series(train_labels).value_counts(normalize=True)
-    test_dist = pd.Series(test_labels).value_counts(normalize=True)
-    delta = abs(train_dist - test_dist).mean() * 100
-    ks = np.max(np.abs(np.cumsum(train_dist.sort_index()) - np.cumsum(test_dist.sort_index())))  # Sim KS
-    if DEBUG_LEVEL != 'none':
-        log_message(f"OOS delta: {delta:.1f}%, KS: {ks:.2f}", 'info')
-    return delta, ks
 
 def run_validation_iteration(df, iter_num):
     """Single iteration."""
