@@ -19,12 +19,11 @@ from validation.ob_prober import merge_regimes, probe_filtering, load_ob_csv  # 
 from validation.persistence_validator import compute_persistence, compare_is_oos  # Reuse from Phase 1B
 from core.indicators import select_and_compute_indicators
 from core.data_loader import load_csv_data
-from core.regime_classifier import add_session_labels
+from core.regime_classifier import add_session_labels, export_model
 from rich.table import Table
 from datetime import datetime
 import joblib
 from core.helpers import console
-from core.regime_classifier import export_model
 
 MAX_LOOPS = 4
 N_TRIALS = 10
