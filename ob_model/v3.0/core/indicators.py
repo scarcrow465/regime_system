@@ -139,55 +139,47 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     non_session_cols = [col for col in ind_df.columns if 'session' not in col.lower()]
     corr_subset = ind_df[non_session_cols].corr()
 
-    high_corr = (corr_subset.abs() > 0.9) & (corr_subset.abs() < 1.0)  # CHANGED TO 0.9
+    high_corr = (corr_subset.abs() > 0.9) & (corr_subset.abs() < 1.0)  # Unchanged
     if high_corr.any().any():
         log_message("High corr detected—evaluating pairs", 'info')
         to_drop = set()
         
-        # Group indicators by type to avoid dropping all of one type
-        groups = {
-            'trend': ['EMA_20', 'EMA_50', 'EMA_200', 'ADX_14', 'MACD'],
+        # Group indicators by type...
+        groups = {  # Unchanged, add your classes
+            'direction': ['EMA_20', 'EMA_50', 'EMA_200', 'ADX_14', 'MACD'],
             'volatility': ['ATR_7', 'ATR_14', 'ATR_30', 'BB_width', 'Hist_Vol', 'KC_width'],
-            'momentum': ['RSI_7', 'RSI_14', 'Stoch', 'DMI_Plus', 'ROC_12', 'PPO', 'CCI_20'],
+            'trend_strength': ['RSI_7', 'RSI_14', 'Stoch', 'DMI_Plus'],
+            'momentum': ['ROC_12', 'PPO', 'CCI_20'],
             'structure': ['OBV', 'VWAP_14', 'CMF_20']
         }
         
-        # Only drop if both indicators are from the same group
         for i in range(len(high_corr.columns)):
             for j in range(i+1, len(high_corr.columns)):
                 if high_corr.iloc[i, j]:
                     col1, col2 = high_corr.columns[i], high_corr.columns[j]
                     
-                    # Different thresholds for different types
-                    if col1_group == 'volatility' and col2_group == 'volatility':
-                        # Use stricter threshold for volatility indicators
-                        if corr_subset.iloc[i, j] < 0.95:  # ADD THIS
-                            continue  # Don't drop unless VERY high correlation
-
-                    # Priority indicators to keep
-                    priority_indicators = ['ATR_14', 'RSI_14', 'EMA_50', 'MACD', 'ADX_14']
+                    # Find groups
+                    col1_group = next((g for g, inds in groups.items() if col1 in inds), None)
+                    col2_group = next((g for g, inds in groups.items() if col2 in inds), None)
                     
-                    # Find which groups they belong to
-                    col1_group = None
-                    col2_group = None
-                    for group, indicators in groups.items():
-                        if col1 in indicators:
-                            col1_group = group
-                        if col2 in indicators:
-                            col2_group = group
-                    
-                    # Only consider dropping if from same group
-                    if col1_group == col2_group and col1_group is not None:
-                        # ADD THIS BLOCK - Prioritize keeping certain indicators
+                    if col1_group and col2_group and col1_group == col2_group:
+                        corr_value = corr_subset.iloc[i, j]
+                        if col1_group == 'volatility' and corr_value < 0.95:
+                            continue  # Skip drop for vol if <0.95
+                        
+                        # Priority keep
+                        priority_indicators = ['ATR_14', 'RSI_14', 'EMA_50', 'MACD', 'ADX_14']
                         if col1 in priority_indicators and col2 not in priority_indicators:
                             to_drop.add(col2)
                         elif col2 in priority_indicators and col1 not in priority_indicators:
                             to_drop.add(col1)
-                        # Keep the one with less NaN values (original logic)
+                        # NaN check
                         elif ind_df[col1].isna().sum() > ind_df[col2].isna().sum():
                             to_drop.add(col1)
                         else:
                             to_drop.add(col2)
+                    elif DEBUG_LEVEL == 'verbose':
+                        log_message(f"Skipping drop for {col1} and {col2} - different groups", 'info')
 
         # Add this after the correlation check:
         # Quality check - ensure we have indicators from each category
