@@ -165,9 +165,25 @@ if __name__ == "__main__":
         log_message("Insufficient data—need 5+ rows", 'error')
         exit(1)
     model, n = fit_gmm(features)
-    # In main, after fit
+    if model is None:
+        log_message("GMM fit failed", 'error')
+        exit(1)
+    
+    # Apply to full
+    raw_labels = pd.Series(model.predict(features), index=features.index)
+    labels = smooth_regime_labels(raw_labels, min_persistence=3)
+    
+    # Update df with smoothed
+    df['regime'] = labels  # Optional: add to df for export/analysis
+    
+    # Name with smoothed
     cluster_names = name_clusters(model, features)
     log_message(f"Cluster Names: {cluster_names}", 'info')
+    
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     export_model(model, timestamp)
+    
+    # Export full df with regimes if debug
+    if DEBUG_LEVEL == 'debug':
+        df.to_csv(os.path.join(BASE_DIR, 'exports', 'csv', f"{timestamp}_regimes.csv"))
 
