@@ -50,53 +50,101 @@ def fit_gmm(features, n_components_range=[2,5], walk_forward=True):
     if len(features) < n_components_range[1]:
         log_message("Insufficient data for GMM—need > max n_components rows", 'error')
         return None, None
-    numeric_features = features.select_dtypes(include=[np.number]).fillna(0)  # Extra fill for safety
+    numeric_features = features.select_dtypes(include=[np.number]).fillna(0)
     
-    best_model = None
-    best_bic = float('inf')
-    best_n = None
+    # Define class groups (from indicators.py logic)
+    class_groups = {
+        'direction': [col for col in numeric_features if col.startswith('EMA') or col in ['ADX_14', 'MACD']],
+        'volatility': [col for col in numeric_features if col.startswith('ATR') or col in ['BB_width', 'Hist_Vol', 'KC_width']],
+        'trend_strength': [col for col in numeric_features if col.startswith('RSI') or col in ['Stoch', 'DMI_Plus', 'DMI_Minus']],
+        'momentum': [col for col in numeric_features if col in ['ROC_12', 'PPO', 'PPO_Hist', 'PPO_Signal', 'CCI_20']],
+        'session': [col for col in numeric_features if 'session' in col.lower()],
+        'structure': [col for col in numeric_features if col in ['OBV', 'VWAP_14', 'CMF_20']]
+    }
     
-    if walk_forward:
-        train_size = int(len(numeric_features) * 0.8)
-        train, test = numeric_features.iloc[:train_size], numeric_features.iloc[train_size:]
-    else:
-        train, test = numeric_features, None
+    class_models = {}
+    class_labels = pd.DataFrame(index=numeric_features.index)
     
-    for n in progress_bar(range(n_components_range[0], n_components_range[1]+1), desc="GMM tuning"):
-        # In fit_gmm function, wrap the GMM fit in try-except:
-        for attempt in range(3):  # Try up to 3 times
-            try:
-                gmm = GaussianMixture(n_components=n, covariance_type='diag', 
-                                    random_state=42, n_init=3, max_iter=200)
-                gmm.fit(train)
-                break
-            except Exception as e:
-                if attempt == 2:
-                    log_message(f"GMM failed after 3 attempts: {e}", 'error')
-                    continue
-                log_message(f"GMM attempt {attempt+1} failed, retrying...", 'warning')
-        bic = gmm.bic(train)
-        if bic < best_bic:
-            best_bic = bic
-            best_model = gmm
-            best_n = n
-        if DEBUG_LEVEL == 'debug':
-            log_message(f"n={n}, BIC={bic}", 'info')
+    for cls, cols in class_groups.items():
+        if not cols:
+            log_message(f"No features for class {cls}", 'warning')
+            continue
+        
+        class_feats = numeric_features[cols]
+        
+        best_model = None
+        best_bic = float('inf')
+        best_n = None
+        
+        if walk_forward:
+            train_size = int(len(class_feats) * 0.8)
+            train, test = class_feats.iloc[:train_size], class_feats.iloc[train_size:]
+        else:
+            train, test = class_feats, None
+        
+        for n in progress_bar(range(n_components_range[0], n_components_range[1]+1), desc=f"{cls} GMM"):
+            for attempt in range(3):
+                try:
+                    gmm = GaussianMixture(n_components=n, covariance_type='diag', random_state=42, n_init=3, max_iter=200)
+                    gmm.fit(train)
+                    break
+                except Exception as e:
+                    if attempt == 2:
+                        log_message(f"{cls} GMM failed: {e}", 'error')
+                        continue
+                    log_message(f"{cls} attempt {attempt+1} failed", 'warning')
+            bic = gmm.bic(train)
+            if bic < best_bic:
+                best_bic = bic
+                best_model = gmm
+                best_n = n
+            if DEBUG_LEVEL == 'debug':
+                log_message(f"{cls} n={n}, BIC={bic}", 'info')
+        
+        if test is not None and len(test) > 0:
+            test_score = silhouette_score(test, best_model.predict(test))
+            if DEBUG_LEVEL != 'none':
+                log_message(f"{cls} OOS silhouette: {test_score}", 'info')
+        
+        class_models[cls] = best_model
+        class_labels[cls] = pd.Series(best_model.predict(class_feats), index=class_feats.index)
     
-    if test is not None and len(test) > 0:
-        test_score = silhouette_score(test, best_model.predict(test))
-        if DEBUG_LEVEL != 'none':
-            log_message(f"OOS silhouette: {test_score}", 'info')
-
-    # ADD THIS before returning:
-    if best_model is not None:
-        # Test smoothing on sample
-        test_labels = pd.Series(best_model.predict(train[:100]))
-        raw_persistence, _ = compute_persistence(test_labels)
-        if raw_persistence < 1:  # Less than 1% persistence is bad
-            log_message(f"WARNING: Raw persistence {raw_persistence:.2f}% - model is unstable!", 'warning')
+    if class_labels.empty:
+        log_message("No class labels generated", 'error')
+        return None, None
     
-    return best_model, best_n
+    # Voting for final labels
+    final_labels = class_labels.mode(axis=1, dropna=True)[0].astype(int)
+    
+    # #1 Per-Regime Metrics (use close pct as pnl proxy)
+    unique_regimes = final_labels.unique()
+    pnl_proxy = features['close'].pct_change().fillna(0)  # Proxy pnl
+    for regime in unique_regimes:
+        regime_mask = final_labels == regime
+        regime_pnl = pnl_proxy[regime_mask]
+        avg_profit = regime_pnl.mean()
+        win_rate = (regime_pnl > 0).mean() * 100
+        wins = regime_pnl[regime_pnl > 0].mean()
+        losses = abs(regime_pnl[regime_pnl < 0].mean())
+        risk_reward = wins / losses if losses > 0 else 1
+        frequency = regime_mask.sum()
+        log_message(f"Regime {regime}: Avg Profit {avg_profit:.2f}, Win% {win_rate:.1f}, Risk/Reward {risk_reward:.1f}, Frequency {frequency}", 'info')
+    
+    # #2 Constraints
+    persistence, _ = compute_persistence(final_labels)
+    if persistence < 75:
+        log_message(f"Warning: Persistence {persistence:.1f}% <75%—unstable", 'warning')
+    for regime in unique_regimes:
+        if (final_labels == regime).sum() < 30:
+            log_message(f"Warning: Regime {regime} <30 points—low reliability", 'warning')
+    
+    # Test smoothing on sample (keep as is)
+    test_labels = final_labels.head(100)
+    raw_persistence, _ = compute_persistence(test_labels)
+    if raw_persistence < 1:
+        log_message(f"WARNING: Raw persistence {raw_persistence:.2f}% - unstable!", 'warning')
+    
+    return class_models, final_labels.nunique()  # Return models, num regimes
 
 def smooth_regime_labels(labels, min_persistence=3):
     """
