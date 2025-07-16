@@ -86,6 +86,7 @@ def probe_filtering(merged, time_filter=None):
         crosstab = None
     if DEBUG_LEVEL in ['debug', 'verbose']:
         table = Table(title="Probe Results")
+        table.add_column("Regime")  # Add
         for col in combos.columns:
             table.add_column(col.capitalize())
         for idx, row in combos.iterrows():
