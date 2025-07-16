@@ -114,13 +114,20 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     
     ind_df = pd.DataFrame(indicators, index=df.index).fillna(0)  # Fill NaNs
     
-    # Normalize - use 480 periods (5 days) for 15-min data instead of 36
+    # Normalize - use robust scaling to handle outliers
     for col in progress_bar(ind_df.columns, desc="Normalizing"):
-        if 'session' in col.lower():  # ADD THIS - Don't normalize binary session features
+        if 'session' in col.lower():
             continue
-        mean = ind_df[col].rolling(480, min_periods=50).mean()  # CHANGED from 36 to 480
-        std = ind_df[col].rolling(480, min_periods=50).std()    # CHANGED from 36 to 480
-        ind_df[col] = (ind_df[col] - mean) / std.where(std != 0, 1e-8)
+        
+        # Use robust scaling (median and IQR) instead of mean/std
+        median = ind_df[col].rolling(480, min_periods=50).median()
+        q75 = ind_df[col].rolling(480, min_periods=50).quantile(0.75)
+        q25 = ind_df[col].rolling(480, min_periods=50).quantile(0.25)
+        iqr = q75 - q25
+        
+        # Clip extreme values before normalizing
+        ind_df[col] = ind_df[col].clip(lower=q25 - 3*iqr, upper=q75 + 3*iqr)
+        ind_df[col] = (ind_df[col] - median) / iqr.where(iqr != 0, 1)
     
     ind_df = ind_df.ffill().fillna(0)
     
@@ -150,6 +157,12 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
             for j in range(i+1, len(high_corr.columns)):
                 if high_corr.iloc[i, j]:
                     col1, col2 = high_corr.columns[i], high_corr.columns[j]
+                    
+                    # Different thresholds for different types
+                    if col1_group == 'volatility' and col2_group == 'volatility':
+                        # Use stricter threshold for volatility indicators
+                        if corr_subset.iloc[i, j] < 0.95:  # ADD THIS
+                            continue  # Don't drop unless VERY high correlation
 
                     # Priority indicators to keep
                     priority_indicators = ['ATR_14', 'RSI_14', 'EMA_50', 'MACD', 'ADX_14']
