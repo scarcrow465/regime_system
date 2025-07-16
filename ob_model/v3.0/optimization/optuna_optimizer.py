@@ -15,7 +15,7 @@ import optuna
 from optuna.pruners import HyperbandPruner
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, OB_PATH, DATA_PATH
-from validation.ob_prober import merge_regimes, probe_filtering, load_ob_csv  # Reuse from Phase 1C
+from validation.ob_prober import probe_filtering, load_ob_csv  # Reuse from Phase 1C
 from utils.metrics import compute_persistence, compare_is_oos  # Reuse from Phase 1B
 from core.indicators import select_and_compute_indicators
 from core.data_loader import load_csv_data
@@ -52,10 +52,35 @@ def optuna_objective(trial, df, features):
     
     # Get raw labels
     raw_labels = pd.Series(model.predict(features), index=features.index)
+    print("Raw GMM labels (first 10):", raw_labels[:10].values)
 
     # SMOOTH THE LABELS
     from core.regime_classifier import smooth_regime_labels
     labels = smooth_regime_labels(raw_labels, min_persistence=3)
+    print("Smoothed labels (first 10):", labels[:10].values)
+
+    # Debug regime changes, short runs, and run lengths
+    def count_changes(lbls):
+        return (lbls != lbls.shift(1)).sum()
+
+    def count_short_runs(lbls, min_pers=3):
+        changes = (lbls != lbls.shift(1)).astype(int)
+        run_lengths = lbls.groupby(changes.cumsum()).size()
+        return (run_lengths < min_pers).sum()
+
+    raw_changes = count_changes(raw_labels)
+    smoothed_changes = count_changes(labels)
+    raw_short = count_short_runs(raw_labels)
+    smoothed_short = count_short_runs(labels)
+    print(f"Raw regime changes: {raw_changes}, Short runs (<3 bars): {raw_short}")
+    print(f"Smoothed regime changes: {smoothed_changes}, Short runs (<3 bars): {smoothed_short}")
+    print(f"Reduction in changes: {raw_changes - smoothed_changes} ({((raw_changes - smoothed_changes) / raw_changes * 100) if raw_changes > 0 else 0:.2f}%)")
+
+    # Average run length for context
+    raw_avg_run = len(raw_labels) / (raw_changes + 1) if raw_changes > 0 else len(raw_labels)
+    smoothed_avg_run = len(labels) / (smoothed_changes + 1) if smoothed_changes > 0 else len(labels)
+    print(f"Raw average run length: {raw_avg_run:.2f} bars")
+    print(f"Smoothed average run length: {smoothed_avg_run:.2f} bars")
 
     # Get OB data
     ob_df = load_ob_csv(OB_PATH)
