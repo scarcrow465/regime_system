@@ -84,9 +84,13 @@ def optuna_objective(trial, df, features):
 def run_optuna_loop(df, features, loop_num):
     """Single Optuna loop."""
     study = optuna.create_study(direction='maximize', pruner=HyperbandPruner())
-    study.optimize(lambda trial: optuna_objective(trial, df, features), n_trials=N_TRIALS)
+    study.optimize(lambda trial: optuna_objective(trial, df, features)[0], n_trials=N_TRIALS)  # Optimize on score only
     best_params = study.best_params
     best_score = study.best_value
+    
+    # Unpack full metrics from best
+    best_score, lift, sharpe, profit_factor, dd_penalty, persistence = optuna_objective(optuna.trial.FixedTrial(best_params), df, features)
+    
     if DEBUG_LEVEL in ['debug', 'verbose']:
         table = Table(title=f"Loop {loop_num} Best")
         table.add_column("Param")
@@ -94,7 +98,7 @@ def run_optuna_loop(df, features, loop_num):
         for k, v in best_params.items():
             table.add_row(k, str(v))
         console.print(table)
-    return best_params, best_score, study
+    return best_params, best_score, study, lift, sharpe, profit_factor, dd_penalty, persistence  # Return extras
 
 def main():
     df = load_csv_data(DATA_PATH)
