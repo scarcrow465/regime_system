@@ -50,21 +50,8 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
         bb = ta.bbands(df['close'], length=20)
         bb_width = (bb['BBU_20_2.0'] - bb['BBL_20_2.0']) / bb['BBM_20_2.0']
         hist_vol = df['close'].pct_change().rolling(20).std() * np.sqrt(252)  # Annualized
-
-        # Keltner Channel - CORRECTED COLUMN NAMES
         kc = ta.kc(df['high'], df['low'], df['close'], length=20)
-        if not kc.empty:
-            kc_cols = kc.columns.tolist()
-            # Find upper, middle, lower columns
-            upper_col = [c for c in kc_cols if 'U' in c][0]  
-            lower_col = [c for c in kc_cols if 'L' in c][0]
-            middle_col = [c for c in kc_cols if 'B' in c or 'M' in c][0]
-            kc_width = (kc[upper_col] - kc[lower_col]) / kc[middle_col]
-            indicators['KC_width'] = kc_width
-        # Check what columns are returned first
-        print(kc.columns)  # Add this temporarily to see exact names
-        # Likely columns: KCLe_20_2, KCBe_20_2, KCUe_20_2
-        kc_width = (kc.iloc[:, 2] - kc.iloc[:, 0]) / kc.iloc[:, 1]  # Upper - Lower / Middle
+        kc_width = (kc['KCUe_20_2'] - kc['KCLe_20_2']) / kc['KCBe_20_2']  # Now we know the column names
 
         indicators['ATR_7'] = atr_7
         indicators['ATR_14'] = atr_14
@@ -127,10 +114,12 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     
     ind_df = pd.DataFrame(indicators, index=df.index).fillna(0)  # Fill NaNs
     
-    # Normalize
+    # Normalize - use 480 periods (5 days) for 15-min data instead of 36
     for col in progress_bar(ind_df.columns, desc="Normalizing"):
-        mean = ind_df[col].rolling(36).mean()
-        std = ind_df[col].rolling(36).std()
+        if 'session' in col.lower():  # ADD THIS - Don't normalize binary session features
+            continue
+        mean = ind_df[col].rolling(480, min_periods=50).mean()  # CHANGED from 36 to 480
+        std = ind_df[col].rolling(480, min_periods=50).std()    # CHANGED from 36 to 480
         ind_df[col] = (ind_df[col] - mean) / std.where(std != 0, 1e-8)
     
     ind_df = ind_df.ffill().fillna(0)
@@ -161,6 +150,9 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
             for j in range(i+1, len(high_corr.columns)):
                 if high_corr.iloc[i, j]:
                     col1, col2 = high_corr.columns[i], high_corr.columns[j]
+
+                    # Priority indicators to keep
+                    priority_indicators = ['ATR_14', 'RSI_14', 'EMA_50', 'MACD', 'ADX_14']
                     
                     # Find which groups they belong to
                     col1_group = None
@@ -173,11 +165,26 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
                     
                     # Only consider dropping if from same group
                     if col1_group == col2_group and col1_group is not None:
-                        # Keep the one with less NaN values
-                        if ind_df[col1].isna().sum() > ind_df[col2].isna().sum():
+                        # ADD THIS BLOCK - Prioritize keeping certain indicators
+                        if col1 in priority_indicators and col2 not in priority_indicators:
+                            to_drop.add(col2)
+                        elif col2 in priority_indicators and col1 not in priority_indicators:
+                            to_drop.add(col1)
+                        # Keep the one with less NaN values (original logic)
+                        elif ind_df[col1].isna().sum() > ind_df[col2].isna().sum():
                             to_drop.add(col1)
                         else:
                             to_drop.add(col2)
+
+        # Add this after the correlation check:
+        # Quality check - ensure we have indicators from each category
+        required_types = ['EMA', 'ATR', 'RSI', 'ADX']
+        available = [col for col in ind_df.columns]
+        for req_type in required_types:
+            if not any(req_type in col for col in available):
+                log_message(f"Warning: No {req_type} indicator retained after correlation check", 'warning')
+
+        log_message(f"Final indicators: {sorted([c for c in ind_df.columns if 'session' not in c.lower()])}", 'info')
         
         if to_drop:
             log_message(f"Dropping high-corr indicators from same groups: {to_drop}", 'info')
