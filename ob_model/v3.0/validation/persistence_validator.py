@@ -9,10 +9,9 @@ import numpy as np
 from sklearn.metrics import silhouette_score  # For KS alt if needed
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH
-from core.regime_classifier import fit_gmm, add_session_labels
+from core.regime_classifier import fit_gmm, add_session_labels, export_model, smooth_regime_labels
 from core.indicators import select_and_compute_indicators
 from core.data_loader import load_csv_data
-from core.regime_classifier import export_model  # Assuming this is defined in regime_classifier
 from core.helpers import console  # Assuming console is defined in utils or similar
 import os
 from datetime import datetime
@@ -38,15 +37,26 @@ def analyze_distributions(labels, sessions=None):
         console.print(table)
     return dist, crosstab
 
+from core.regime_classifier import smooth_regime_labels
+
 def run_validation_iteration(df, iter_num):
-    """Single iteration."""
     ind_df = select_and_compute_indicators(df)
     ind_df = add_session_labels(ind_df)
     features = ind_df.select_dtypes(include=[np.number]).dropna()
+
     model, n = fit_gmm(features)
-    labels = pd.Series(model.predict(features), index=features.index)
+
+    # 1) RAW labels
+    raw_labels = pd.Series(model.predict(features), index=features.index)
+    # 2) SMOOTH them
+    labels = smooth_regime_labels(raw_labels, min_persistence=3)
+
+    # 3) Now persistence reflects smoothing!
     persistence, transitions = compute_persistence(labels)
-    dist, crosstab = analyze_distributions(labels, ind_df['session'])
+
+    # 4) Fix session name
+    dist, crosstab = analyze_distributions(labels, ind_df['refined_session'])
+
     delta, ks = compare_is_oos(features, model)
     if DEBUG_LEVEL == 'debug':
         plt.hist(labels)
