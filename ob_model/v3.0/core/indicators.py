@@ -4,6 +4,10 @@
 # In[ ]:
 
 
+import sys
+import os
+BASE_DIR = r"C:\Users\rs\GitProjects\regime_system\ob_model\v3.0"  # Hardcode if not importing settings yet
+sys.path.append(BASE_DIR)
 import pandas as pd
 import pandas_ta as ta  # All indicators from pandas_ta
 import numpy as np
