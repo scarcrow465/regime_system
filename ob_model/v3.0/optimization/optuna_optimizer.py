@@ -102,6 +102,12 @@ def run_optuna_loop(df, features, loop_num):
 
 def main():
     df = load_csv_data(DATA_PATH)
+    
+    # Add data quality check
+    log_message(f"Loaded data shape: {df.shape}", 'info')
+    log_message(f"Date range: {df.index.min()} to {df.index.max()}", 'info')
+    log_message(f"Hours present: {sorted(df.index.hour.unique())}", 'info')
+    
     ind_df = select_and_compute_indicators(df)
     ind_df = add_session_labels(ind_df)
     features = ind_df.select_dtypes(include=[np.number]).dropna()
