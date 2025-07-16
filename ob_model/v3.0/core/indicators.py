@@ -115,13 +115,15 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     # Structure: OBV, VWAP, CMF
     if 'structure' in regime_classes:
         obv = ta.obv(df['close'], df['volume'])
-        vwap = ta.vwap(df['high'], df['low'], df['close'], df['volume'], length=14)
+        # FIX VWAP - handle timezone issue
+        df_temp = df.copy()
+        if hasattr(df_temp.index, 'tz'):
+            df_temp.index = df_temp.index.tz_localize(None)  # ADD THIS
+        vwap = ta.vwap(df_temp['high'], df_temp['low'], df_temp['close'], df_temp['volume'], length=14)  # CHANGED
         cmf = ta.cmf(df['high'], df['low'], df['close'], df['volume'], length=20)
         indicators['OBV'] = obv
         indicators['VWAP_14'] = vwap
         indicators['CMF_20'] = cmf
-        if DEBUG_LEVEL == 'verbose':
-            log_message("Structure indicators computed", 'info')
     
     ind_df = pd.DataFrame(indicators, index=df.index).fillna(0)  # Fill NaNs
     
@@ -131,9 +133,9 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
         std = ind_df[col].rolling(36).std()
         ind_df[col] = (ind_df[col] - mean) / std.where(std != 0, 1e-8)
     
-    ind_df = ind_df.fillna(method='ffill').fillna(0)
+    ind_df = ind_df.ffill().fillna(0)
     
-    # Corr check - EXCLUDE SESSION FEATURES
+    # Corr check - LESS AGGRESSIVE
     corr = ind_df.corr()
     import matplotlib.pyplot as plt; plt.matshow(corr); plt.colorbar(); plt.savefig(os.path.join(BASE_DIR, 'exports/plots/corr_matrix.png'))
 
@@ -141,23 +143,47 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     non_session_cols = [col for col in ind_df.columns if 'session' not in col.lower()]
     corr_subset = ind_df[non_session_cols].corr()
 
-    high_corr = (corr_subset.abs() > 0.8) & (corr_subset.abs() < 1.0)  # CHANGED TO 0.8
+    high_corr = (corr_subset.abs() > 0.9) & (corr_subset.abs() < 1.0)  # CHANGED TO 0.9
     if high_corr.any().any():
-        log_message("High corr detected—dropping pairs", 'info')
+        log_message("High corr detected—evaluating pairs", 'info')
         to_drop = set()
+        
+        # Group indicators by type to avoid dropping all of one type
+        groups = {
+            'trend': ['EMA_20', 'EMA_50', 'EMA_200', 'ADX_14', 'MACD'],
+            'volatility': ['ATR_7', 'ATR_14', 'ATR_30', 'BB_width', 'Hist_Vol', 'KC_width'],
+            'momentum': ['RSI_7', 'RSI_14', 'Stoch', 'DMI_Plus', 'ROC_12', 'PPO', 'CCI_20'],
+            'structure': ['OBV', 'VWAP_14', 'CMF_20']
+        }
+        
+        # Only drop if both indicators are from the same group
         for i in range(len(high_corr.columns)):
             for j in range(i+1, len(high_corr.columns)):
                 if high_corr.iloc[i, j]:
                     col1, col2 = high_corr.columns[i], high_corr.columns[j]
-                    # Keep the one with less NaN values
-                    if ind_df[col1].isna().sum() > ind_df[col2].isna().sum():
-                        to_drop.add(col1)
-                    else:
-                        to_drop.add(col2)
+                    
+                    # Find which groups they belong to
+                    col1_group = None
+                    col2_group = None
+                    for group, indicators in groups.items():
+                        if col1 in indicators:
+                            col1_group = group
+                        if col2 in indicators:
+                            col2_group = group
+                    
+                    # Only consider dropping if from same group
+                    if col1_group == col2_group and col1_group is not None:
+                        # Keep the one with less NaN values
+                        if ind_df[col1].isna().sum() > ind_df[col2].isna().sum():
+                            to_drop.add(col1)
+                        else:
+                            to_drop.add(col2)
         
         if to_drop:
-            log_message(f"Dropping high-corr indicators: {to_drop}", 'info')
+            log_message(f"Dropping high-corr indicators from same groups: {to_drop}", 'info')
             ind_df = ind_df.drop(columns=to_drop)
+        
+        log_message(f"Kept {len(ind_df.columns)} indicators after correlation check", 'info')
     
     return ind_df
 
