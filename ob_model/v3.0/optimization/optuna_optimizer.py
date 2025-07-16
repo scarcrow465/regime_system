@@ -16,7 +16,7 @@ from optuna.pruners import HyperbandPruner
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, OB_PATH, DATA_PATH
 from validation.ob_prober import merge_regimes, probe_filtering, load_ob_csv  # Reuse from Phase 1C
-from validation.persistence_validator import compute_persistence, compare_is_oos  # Reuse from Phase 1B
+from utils.metrics import compute_persistence, compare_is_oos  # Reuse from Phase 1B
 from core.indicators import select_and_compute_indicators
 from core.data_loader import load_csv_data
 from core.regime_classifier import add_session_labels, export_model
