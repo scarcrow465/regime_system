@@ -6,6 +6,7 @@
 
 import pandas as pd
 import pandas_ta as ta  # All indicators from pandas_ta
+import numpy as np
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, DATA_PATH
 from core.data_loader import load_csv_data
