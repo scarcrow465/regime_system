@@ -5,15 +5,11 @@
 
 
 import pandas as pd
-import numpy as np
-from ta.trend import EMAIndicator, ADXIndicator, MACD, PPOIndicator  # For Direction/Trend/Momentum (PPO in trend)
-from ta.volatility import AverageTrueRange, BollingerBands
-from ta.momentum import RSIIndicator, StochasticOscillator, ROCIndicator, CCIIndicator  # For Strength/Momentum
-from ta.volume import OnBalanceVolumeIndicator, VolumeWeightedAveragePrice, ChaikinMoneyFlowIndicator  # For Structure
+import pandas_ta as ta  # All indicators from pandas_ta
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, DATA_PATH
 from core.data_loader import load_csv_data
-from sklearn.preprocessing import OneHotEncoder  # For Session categorical
+from sklearn.preprocessing import OneHotEncoder  # For Session
 
 def select_and_compute_indicators(df, regime_classes=['direction', 'volatility', 'trend_strength', 'momentum', 'session', 'structure']):
     """Compute 2-3 low-corr indicators per class."""
@@ -28,20 +24,20 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     
     # Direction: EMA_50, ADX_14, MACD
     if 'direction' in regime_classes:
-        ema = EMAIndicator(df['close'], window=50).ema_indicator()
-        adx = ADXIndicator(df['high'], df['low'], df['close'], window=14).adx()
-        macd = MACD(df['close']).macd()
+        ema = ta.ema(df['close'], length=50)
+        adx = ta.adx(df['high'], df['low'], df['close'], length=14)['ADX_14']
+        macd = ta.macd(df['close'])['MACD_12_26_9']
         indicators['EMA_50'] = ema
         indicators['ADX_14'] = adx
         indicators['MACD'] = macd
         if DEBUG_LEVEL == 'verbose':
             log_message("Direction indicators computed", 'info')
     
-    # Volatility: ATR_14, BB_width, Hist Vol (std close)
+    # Volatility: ATR_14, BB_width, Hist Vol (stdev close)
     if 'volatility' in regime_classes:
-        atr = AverageTrueRange(df['high'], df['low'], df['close'], window=14).average_true_range()
-        bb = BollingerBands(df['close'], window=20)
-        bb_width = (bb.bollinger_hband() - bb.bollinger_lband()) / bb.bollinger_mavg()
+        atr = ta.atr(df['high'], df['low'], df['close'], length=14)
+        bb = ta.bbands(df['close'], length=20)
+        bb_width = (bb['BBU_20_2.0'] - bb['BBL_20_2.0']) / bb['BBM_20_2.0']
         hist_vol = df['close'].pct_change().rolling(20).std() * np.sqrt(252)  # Annualized
         indicators['ATR_14'] = atr
         indicators['BB_width'] = bb_width
@@ -49,22 +45,23 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
         if DEBUG_LEVEL == 'verbose':
             log_message("Volatility indicators computed", 'info')
     
-    # Trend Strength: RSI_14, Stochastic, +DI (from ADX)
+    # Trend Strength: RSI_14, Stochastic, DMI (+DI from ADX)
     if 'trend_strength' in regime_classes:
-        rsi = RSIIndicator(df['close'], window=14).rsi()
-        stoch = StochasticOscillator(df['high'], df['low'], df['close'], window=14).stoch()
-        adx_ind = ADXIndicator(df['high'], df['low'], df['close'], window=14)
+        rsi = ta.rsi(df['close'], length=14)
+        stoch = ta.stoch(df['high'], df['low'], df['close'], length=14)['STOCHk_14_3_3']
+        adx_full = ta.adx(df['high'], df['low'], df['close'], length=14)
+        dmi_plus = adx_full['DMP_14']
         indicators['RSI_14'] = rsi
         indicators['Stoch'] = stoch
-        indicators['DI_Plus'] = adx_ind.adx_pos()  # +DI for strength
+        indicators['DMI_Plus'] = dmi_plus
         if DEBUG_LEVEL == 'verbose':
             log_message("Trend Strength indicators computed", 'info')
     
     # Momentum: ROC_12, PPO, CCI
     if 'momentum' in regime_classes:
-        roc = ROCIndicator(df['close'], window=12).roc()
-        ppo = PPOIndicator(df['close']).ppo()
-        cci = CCIIndicator(df['high'], df['low'], df['close'], window=20).cci()
+        roc = ta.roc(df['close'], length=12)
+        ppo = ta.ppo(df['close'])['PPO_12_26_9']
+        cci = ta.cci(df['high'], df['low'], df['close'], length=20)
         indicators['ROC_12'] = roc
         indicators['PPO'] = ppo
         indicators['CCI_20'] = cci
@@ -85,9 +82,9 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     
     # Structure: OBV, VWAP, CMF
     if 'structure' in regime_classes:
-        obv = OnBalanceVolumeIndicator(df['close'], df['volume']).on_balance_volume()
-        vwap = VolumeWeightedAveragePrice(df['high'], df['low'], df['close'], df['volume'], window=14).volume_weighted_average_price()
-        cmf = ChaikinMoneyFlowIndicator(df['high'], df['low'], df['close'], df['volume'], window=20).chaikin_money_flow()
+        obv = ta.obv(df['close'], df['volume'])
+        vwap = ta.vwap(df['high'], df['low'], df['close'], df['volume'], length=14)
+        cmf = ta.cmf(df['high'], df['low'], df['close'], df['volume'], length=20)
         indicators['OBV'] = obv
         indicators['VWAP_14'] = vwap
         indicators['CMF_20'] = cmf
@@ -109,7 +106,6 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     high_corr = (corr.abs() > 0.7) & (corr.abs() < 1.0)
     if high_corr.any().any():
         log_message("High corr detected—dropping pairs", 'info')
-        # Drop one from high-corr pairs (simple: keep first)
         to_drop = set()
         for col in high_corr.columns:
             correlated = high_corr[col][high_corr[col]].index.tolist()
