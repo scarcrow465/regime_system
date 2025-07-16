@@ -7,23 +7,12 @@
 import pandas as pd
 import numpy as np
 
-def compute_persistence(labels: pd.Series):
-    """Calculate average persistence % and regime transition matrix."""
-    labels = labels.dropna()
-    if len(labels) < 2:
-        return 0.0, pd.DataFrame()
-
-    # Identify regime change points
-    change_points = (labels != labels.shift(1)).cumsum()
-    run_lengths = labels.groupby(change_points).size()
-
-    # Average run length as percent of total length
-    persistence = run_lengths.mean() / len(labels) * 100
-
-    # Transition matrix
+def compute_persistence(labels):
+    """Calculate persistence % and transitions."""
+    changes = (labels != labels.shift(1)).cumsum()
+    persistence = labels.groupby(changes).size().mean() / len(labels) * 100
     transitions = pd.crosstab(labels.shift(1), labels, normalize='index')
     return persistence, transitions
-
 
 def compare_is_oos(features, model):
     """IS vs OOS comparison."""
