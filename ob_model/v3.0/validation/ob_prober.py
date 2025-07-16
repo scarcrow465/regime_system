@@ -43,8 +43,13 @@ def merge_regimes(ob_df, df, model):
         log_message(f"{len(ob_df) - len(merged)} unmatched timestamps", 'info')
     return merged
 
-def probe_filtering(merged):
+def probe_filtering(merged, time_filter=None):
     """Probe lifts by regime combo."""
+    if time_filter:
+        start_hour, end_hour = time_filter
+        merged = merged[(merged['hour'] >= start_hour) & (merged['hour'] < end_hour)].copy()
+        log_message(f"Filtered to hours {start_hour}-{end_hour}: {len(merged)} trades", 'info')
+    
     if merged.empty:
         log_message("Empty merged DF—no probes possible", 'error')
         return pd.DataFrame(), None
