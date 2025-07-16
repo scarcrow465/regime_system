@@ -109,7 +109,7 @@ def main():
     best_model = None
     for i in progress_bar(range(1, MAX_LOOPS+1), desc="Optuna loops"):
         log_message(f"Loop {i}", 'info')
-        params, score, study = run_optuna_loop(df, features, i)  # Pass df
+        params, score, study, lift, sharpe, profit_factor, dd_penalty, persistence = run_optuna_loop(df, features, i)  # Unpack extras
         changes.append(f"Loop {i}: Score {score:.2f}, Params {params}")
         if score > 3 and sharpe > 1.2 and profit_factor > 1.3 and dd_penalty < 0.15 and persistence > 75:
             log_message("Criteria met—exiting", 'info')
