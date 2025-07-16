@@ -56,7 +56,7 @@ def optuna_objective(trial, df, features):
 
     # SMOOTH THE LABELS
     from core.regime_classifier import smooth_regime_labels
-    labels = smooth_regime_labels(raw_labels, min_persistence=3)
+    labels = smooth_regime_labels(raw_labels, min_persistence=10)
     print("Smoothed labels (first 10):", labels[:10].values)
 
     # Debug regime changes, short runs, and run lengths
