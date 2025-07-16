@@ -57,10 +57,6 @@ def optuna_objective(trial, df, features):
     from core.regime_classifier import smooth_regime_labels
     labels = smooth_regime_labels(raw_labels, min_persistence=3)
     
-    model.fit(features)
-    
-    labels = pd.Series(model.predict(features), index=features.index)
-    
     # Get OB data and merge
     ob_df = load_ob_csv(OB_PATH)
     merged = merge_regimes(ob_df, df, model)
@@ -99,8 +95,8 @@ def optuna_objective(trial, df, features):
     
     if DEBUG_LEVEL == 'verbose':
         log_message(f"Trial: n={n_components}, cov={cov_type}, score={score:.3f} "
-                f"(lift={lift:.1f}%, sharpe={sharpe:.2f}, pf={profit_factor:.2f}, "
-                f"dd_pen={dd_penalty:.2f}, pers={persistence:.1f}%)", 'info')
+                   f"(lift={lift:.1f}%, sharpe={sharpe:.2f}, pf={profit_factor:.2f}, "
+                   f"dd={dd:.0f}, pers={persistence:.1f}%)", 'info')
     
     return score, lift, sharpe, profit_factor, dd_penalty, persistence
 
