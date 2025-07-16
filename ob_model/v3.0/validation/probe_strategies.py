@@ -4,6 +4,10 @@
 # In[ ]:
 
 
+import sys
+import os
+BASE_DIR = r"C:\Users\rs\GitProjects\regime_system\ob_model\v3.0"  # Hardcode if not importing settings yet
+sys.path.append(BASE_DIR)
 import pandas as pd
 import numpy as np
 import pandas_ta as ta
@@ -13,7 +17,6 @@ from core.regime_classifier import fit_gmm, add_session_labels
 from core.indicators import select_and_compute_indicators
 from core.data_loader import load_csv_data
 from rich.table import Table
-import os
 from datetime import datetime
 from core.helpers import console
 
