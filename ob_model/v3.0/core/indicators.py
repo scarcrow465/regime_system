@@ -116,7 +116,8 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
         for col in high_corr.columns:
             correlated = high_corr[col][high_corr[col]].index.tolist()
             if correlated:
-                to_drop.add(correlated[0])  # Drop one
+                to_drop.add(correlated[0]) # Drop one
+                log_message(f"Dropping high-corr: {to_drop}", 'info') 
         ind_df = ind_df.drop(columns=to_drop)
     
     return ind_df
