@@ -100,45 +100,37 @@ def fit_gmm(features, n_components_range=[2,5], walk_forward=True):
 
 def smooth_regime_labels(labels, min_persistence=3):
     """
-    Smooth regime labels to prevent single-bar flips.
-    min_persistence: minimum bars a regime must persist before changing
+    Smoother regime label assignment using run-length encoding.
+    Any regime that appears for less than `min_persistence` bars
+    is replaced with the previous regime.
     """
-    if len(labels) < min_persistence * 2:
-        log_message(f"Not enough data for smoothing (need {min_persistence * 2} bars)", 'warning')
-        return labels
-    
+    labels = labels.copy().reset_index(drop=True)
     smoothed = labels.copy()
-    current_regime = labels.iloc[0]
-    persistence_counter = 0
-    candidate_regime = None
-    
+
+    # Identify runs of the same value
+    run_starts = [0]
     for i in range(1, len(labels)):
-        if labels.iloc[i] == current_regime:
-            # Same regime, reset counter
-            persistence_counter = 0
-            candidate_regime = None
-        else:
-            if candidate_regime == labels.iloc[i]:
-                # Continue counting same candidate
-                persistence_counter += 1
-                if persistence_counter >= min_persistence:
-                    # Confirmed regime change
-                    current_regime = candidate_regime
-                    persistence_counter = 0
-                    candidate_regime = None
-            else:
-                # New candidate regime
-                candidate_regime = labels.iloc[i]
-                persistence_counter = 1
-        
-        smoothed.iloc[i] = current_regime
-    
+        if labels[i] != labels[i-1]:
+            run_starts.append(i)
+    run_starts.append(len(labels))  # sentinel
+
+    for i in range(1, len(run_starts)-1):
+        start = run_starts[i]
+        end = run_starts[i+1]
+        length = end - start
+        if length < min_persistence:
+            # Replace with previous regime
+            smoothed[start:end] = smoothed[start-1]
+
+    # Re-align index if needed
+    smoothed.index = labels.index
+
     # Log the improvement
     if DEBUG_LEVEL == 'verbose':
         raw_changes = (labels != labels.shift(1)).sum()
         smooth_changes = (smoothed != smoothed.shift(1)).sum()
         log_message(f"Smoothing reduced regime changes from {raw_changes} to {smooth_changes}", 'info')
-    
+
     return smoothed
 
 def export_model(model, timestamp):
