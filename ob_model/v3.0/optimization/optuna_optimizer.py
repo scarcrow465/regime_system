@@ -38,28 +38,48 @@ def optuna_objective(trial, df, features):
     
     labels = pd.Series(model.predict(features), index=features.index)
     
+    # Get OB data and merge
+    ob_df = load_ob_csv(OB_PATH)
+    merged = merge_regimes(ob_df, df, model)
+    
+    if merged.empty:
+        return 0.0, 0, 0, 0, 0, 0  # Defaults
+    
+    # Calculate metrics from merged data
     persistence, _ = compute_persistence(labels)
     _, ks = compare_is_oos(features, model)
-    merged = merge_regimes(load_ob_csv(OB_PATH), df, model)
+    
+    # Get probe results
     combos = probe_filtering(merged)[0]
+    baseline_win = merged['outcome_win'].mean()
     lift = combos['lift'].mean() if not combos.empty else 0
     
-    # New metrics from pnl in combos
+    # Calculate trading metrics from merged OB data
     pnl = merged['pnl']
-    returns = pnl / 100  # Sim, adjust to % if needed
-    sharpe = returns.mean() / returns.std() if returns.std() != 0 else 0
+    returns = pnl / 100  # Convert to percentage
+    sharpe = (returns.mean() / returns.std()) * np.sqrt(252*26) if returns.std() != 0 else 0  # Annualized
+    
     wins = pnl[pnl > 0].sum()
     losses = abs(pnl[pnl < 0].sum())
     profit_factor = wins / losses if losses > 0 else 0
+    
     cum_pnl = pnl.cumsum()
     dd = (cum_pnl - cum_pnl.cummax()).min()
-    dd_penalty = abs(dd) / 15 if dd < 0 else 0  # Normalize <15% =0 penalty
+    dd_penalty = abs(dd) / 1000 if dd < -1000 else abs(dd) / 10000  # Normalized
     
-    score = 0.3 * lift + 0.3 * sharpe + 0.2 * profit_factor + 0.1 * (1 - dd_penalty) + 0.1 * persistence
+    # Hybrid score as discussed
+    score = (0.3 * (lift/10) +  # Normalize lift to 0-1 range (10% target)
+             0.3 * min(sharpe/1.5, 1) +  # Normalize sharpe (1.5 target)
+             0.2 * min(profit_factor/2, 1) +  # Normalize PF (2.0 target)
+             0.1 * (1 - dd_penalty) +
+             0.1 * (persistence/100))  # Normalize persistence
+    
     if DEBUG_LEVEL == 'verbose':
-        log_message(f"Trial: n={n_components}, cov={cov_type}, score={score} (lift={lift}, sharpe={sharpe}, pf={profit_factor}, dd_pen={dd_penalty}, pers={persistence})", 'info')
+        log_message(f"Trial: n={n_components}, cov={cov_type}, score={score:.3f} "
+                   f"(lift={lift:.1f}%, sharpe={sharpe:.2f}, pf={profit_factor:.2f}, "
+                   f"dd={dd:.0f}, pers={persistence:.1f}%)", 'info')
     
-    return score
+    return score, lift, sharpe, profit_factor, dd_penalty, persistence
 
 def run_optuna_loop(df, features, loop_num):
     """Single Optuna loop."""
