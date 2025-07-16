@@ -103,6 +103,10 @@ def smooth_regime_labels(labels, min_persistence=3):
     Smooth regime labels to prevent single-bar flips.
     min_persistence: minimum bars a regime must persist before changing
     """
+    if len(labels) < min_persistence * 2:
+        log_message(f"Not enough data for smoothing (need {min_persistence * 2} bars)", 'warning')
+        return labels
+    
     smoothed = labels.copy()
     current_regime = labels.iloc[0]
     persistence_counter = 0
@@ -128,6 +132,12 @@ def smooth_regime_labels(labels, min_persistence=3):
                 persistence_counter = 1
         
         smoothed.iloc[i] = current_regime
+    
+    # Log the improvement
+    if DEBUG_LEVEL == 'verbose':
+        raw_changes = (labels != labels.shift(1)).sum()
+        smooth_changes = (smoothed != smoothed.shift(1)).sum()
+        log_message(f"Smoothing reduced regime changes from {raw_changes} to {smooth_changes}", 'info')
     
     return smoothed
 
