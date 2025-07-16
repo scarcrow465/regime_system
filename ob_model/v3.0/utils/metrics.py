@@ -9,9 +9,16 @@ import numpy as np
 
 def compute_persistence(labels):
     """Calculate persistence % and transitions."""
-    changes = (labels != labels.shift(1)).cumsum()
-    persistence = labels.groupby(changes).size().mean() / len(labels) * 100
+    if len(labels) < 2:
+        return 0.0, pd.DataFrame()
+    
+    num_changes = (labels != labels.shift(1)).sum()
+    persistence = (1 - num_changes / (len(labels) - 1)) * 100
     transitions = pd.crosstab(labels.shift(1), labels, normalize='index')
+    
+    # Debug print to confirm calculation
+    print(f"Persistence calculation: num_changes={num_changes}, total_bars={len(labels)}, persistence={persistence:.2f}%")
+    
     return persistence, transitions
 
 def compare_is_oos(features, model):
