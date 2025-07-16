@@ -62,8 +62,18 @@ def fit_gmm(features, n_components_range=[2,5], walk_forward=True):
         train, test = numeric_features, None
     
     for n in progress_bar(range(n_components_range[0], n_components_range[1]+1), desc="GMM tuning"):
-        gmm = GaussianMixture(n_components=n, covariance_type='diag', random_state=42)
-        gmm.fit(train)
+        # In fit_gmm function, wrap the GMM fit in try-except:
+        for attempt in range(3):  # Try up to 3 times
+            try:
+                gmm = GaussianMixture(n_components=n, covariance_type='diag', 
+                                    random_state=42, n_init=3, max_iter=200)
+                gmm.fit(train)
+                break
+            except Exception as e:
+                if attempt == 2:
+                    log_message(f"GMM failed after 3 attempts: {e}", 'error')
+                    continue
+                log_message(f"GMM attempt {attempt+1} failed, retrying...", 'warning')
         bic = gmm.bic(train)
         if bic < best_bic:
             best_bic = bic
