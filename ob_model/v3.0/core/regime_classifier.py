@@ -104,9 +104,7 @@ def smooth_regime_labels(labels, min_persistence=3):
     Any regime that appears for less than `min_persistence` bars
     is replaced with the previous regime.
     """
-    labels = labels.copy()
-    original_index = labels.index  # Save original datetime index
-
+    labels = labels.copy().reset_index(drop=True)
     smoothed = labels.copy()
 
     # Identify runs of the same value
@@ -125,7 +123,7 @@ def smooth_regime_labels(labels, min_persistence=3):
             smoothed[start:end] = smoothed[start-1]
 
     # Re-align index if needed
-    smoothed.index = original_index  # Restore original datetime index
+    smoothed.index = labels.index
 
     # Log the improvement
     if DEBUG_LEVEL == 'verbose':
