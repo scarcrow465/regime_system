@@ -228,7 +228,7 @@ if __name__ == "__main__":
     model, n = fit_gmm(features)
     # In main, after fit
     # cluster_names = name_clusters(model, features)
-    log_message(f"Cluster Names: {cluster_names}", 'info')
+    # log_message(f"Cluster Names: {cluster_names}", 'info')
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     export_model(model, timestamp)
 
