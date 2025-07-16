@@ -33,7 +33,31 @@ def optuna_objective(trial, df, features):
     n_components = trial.suggest_int('n_components', 2, 5)
     cov_type = trial.suggest_categorical('cov_type', ['full', 'diag'])
     
-    model = GaussianMixture(n_components=n_components, covariance_type=cov_type, random_state=42)
+    # ADD regularization
+    reg_covar = trial.suggest_float('reg_covar', 1e-6, 1e-3, log=True)
+    
+    model = GaussianMixture(
+        n_components=n_components, 
+        covariance_type=cov_type, 
+        random_state=42,
+        reg_covar=reg_covar,  # ADD THIS - prevents singular matrices
+        n_init=3,  # ADD THIS - multiple initializations
+        max_iter=200  # ADD THIS - more iterations
+    )
+    
+    try:
+        model.fit(features)
+    except Exception as e:
+        log_message(f"GMM fit failed: {e}", 'warning')
+        return 0.0  # Return bad score
+    
+    # Get raw labels
+    raw_labels = pd.Series(model.predict(features), index=features.index)
+    
+    # SMOOTH THE LABELS
+    from core.regime_classifier import smooth_regime_labels
+    labels = smooth_regime_labels(raw_labels, min_persistence=3)
+    
     model.fit(features)
     
     labels = pd.Series(model.predict(features), index=features.index)
