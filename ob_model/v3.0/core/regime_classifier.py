@@ -15,6 +15,7 @@ import os
 from datetime import datetime
 from core.data_loader import load_csv_data
 import numpy as np
+from validation.persistence_validator import compute_persistence
 
 def add_session_labels(df):
     """Add full (overlapping) and refined (non-overlapping) session labels."""
@@ -86,8 +87,49 @@ def fit_gmm(features, n_components_range=[2,5], walk_forward=True):
         test_score = silhouette_score(test, best_model.predict(test))
         if DEBUG_LEVEL != 'none':
             log_message(f"OOS silhouette: {test_score}", 'info')
+
+    # ADD THIS before returning:
+    if best_model is not None:
+        # Test smoothing on sample
+        test_labels = pd.Series(best_model.predict(train[:100]))
+        raw_persistence, _ = compute_persistence(test_labels)
+        if raw_persistence < 1:  # Less than 1% persistence is bad
+            log_message(f"WARNING: Raw persistence {raw_persistence:.2f}% - model is unstable!", 'warning')
     
     return best_model, best_n
+
+def smooth_regime_labels(labels, min_persistence=3):
+    """
+    Smooth regime labels to prevent single-bar flips.
+    min_persistence: minimum bars a regime must persist before changing
+    """
+    smoothed = labels.copy()
+    current_regime = labels.iloc[0]
+    persistence_counter = 0
+    candidate_regime = None
+    
+    for i in range(1, len(labels)):
+        if labels.iloc[i] == current_regime:
+            # Same regime, reset counter
+            persistence_counter = 0
+            candidate_regime = None
+        else:
+            if candidate_regime == labels.iloc[i]:
+                # Continue counting same candidate
+                persistence_counter += 1
+                if persistence_counter >= min_persistence:
+                    # Confirmed regime change
+                    current_regime = candidate_regime
+                    persistence_counter = 0
+                    candidate_regime = None
+            else:
+                # New candidate regime
+                candidate_regime = labels.iloc[i]
+                persistence_counter = 1
+        
+        smoothed.iloc[i] = current_regime
+    
+    return smoothed
 
 def export_model(model, timestamp):
     if model is None:
