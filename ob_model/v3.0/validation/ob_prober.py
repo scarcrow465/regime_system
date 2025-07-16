@@ -33,14 +33,33 @@ def load_ob_csv(ob_path):
 
 def merge_regimes(ob_df, df, model):
     """Merge regimes to OB via entry_time."""
-    ind_df = select_and_compute_indicators(df)  # Use passed df
-    ind_df = add_session_labels(ind_df)  # Add to include 'hour'
+    ind_df = select_and_compute_indicators(df)
+    ind_df = add_session_labels(ind_df)
     features = ind_df.select_dtypes(include=[np.number]).dropna()
+    
+    # Ensure timezone compatibility
+    if hasattr(df.index, 'tz') and df.index.tz is not None:
+        # If df has timezone, ensure it matches OB
+        features.index = features.index.tz_convert('America/New_York')
+    else:
+        # If no timezone, localize it
+        features.index = features.index.tz_localize('America/New_York')
+    
     labels = pd.Series(model.predict(features), index=features.index, name='regime')
+    
+    # Also get session info for merge
+    session_info = ind_df[['full_session', 'refined_session', 'hour']].copy()
+    session_info.index = session_info.index.tz_convert('America/New_York') if hasattr(session_info.index, 'tz') else session_info.index.tz_localize('America/New_York')
+    
+    # Merge both regime and session info
     merged = ob_df.merge(labels, left_on='entry_time', right_index=True, how='left')
-    merged.dropna(subset=['regime'], inplace=True)  # Drop unmatched
+    merged = merged.merge(session_info, left_on='entry_time', right_index=True, how='left')
+    
+    merged.dropna(subset=['regime'], inplace=True)
+    
     if len(merged) < len(ob_df):
         log_message(f"{len(ob_df) - len(merged)} unmatched timestamps", 'info')
+    
     return merged
 
 def probe_filtering(merged, time_filter=None):
