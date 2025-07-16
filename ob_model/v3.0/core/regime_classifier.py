@@ -4,6 +4,10 @@
 # In[ ]:
 
 
+import sys
+import os
+BASE_DIR = r"C:\Users\rs\GitProjects\regime_system\ob_model\v3.0"  # Hardcode if not importing settings yet
+sys.path.append(BASE_DIR)
 import pandas as pd
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import silhouette_score
@@ -11,7 +15,6 @@ from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH
 from core.indicators import select_and_compute_indicators
 import joblib
-import os
 from datetime import datetime
 from core.data_loader import load_csv_data
 import numpy as np
