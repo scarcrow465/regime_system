@@ -100,7 +100,7 @@ def fit_gmm(features, n_components_range=[2,5], walk_forward=True):
             if bic < best_bic:
                 best_bic = bic
                 best_model = gmm
-                best_n = n
+                best_n = n # noqa
             if DEBUG_LEVEL == 'debug':
                 log_message(f"{cls} n={n}, BIC={bic}", 'info')
         
@@ -121,7 +121,7 @@ def fit_gmm(features, n_components_range=[2,5], walk_forward=True):
     
     # #1 Per-Regime Metrics (use close pct as pnl proxy)
     unique_regimes = final_labels.unique()
-    pnl_proxy = features['close'].pct_change().fillna(0)  # Proxy pnl
+    pnl_proxy = pd.Series(0, index=features.index)  # Temp zero proxy
     for regime in unique_regimes:
         regime_mask = final_labels == regime
         regime_pnl = pnl_proxy[regime_mask]
