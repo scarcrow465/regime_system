@@ -13,7 +13,7 @@ import numpy as np
 import pandas_ta as ta
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH, TEST_SLICE
-from core.regime_classifier import fit_gmm, add_session_labels
+from core.regime_classifier import fit_gmm, add_session_labels, smooth_regime_labels
 from core.indicators import select_and_compute_indicators_live
 from core.data_loader import load_csv_data
 from rich.table import Table
@@ -178,181 +178,322 @@ def mean_reversion_strategy(df, entry_bar):
     
     return 0
 
-def run_strategy_probes(df, model):
-    df_filtered = df[(df.index.hour >= 4) & (df.index.hour < 16)].copy()
-    
-    # CRITICAL FIX: Compute indicators on FULL data first to match training
-    ind_df_full, raw_ind_df_full = select_and_compute_indicators_live(df)  # Full data
-    features_full = ind_df_full.select_dtypes(include=[np.number]).dropna()
-    
-    # Now filter AFTER computing features
-    filter_mask = (df.index.hour >= 4) & (df.index.hour < 16)
-    features = features_full[filter_mask].copy()
-    raw_features = raw_ind_df_full.select_dtypes(include=[np.number])[filter_mask].copy()
-    df_filtered = df[filter_mask].copy()
-    
-    # Get session info for filtered data
-    session_info = ind_df_full[['refined_session']][filter_mask].copy()
-    
-    from core.regime_classifier import smooth_regime_labels
-
-    class_groups = {
-            'direction': [col for col in features if col.startswith('EMA') or col in ['ADX_14', 'MACD']],
-            'volatility': [col for col in features if col.startswith('ATR') or col in ['BB_width', 'Hist_Vol', 'KC_width']],
-            'trend_strength': [col for col in features if col.startswith('RSI') or col in ['Stoch', 'DMI_Plus', 'DMI_Minus']],
-            'momentum': [col for col in features if col in ['ROC_12', 'PPO', 'PPO_Hist', 'PPO_Signal', 'CCI_20']],
-            'session': [col for col in features if 'session' in col.lower()],
-            'structure': [col for col in features if col in ['OBV', 'VWAP_14', 'CMF_20']]
+def calculate_trade_metrics(trades):
+    """Calculate comprehensive metrics for a list of trades"""
+    if len(trades) == 0:
+        return {
+            'num_trades': 0,
+            'total_pnl': 0,
+            'avg_pnl': 0,
+            'win_rate': 0,
+            'profit_factor': 0,
+            'max_drawdown': 0,
+            'sharpe_ratio': 0,
+            'avg_duration': 0,
+            'risk_reward': 0
         }
-
-    if not isinstance(model, dict):
-        # Single model case (backward compatibility)
-        raw_labels = pd.Series(model.predict(features), index=features.index)
+    
+    pnls = [t['pnl'] for t in trades]
+    total_pnl = sum(pnls)
+    wins = [p for p in pnls if p > 0]
+    losses = [p for p in pnls if p < 0]
+    
+    win_rate = len(wins) / len(trades) * 100 if len(trades) > 0 else 0
+    profit_factor = sum(wins) / abs(sum(losses)) if losses else float('inf')
+    
+    # Calculate drawdown
+    cumulative = np.cumsum(pnls)
+    running_max = np.maximum.accumulate(cumulative)
+    drawdown = (cumulative - running_max)
+    max_drawdown = abs(min(drawdown)) if len(drawdown) > 0 else 0
+    
+    # Sharpe ratio (simplified)
+    if len(pnls) > 1:
+        returns = pd.Series(pnls)
+        sharpe_ratio = (returns.mean() / returns.std() * np.sqrt(252)) if returns.std() > 0 else 0
     else:
-        # Multi-model voting case
-        class_labels = pd.DataFrame(index=features.index)
-
-        log_message(f"Feature columns: {list(features.columns)[:10]}...", 'debug')
-
-        for cls, model_info in model.items():
-            try:
-                if isinstance(model_info, tuple):
-                    cls_model, fitted_cols = model_info
-                    log_message(f"{cls}: Expected {len(fitted_cols)} cols, got {len([c for c in fitted_cols if c in features.columns])}", 'debug')
-                    # Ensure columns exist
-                    available_cols = [col for col in fitted_cols if col in features.columns]
-                    if not available_cols:
-                        log_message(f"Warning: No features available for {cls}", 'warning')
-                        continue
-                    class_labels[cls] = pd.Series(cls_model.predict(features[available_cols]), index=features.index)
-                else:
-                    # Fallback for old format
-                    log_message(f"Warning: {cls} model not in expected format", 'warning')
-                    continue
-            except Exception as e:
-                log_message(f"Error processing {cls}: {e}", 'error')
-                continue
-        
-        if class_labels.empty:
-            log_message("No valid class predictions, falling back to single model", 'warning')
-            # Fallback - use first valid model
-            for cls, model_info in model.items():
-                if isinstance(model_info, tuple):
-                    cls_model, _ = model_info
-                    raw_labels = pd.Series(cls_model.predict(features), index=features.index)
-                    break
-        else:
-            raw_labels = class_labels.mode(axis=1)[0].astype(int)
-    labels = smooth_regime_labels(raw_labels, min_persistence=3)
+        sharpe_ratio = 0
     
-    regime_stats = calculate_regime_characteristics(df_filtered, model, features, raw_features)
+    # Risk reward
+    avg_win = np.mean(wins) if wins else 0
+    avg_loss = abs(np.mean(losses)) if losses else 0
+    risk_reward = avg_win / avg_loss if avg_loss > 0 else 0
     
+    return {
+        'num_trades': len(trades),
+        'total_pnl': total_pnl,
+        'avg_pnl': total_pnl / len(trades),
+        'win_rate': win_rate,
+        'profit_factor': profit_factor,
+        'max_drawdown': max_drawdown,
+        'sharpe_ratio': sharpe_ratio,
+        'avg_duration': np.mean([t['duration'] for t in trades]),
+        'risk_reward': risk_reward
+    }
+
+def normalize_metrics_by_time(metrics, session_hours):
+    """Normalize metrics by session duration"""
+    if session_hours == 0:
+        return metrics
+    
+    normalized = metrics.copy()
+    # Normalize per-hour metrics
+    normalized['trades_per_hour'] = metrics['num_trades'] / session_hours
+    normalized['pnl_per_hour'] = metrics['total_pnl'] / session_hours
+    
+    return normalized
+
+def run_strategy_probes(df, model):
+    """Run probe strategies to validate regimes with enhanced metrics"""
+    
+    # Get features and predict regimes
+    ind_df, raw_ind_df = select_and_compute_indicators_live(df)
+    features = ind_df.select_dtypes(include=[np.number]).dropna()
+    
+    if len(features) < 100:
+        log_message("Insufficient data for probes", 'error')
+        return pd.DataFrame()
+    
+    # Predict regimes
+    labels = pd.Series(model.predict(features), index=features.index)
+    labels = smooth_regime_labels(labels, min_persistence=3)
+    
+    # Add to dataframe
+    df_filtered = df.loc[labels.index].copy()
     df_filtered['regime'] = labels
-    df_filtered['session'] = session_info['refined_session']
+    df_filtered['session'] = ind_df.loc[labels.index, 'refined_session']
+    
+    # Calculate regime characteristics
+    regime_stats = {}
+    for regime in df_filtered['regime'].unique():
+        regime_data = df_filtered[df_filtered['regime'] == regime]
+        regime_feats = raw_ind_df.loc[regime_data.index]
+        
+        regime_stats[regime] = {
+            'avg_trend': regime_feats[['EMA_20', 'EMA_50']].diff().mean().mean(),
+            'avg_volatility': regime_feats[['ATR_14']].mean().values[0] if 'ATR_14' in regime_feats else 0,
+            'count': len(regime_data)
+        }
+    
+    # Define session hours
+    session_hours = {
+        'NY_Open': 2.5,
+        'NY_Midday': 2.0,
+        'NY_Afternoon': 2.0,
+        'Power_Hour': 1.0,
+        'London_Open': 3.0,
+        'Other': 2.0  # Average
+    }
     
     results = []
     
     for regime in df_filtered['regime'].unique():
         regime_char = regime_stats.get(regime, {})
         
+        # Store trades for each strategy
+        all_trades = {
+            'trend': {'all': [], 'long': [], 'short': []},
+            'reversion': {'all': [], 'long': [], 'short': []},
+            'ma_cross': {'all': [], 'long': [], 'short': []},
+            'bb_fade': {'all': [], 'long': [], 'short': []}
+        }
+        
         for session in df_filtered['session'].unique():
-            subset = df_filtered[(df_filtered['regime'] == regime) & (df_filtered['session'] == session)].reset_index(drop=False)
+            subset = df_filtered[(df_filtered['regime'] == regime) & 
+                               (df_filtered['session'] == session)].reset_index(drop=False)
             
-            if len(subset) < 100:  # #2 Min data
+            if len(subset) < 100:  # Min data constraint
                 continue
             
-            # Run probes (existing + new)
-            trend_pnl = reversion_pnl = ma_pnl = bb_pnl = 0
-            trend_trades = reversion_trades = ma_trades = bb_trades = 0
-            
-            # Use regime characteristics only (these are OK as they're aggregate stats)
+            # Determine which strategies to use
             use_trend = regime_char.get('avg_trend', 0) > 15
-            use_reversion = regime_char.get('avg_volatility', 0) < 0.01  # Use absolute threshold
+            use_reversion = regime_char.get('avg_volatility', 0) < 0.01
             
+            # Run strategies and collect trades
             for i in range(20, len(subset) - 10):
+                # Trend following
                 if use_trend:
                     pnl = trend_following_strategy(subset, i)
                     if pnl != 0:
-                        trend_pnl += pnl
-                        trend_trades += 1
-                    pnl = ma_crossover_strategy(subset, i)  # New
-                    if pnl != 0:
-                        ma_pnl += pnl
-                        ma_trades += 1
+                        trade = {
+                            'pnl': pnl,
+                            'duration': 5,  # bars
+                            'direction': 'long' if pnl > 0 else 'short'
+                        }
+                        all_trades['trend']['all'].append(trade)
+                        all_trades['trend'][trade['direction']].append(trade)
+                
+                # MA Crossover
+                pnl = ma_crossover_strategy(subset, i)
+                if pnl != 0:
+                    trade = {
+                        'pnl': pnl,
+                        'duration': 5,
+                        'direction': 'long'  # MA cross is long-only
+                    }
+                    all_trades['ma_cross']['all'].append(trade)
+                    all_trades['ma_cross']['long'].append(trade)
+                
+                # Mean reversion
                 if use_reversion:
                     pnl = mean_reversion_strategy(subset, i)
                     if pnl != 0:
-                        reversion_pnl += pnl
-                        reversion_trades += 1
-                    pnl = bb_fade_strategy(subset, i)  # New
-                    if pnl != 0:
-                        bb_pnl += pnl
-                        bb_trades += 1
+                        trade = {
+                            'pnl': pnl,
+                            'duration': 3,
+                            'direction': 'short' if pnl > 0 else 'long'
+                        }
+                        all_trades['reversion']['all'].append(trade)
+                        all_trades['reversion'][trade['direction']].append(trade)
+                
+                # BB Fade
+                pnl = bb_fade_strategy(subset, i)
+                if pnl != 0:
+                    trade = {
+                        'pnl': pnl,
+                        'duration': 3,
+                        'direction': 'long'  # BB fade is long-only
+                    }
+                    all_trades['bb_fade']['all'].append(trade)
+                    all_trades['bb_fade']['long'].append(trade)
             
-            # #1 Per-Regime Metrics (risk/reward, frequency)
-            total_pnl = trend_pnl + reversion_pnl + ma_pnl + bb_pnl
-            total_trades = trend_trades + reversion_trades + ma_trades + bb_trades
-            if total_trades > 0:
-                wins = total_pnl > 0  # Simple proxy
-                risk_reward = (total_pnl if wins else 0) / abs(total_pnl) if total_pnl < 0 else 1
-            else:
-                risk_reward = 1
-            frequency = total_trades / len(subset) * 100 if len(subset) > 0 else 0
+            # Calculate metrics for each strategy
+            hours = session_hours.get(session, 2.0)
             
-            results.append({
-                'regime': regime,
-                'session': session,
-                'bars': len(subset),
-                'trend_pnl': trend_pnl,
-                'reversion_pnl': reversion_pnl,
-                'ma_pnl': ma_pnl,
-                'bb_pnl': bb_pnl,
-                'total_pnl': total_pnl,
-                'risk_reward': risk_reward,  # #1
-                'frequency': frequency,  # #1
-                'avg_trend': regime_char.get('avg_trend', 0),
-                'avg_volatility': regime_char.get('avg_volatility', 0)
-            })
-            
-            # #2 Constraints (min trades, persistence)
-            if total_trades < 30:
-                log_message(f"Warning: Regime {regime}/{session} has {total_trades} trades <30—low reliability", 'warning')
+            # For each strategy, calculate comprehensive metrics
+            for strategy_name, trades_dict in all_trades.items():
+                # All trades metrics
+                metrics = calculate_trade_metrics(trades_dict['all'])
+                metrics = normalize_metrics_by_time(metrics, hours)
+                
+                # Long-only metrics
+                long_metrics = calculate_trade_metrics(trades_dict['long'])
+                
+                # Short-only metrics
+                short_metrics = calculate_trade_metrics(trades_dict['short'])
+                
+                # Minimum trades constraint
+                if metrics['num_trades'] < 30:
+                    log_message(f"Warning: {strategy_name} in Regime {regime}/{session} has "
+                              f"{metrics['num_trades']} trades < 30", 'warning')
+                
+                results.append({
+                    'regime': regime,
+                    'session': session,
+                    'strategy': strategy_name,
+                    'bars': len(subset),
+                    'session_hours': hours,
+                    # Overall metrics
+                    'total_trades': metrics['num_trades'],
+                    'total_pnl': metrics['total_pnl'],
+                    'avg_pnl': metrics['avg_pnl'],
+                    'win_rate': metrics['win_rate'],
+                    'profit_factor': metrics['profit_factor'],
+                    'sharpe_ratio': metrics['sharpe_ratio'],
+                    'max_drawdown': metrics['max_drawdown'],
+                    'risk_reward': metrics['risk_reward'],
+                    'avg_duration': metrics['avg_duration'],
+                    # Normalized metrics
+                    'trades_per_hour': metrics.get('trades_per_hour', 0),
+                    'pnl_per_hour': metrics.get('pnl_per_hour', 0),
+                    # Long metrics
+                    'long_trades': long_metrics['num_trades'],
+                    'long_pnl': long_metrics['total_pnl'],
+                    'long_win_rate': long_metrics['win_rate'],
+                    'long_sharpe': long_metrics['sharpe_ratio'],
+                    # Short metrics
+                    'short_trades': short_metrics['num_trades'],
+                    'short_pnl': short_metrics['total_pnl'],
+                    'short_win_rate': short_metrics['win_rate'],
+                    'short_sharpe': short_metrics['sharpe_ratio'],
+                    # Regime characteristics
+                    'avg_trend': regime_char.get('avg_trend', 0),
+                    'avg_volatility': regime_char.get('avg_volatility', 0)
+                })
     
     results_df = pd.DataFrame(results)
     
+    # Display results based on debug level
     if DEBUG_LEVEL in ['debug', 'verbose']:
-        table = Table(title="Strategy Probe Results")
-        table.add_column("Regime")
-        table.add_column("Session") 
-        table.add_column("Bars")
-        table.add_column("Trend PnL")
-        table.add_column("Rev PnL")
-        table.add_column("Total PnL")
+        # Create strategy-specific tables
+        for strategy in results_df['strategy'].unique():
+            strategy_data = results_df[results_df['strategy'] == strategy]
+            
+            table = Table(title=f"{strategy.upper()} Strategy Results")
+            table.add_column("Regime")
+            table.add_column("Session")
+            table.add_column("Trades")
+            table.add_column("PnL")
+            table.add_column("Win%")
+            table.add_column("Sharpe")
+            table.add_column("Max DD")
+            table.add_column("PF")
+            
+            for _, row in strategy_data.iterrows():
+                table.add_row(
+                    str(row['regime']),
+                    row['session'],
+                    str(row['total_trades']),
+                    f"{row['total_pnl']:.2f}",
+                    f"{row['win_rate']:.1f}%",
+                    f"{row['sharpe_ratio']:.2f}",
+                    f"{row['max_drawdown']:.2f}",
+                    f"{row['profit_factor']:.2f}"
+                )
+            console.print(table)
         
-        for _, row in results_df.iterrows():
-            table.add_row(
-                str(row['regime']),
-                row['session'],
-                str(row['bars']),
-                f"{row['trend_pnl']:.2f}",
-                f"{row['reversion_pnl']:.2f}",
-                f"{row['total_pnl']:.2f}"
+        # Summary table
+        summary_table = Table(title="Strategy Summary - All Regimes")
+        summary_table.add_column("Strategy")
+        summary_table.add_column("Total Trades")
+        summary_table.add_column("Total PnL")
+        summary_table.add_column("Avg Win%")
+        summary_table.add_column("Avg Sharpe")
+        
+        for strategy in results_df['strategy'].unique():
+            strategy_data = results_df[results_df['strategy'] == strategy]
+            summary_table.add_row(
+                strategy,
+                str(strategy_data['total_trades'].sum()),
+                f"{strategy_data['total_pnl'].sum():.2f}",
+                f"{strategy_data['win_rate'].mean():.1f}%",
+                f"{strategy_data['sharpe_ratio'].mean():.2f}"
             )
-        console.print(table)
+        console.print(summary_table)
     
-    # Save results
+    # Save detailed results
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     results_df.to_csv(
-        os.path.join(BASE_DIR, 'exports', 'csv', f"{timestamp}_strategy_probe_results.csv"), 
+        os.path.join(BASE_DIR, 'exports', 'csv', f"{timestamp}_enhanced_strategy_probe_results.csv"), 
         index=False
     )
-
-    # Global #2 persistence (from labels)
+    
+    # Check persistence
     persistence, _ = compute_persistence(labels)
     if persistence < 75:
-        log_message(f"Warning: Overall persistence {persistence:.1f}% <75%—iterate", 'warning')
+        log_message(f"Warning: Overall persistence {persistence:.1f}% < 75%", 'warning')
     
     log_message(f"Strategy probes complete. Total results: {len(results_df)}", 'info')
+    
+    # Print regime-specific analysis
+    if not results_df.empty:
+        log_message("Regime Performance Summary:", 'info')
+        
+        regime_summary = results_df.groupby('regime').agg({
+            'total_pnl': ['sum', 'mean'],
+            'total_trades': 'sum',
+            'win_rate': 'mean',
+            'sharpe_ratio': 'mean'
+        })
+        
+        print("\nPer-Regime Performance:")
+        print(regime_summary)
+        
+        # Identify best regime-strategy pairs
+        best_pairs = results_df.nlargest(5, 'sharpe_ratio')[['regime', 'session', 'strategy', 'sharpe_ratio', 'total_pnl']]
+        print("\nTop 5 Regime-Strategy Combinations:")
+        print(best_pairs)
+    
     return results_df
 
 def main():
