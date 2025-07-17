@@ -147,8 +147,9 @@ def run_strategy_probes(df, model):
         raw_labels = pd.Series(model.predict(features), index=features.index)
     else:
         class_labels = pd.DataFrame(index=features.index)
-        for cls, cls_model in model.items():
-            class_labels[cls] = pd.Series(cls_model.predict(features[class_groups[cls]]), index=features.index)
+        for cls, model_info in model.items():
+            cls_model, fitted_cols = model_info
+            class_labels[cls] = pd.Series(cls_model.predict(features[fitted_cols]), index=features.index)
         raw_labels = class_labels.mode(axis=1)[0].astype(int)  # Compute voting here
     labels = smooth_regime_labels(raw_labels, min_persistence=3)
     
