@@ -14,7 +14,7 @@ from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import OneHotEncoder
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH
-from core.indicators import select_and_compute_indicators
+from core.indicators import select_and_compute_indicators_live
 import joblib
 from datetime import datetime
 from core.data_loader import load_csv_data
@@ -241,7 +241,7 @@ def name_clusters(model, features):
 
 if __name__ == "__main__":
     df = load_csv_data(DATA_PATH)
-    ind_df, _ = select_and_compute_indicators(df)
+    ind_df, _ = select_and_compute_indicators_live(df)
     df = add_session_labels(df)
     features = ind_df.dropna()
     if len(features) < 5:
