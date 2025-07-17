@@ -12,7 +12,7 @@ import pandas as pd
 import numpy as np
 import pandas_ta as ta
 from utils.logger import log_message, progress_bar
-from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH
+from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH, TEST_SLICE
 from core.regime_classifier import fit_gmm, add_session_labels
 from core.indicators import select_and_compute_indicators_live
 from core.data_loader import load_csv_data
@@ -357,6 +357,7 @@ def run_strategy_probes(df, model):
 
 def main():
     df = load_csv_data(DATA_PATH)
+    if TEST_SLICE > 0: df = df.iloc[:TEST_SLICE]
     
     # Get features and fit model
     ind_df, _ = select_and_compute_indicators_live(df)
