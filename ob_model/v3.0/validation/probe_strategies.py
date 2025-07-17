@@ -47,7 +47,7 @@ def bb_fade_strategy(df, entry_bar):
         return exit_price - entry_price
     return 0
 
-def calculate_regime_characteristics(df, model, features):
+def calculate_regime_characteristics(df, model, features, raw_features):
     """Pre-calculate regime characteristics to avoid repeated calls."""
     # Handle dict of models
     if isinstance(model, dict):
@@ -66,7 +66,7 @@ def calculate_regime_characteristics(df, model, features):
     # Calculate average indicators per regime
     regime_stats = {}
     for regime in labels.unique():
-        regime_data = features[labels == regime]
+        regime_data = raw_features[labels == regime]
         if len(regime_data) > 0:
             regime_stats[regime] = {
                 'avg_volatility': regime_data['ATR_14'].mean() if 'ATR_14' in regime_data.columns else 0,
@@ -141,12 +141,13 @@ def run_strategy_probes(df, model):
     df_filtered = df[(df.index.hour >= 4) & (df.index.hour < 16)].copy()
     
     # CRITICAL FIX: Compute indicators on FULL data first to match training
-    ind_df_full = select_and_compute_indicators(df)  # Full data
+    ind_df_full, raw_ind_df_full = select_and_compute_indicators(df)  # Full data
     features_full = ind_df_full.select_dtypes(include=[np.number]).dropna()
     
     # Now filter AFTER computing features
     filter_mask = (df.index.hour >= 4) & (df.index.hour < 16)
     features = features_full[filter_mask].copy()
+    raw_features = raw_ind_df_full.select_dtypes(include=[np.number])[filter_mask].copy()
     df_filtered = df[filter_mask].copy()
     
     # Get session info for filtered data
@@ -203,10 +204,11 @@ def run_strategy_probes(df, model):
             raw_labels = class_labels.mode(axis=1)[0].astype(int)
     labels = smooth_regime_labels(raw_labels, min_persistence=3)
     
-    regime_stats = calculate_regime_characteristics(df_filtered, model, features)
+    regime_stats = calculate_regime_characteristics(df_filtered, model, features, raw_features)
     
     df_filtered['regime'] = labels
     df_filtered['session'] = session_info['refined_session']
+    df_filtered = pd.concat([df_filtered, raw_features], axis=1)
     
     results = []
     
@@ -316,7 +318,7 @@ def main():
     df = load_csv_data(DATA_PATH)
     
     # Get features and fit model
-    ind_df = select_and_compute_indicators(df)
+    ind_df, _ = select_and_compute_indicators(df)
     features = ind_df.select_dtypes(include=[np.number]).dropna()
     
     model, _ = fit_gmm(features)
