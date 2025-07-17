@@ -62,14 +62,9 @@ def add_session_labels(df):
     from sklearn.preprocessing import OneHotEncoder
     full_cats = ['Other', 'Sydney', 'Tokyo', 'London', 'NY']
     refined_cats = ['Other', 'London_Open', 'NY_Open', 'NY_Midday', 'NY_Afternoon', 'Power_Hour']
-    # Force all categories even if not present
-    encoder = OneHotEncoder(
-        sparse_output=False, 
-        categories=[full_cats, refined_cats],
-        handle_unknown='ignore'  # ADD THIS
-    )
+    encoder = OneHotEncoder(sparse_output=False, categories=[full_cats, refined_cats])
     session_enc = encoder.fit_transform(df[['full_session', 'refined_session']])
-    session_df = pd.DataFrame(session_enc, index=df.index, columns=encoder.get_feature_names_out())
+    session_df = pd.DataFrame(session_enc, index=df.index, columns=encoder.get_feature_names_out(['full_session', 'refined_session']))  # Pass input_features
     df = pd.concat([df, session_df], axis=1)
     
     return df
