@@ -120,6 +120,7 @@ def fit_gmm(features, n_components_range=[2,5], walk_forward=True):
             if bic < best_bic:
                 best_bic = bic
                 best_model = gmm
+                class_models[cls] = (best_model, train.columns.tolist())  # Store model and columns
                 best_n = n # noqa
             if DEBUG_LEVEL == 'debug':
                 log_message(f"{cls} n={n}, BIC={bic}", 'info')
