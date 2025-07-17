@@ -133,12 +133,22 @@ def run_strategy_probes(df, model):
     features = ind_df.select_dtypes(include=[np.number]).dropna()
     
     from core.regime_classifier import smooth_regime_labels
+
+    class_groups = {
+            'direction': [col for col in features if col.startswith('EMA') or col in ['ADX_14', 'MACD']],
+            'volatility': [col for col in features if col.startswith('ATR') or col in ['BB_width', 'Hist_Vol', 'KC_width']],
+            'trend_strength': [col for col in features if col.startswith('RSI') or col in ['Stoch', 'DMI_Plus', 'DMI_Minus']],
+            'momentum': [col for col in features if col in ['ROC_12', 'PPO', 'PPO_Hist', 'PPO_Signal', 'CCI_20']],
+            'session': [col for col in features if 'session' in col.lower()],
+            'structure': [col for col in features if col in ['OBV', 'VWAP_14', 'CMF_20']]
+        }
+
     if not isinstance(model, dict):
         raw_labels = pd.Series(model.predict(features), index=features.index)
     else:
         class_labels = pd.DataFrame(index=features.index)
         for cls, cls_model in model.items():
-            class_labels[cls] = pd.Series(cls_model.predict(features), index=features.index)
+            class_labels[cls] = pd.Series(cls_model.predict(features[class_groups[cls]]), index=features.index)
         raw_labels = class_labels.mode(axis=1)[0].astype(int)  # Compute voting here
     labels = smooth_regime_labels(raw_labels, min_persistence=3)
     
