@@ -120,17 +120,19 @@ def fit_gmm(features, n_components_range=[2,5], walk_forward=True):
             if bic < best_bic:
                 best_bic = bic
                 best_model = gmm
-                class_models[cls] = (best_model, train.columns.tolist())  # Store model and columns
-                best_n = n # noqa
+                best_n = n
             if DEBUG_LEVEL == 'debug':
                 log_message(f"{cls} n={n}, BIC={bic}", 'info')
         
-        if test is not None and len(test) > 0:
+        # Store model and columns AFTER finding best
+        if best_model is not None:
+            class_models[cls] = (best_model, cols)  # Store actual column names used
+
+        if test is not None and len(test) > 0 and best_model is not None:
             test_score = silhouette_score(test, best_model.predict(test))
             if DEBUG_LEVEL != 'none':
                 log_message(f"{cls} OOS silhouette: {test_score}", 'info')
         
-        class_models[cls] = best_model
         class_labels[cls] = pd.Series(best_model.predict(class_feats), index=class_feats.index)
     
     if class_labels.empty:
