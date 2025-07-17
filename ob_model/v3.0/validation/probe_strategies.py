@@ -49,7 +49,19 @@ def bb_fade_strategy(df, entry_bar):
 
 def calculate_regime_characteristics(df, model, features):
     """Pre-calculate regime characteristics to avoid repeated calls."""
-    labels = pd.Series(model.predict(features), index=features.index)
+    # Handle dict of models
+    if isinstance(model, dict):
+        # Use voting to get labels
+        class_labels = pd.DataFrame(index=features.index)
+        for cls, model_info in model.items():
+            if isinstance(model_info, tuple):
+                cls_model, fitted_cols = model_info
+                available_cols = [col for col in fitted_cols if col in features.columns]
+                if available_cols:
+                    class_labels[cls] = pd.Series(cls_model.predict(features[available_cols]), index=features.index)
+        labels = class_labels.mode(axis=1)[0].astype(int) if not class_labels.empty else pd.Series(0, index=features.index)
+    else:
+        labels = pd.Series(model.predict(features), index=features.index)
     
     # Calculate average indicators per regime
     regime_stats = {}
@@ -144,13 +156,40 @@ def run_strategy_probes(df, model):
         }
 
     if not isinstance(model, dict):
+        # Single model case (backward compatibility)
         raw_labels = pd.Series(model.predict(features), index=features.index)
     else:
+        # Multi-model voting case
         class_labels = pd.DataFrame(index=features.index)
+        
         for cls, model_info in model.items():
-            cls_model, fitted_cols = model_info
-            class_labels[cls] = pd.Series(cls_model.predict(features[fitted_cols]), index=features.index)
-        raw_labels = class_labels.mode(axis=1)[0].astype(int)  # Compute voting here
+            try:
+                if isinstance(model_info, tuple):
+                    cls_model, fitted_cols = model_info
+                    # Ensure columns exist
+                    available_cols = [col for col in fitted_cols if col in features.columns]
+                    if not available_cols:
+                        log_message(f"Warning: No features available for {cls}", 'warning')
+                        continue
+                    class_labels[cls] = pd.Series(cls_model.predict(features[available_cols]), index=features.index)
+                else:
+                    # Fallback for old format
+                    log_message(f"Warning: {cls} model not in expected format", 'warning')
+                    continue
+            except Exception as e:
+                log_message(f"Error processing {cls}: {e}", 'error')
+                continue
+        
+        if class_labels.empty:
+            log_message("No valid class predictions, falling back to single model", 'warning')
+            # Fallback - use first valid model
+            for cls, model_info in model.items():
+                if isinstance(model_info, tuple):
+                    cls_model, _ = model_info
+                    raw_labels = pd.Series(cls_model.predict(features), index=features.index)
+                    break
+        else:
+            raw_labels = class_labels.mode(axis=1)[0].astype(int)
     labels = smooth_regime_labels(raw_labels, min_persistence=3)
     
     regime_stats = calculate_regime_characteristics(df_filtered, model, features)
