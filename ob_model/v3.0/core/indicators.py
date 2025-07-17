@@ -128,7 +128,7 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
         'volatility': [col for col in ind_df if col.startswith('ATR') or col in ['BB_width', 'Hist_Vol', 'KC_width']],
         'trend_strength': [col for col in ind_df if col.startswith('RSI') or col in ['Stoch', 'DMI_Plus', 'DMI_Minus']],
         'momentum': [col for col in ind_df if col in ['ROC_12', 'PPO', 'PPO_Hist', 'PPO_Signal', 'CCI_20']],
-        'session': [col for col in ind_df if 'session' in col.lower()],
+        'session': [col for col in ind_df.columns if 'session' in col.lower() and col not in ['full_session', 'refined_session']],  # CHANGED: exclude strings
         'structure': [col for col in ind_df if col in ['OBV', 'VWAP_14', 'CMF_20']]
     }
     for cls, cols in class_groups.items():
