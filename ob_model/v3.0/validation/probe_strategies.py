@@ -20,7 +20,7 @@ from rich.table import Table
 from datetime import datetime
 from core.helpers import console
 from utils.metrics import compute_persistence
-from core.regime_classifier import fit_gmm, final_labels
+from core.regime_classifier import fit_gmm
 
 def ma_crossover_strategy(df, entry_bar):
     """MA crossover for trend: Buy on fast > slow MA."""
