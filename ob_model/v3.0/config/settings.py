@@ -9,7 +9,7 @@ import os
 BASE_DIR = r"C:\Users\rs\GitProjects\regime_system\ob_model\v3.0"
 
 # Debug levels: 'none', 'summary', 'debug', 'verbose'
-DEBUG_LEVEL = 'verbose'  # Change to toggle output
+DEBUG_LEVEL = 'summary'  # Change to toggle output
 
 # Other settings (expand as needed)
 TIMEFRAME = '15min'
