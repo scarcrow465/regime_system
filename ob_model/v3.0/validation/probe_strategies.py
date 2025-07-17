@@ -138,11 +138,20 @@ def mean_reversion_strategy(df, entry_bar):
     return 0
 
 def run_strategy_probes(df, model):
-    df_filtered = df[(df.index.hour >= 4) & (df.index.hour < 16)].copy()  # Session window
+    df_filtered = df[(df.index.hour >= 4) & (df.index.hour < 16)].copy()
     
-    ind_df = select_and_compute_indicators(df_filtered)
-    ind_df = add_session_labels(ind_df)
-    features = ind_df.select_dtypes(include=[np.number]).dropna()
+    # CRITICAL FIX: Compute indicators on FULL data first to match training
+    ind_df_full = select_and_compute_indicators(df)  # Full data
+    ind_df_full = add_session_labels(ind_df_full)
+    features_full = ind_df_full.select_dtypes(include=[np.number]).dropna()
+    
+    # Now filter AFTER computing features
+    filter_mask = (df.index.hour >= 4) & (df.index.hour < 16)
+    features = features_full[filter_mask].copy()
+    df_filtered = df[filter_mask].copy()
+    
+    # Get session info for filtered data
+    session_info = ind_df_full[['refined_session']][filter_mask].copy()
     
     from core.regime_classifier import smooth_regime_labels
 
@@ -195,7 +204,7 @@ def run_strategy_probes(df, model):
     regime_stats = calculate_regime_characteristics(df_filtered, model, features)
     
     df_filtered['regime'] = labels
-    df_filtered['session'] = ind_df['refined_session']
+    df_filtered['session'] = session_info['refined_session']
     
     results = []
     
