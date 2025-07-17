@@ -60,7 +60,9 @@ def add_session_labels(df):
     
     # One-hot encode for GMM features
     from sklearn.preprocessing import OneHotEncoder
-    encoder = OneHotEncoder(sparse_output=False)
+    full_cats = ['Other', 'Sydney', 'Tokyo', 'London', 'NY']
+    refined_cats = ['Other', 'London_Open', 'NY_Open', 'NY_Midday', 'NY_Afternoon', 'Power_Hour']
+    encoder = OneHotEncoder(sparse_output=False, categories=[full_cats, refined_cats])
     session_enc = encoder.fit_transform(df[['full_session', 'refined_session']])
     session_df = pd.DataFrame(session_enc, index=df.index, columns=encoder.get_feature_names_out())
     df = pd.concat([df, session_df], axis=1)
