@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, OB_PATH, DATA_PATH  # Add OB_PATH = r"your/sample.csv" in settings
 from core.regime_classifier import fit_gmm, add_session_labels  # For labels (assume from Phase 1B model load if needed)
-from core.indicators import select_and_compute_indicators
+from core.indicators import select_and_compute_indicators_live
 from core.data_loader import load_csv_data
 from rich.table import Table
 import os
@@ -33,7 +33,7 @@ def load_ob_csv(ob_path):
 
 def merge_regimes(ob_df, df, model):
     """Merge regimes to OB via entry_time."""
-    ind_df = select_and_compute_indicators(df)
+    ind_df = select_and_compute_indicators_live(df)
     ind_df = add_session_labels(ind_df)
     features = ind_df.select_dtypes(include=[np.number]).dropna()
     
@@ -129,7 +129,7 @@ def main():
         log_message("No OHLC data loaded—check paths/columns", 'error')
         return
     ob_df = load_ob_csv(OB_PATH)  # OB trades
-    ind_df = select_and_compute_indicators(df)
+    ind_df = select_and_compute_indicators_live(df)
     features = ind_df.select_dtypes(include=[np.number]).dropna()
     if len(features) < 5:
         log_message("Insufficient features for GMM", 'error')
