@@ -241,7 +241,7 @@ def name_clusters(model, features):
 
 if __name__ == "__main__":
     df = load_csv_data(DATA_PATH)
-    ind_df = select_and_compute_indicators(df)
+    ind_df, _ = select_and_compute_indicators(df)
     df = add_session_labels(df)
     features = ind_df.dropna()
     if len(features) < 5:
