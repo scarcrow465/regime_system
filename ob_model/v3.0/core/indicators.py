@@ -42,8 +42,8 @@ def calculate_atr_at_point(high, low, close, length, end_idx):
             tr = high.iloc[i] - low.iloc[i]
         else:
             high_low = high.iloc[i] - low.iloc[i]
-            high_close = abs(high.iloc[i] - close[i-1])
-            low_close = abs(low.iloc[i] - close[i-1])
+            high_close = abs(high.iloc[i] - close.iloc[i-1])
+            low_close = abs(low.iloc[i] - close.iloc[i-1])
             tr = max(high_low, high_close, low_close)
         tr_values.append(tr)
     
@@ -83,8 +83,8 @@ def calculate_adx_at_point(high, low, close, length, end_idx):
         if i == 0:
             continue
             
-        high_diff = high.iloc[i] - high[i-1]
-        low_diff = low[i-1] - low.iloc[i]
+        high_diff = high.iloc[i] - high.iloc[i-1]
+        low_diff = low.iloc[i-1] - low.iloc[i]
         
         plus_dm_val = high_diff if high_diff > low_diff and high_diff > 0 else 0
         minus_dm_val = low_diff if low_diff > high_diff and low_diff > 0 else 0
@@ -94,8 +94,8 @@ def calculate_adx_at_point(high, low, close, length, end_idx):
         
         # TR calculation
         high_low = high.iloc[i] - low.iloc[i]
-        high_close = abs(high.iloc[i] - close[i-1])
-        low_close = abs(low.iloc[i] - close[i-1])
+        high_close = abs(high.iloc[i] - close.iloc[i-1])
+        low_close = abs(low.iloc[i] - close.iloc[i-1])
         tr = max(high_low, high_close, low_close)
         tr_values.append(tr)
     
@@ -158,14 +158,14 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
         
         # Bollinger Bands
         if i >= 20:
-            close_slice = df['close'][i-19:i+1]
+            close_slice = df['close'].iloc[i-19:i+1]
             sma = close_slice.mean()
             std = close_slice.std()
             indicators.loc[df.index.iloc[i], 'BB_width'] = (4 * std) / sma if sma != 0 else 0
             
         # Historical volatility
         if i >= 20:
-            returns = df['close'][i-19:i+1].pct_change().dropna()
+            returns = df['close'].iloc[i-19:i+1].pct_change().dropna()
             indicators.loc[df.index.iloc[i], 'Hist_Vol'] = returns.std() * np.sqrt(252)
         
         # Keltner width
@@ -180,8 +180,8 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
         
         # Stochastic
         if i >= 14:
-            high_14 = df['high'][i-13:i+1].max()
-            low_14 = df['low'][i-13:i+1].min()
+            high_14 = df['high'].iloc[i-13:i+1].max()
+            low_14 = df['low'].iloc[i-13:i+1].min()
             if high_14 != low_14:
                 indicators.loc[df.index.iloc[i], 'Stoch'] = 100 * (df['close'].iloc[i] - low_14) / (high_14 - low_14)
             else:
@@ -189,7 +189,7 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
         
         # Momentum indicators
         if i >= 12:
-            indicators.loc[df.index.iloc[i], 'ROC_12'] = 100 * (df['close'].iloc[i] / df['close'][i-12] - 1)
+            indicators.loc[df.index.iloc[i], 'ROC_12'] = 100 * (df['close'].iloc[i] / df['close'].iloc[i-12] - 1)
         
         # PPO
         if i >= 26:
@@ -199,7 +199,7 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
         
         # CCI
         if i >= 20:
-            typical_price = (df['high'][i-19:i+1] + df['low'][i-19:i+1] + df['close'][i-19:i+1]) / 3
+            typical_price = (df['high'].iloc[i-19:i+1] + df['low'].iloc[i-19:i+1] + df['close'].iloc[i-19:i+1]) / 3
             sma_tp = typical_price.mean()
             mad = (typical_price - sma_tp).abs().mean()
             indicators.loc[df.index.iloc[i], 'CCI_20'] = (typical_price.iloc[-1] - sma_tp) / (0.015 * mad) if mad != 0 else 0
@@ -208,29 +208,29 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
         if i > 0:
             # OBV
             if i == calc_start:
-                indicators.loc[df.index.iloc[i], 'OBV'] = df['volume'].iloc[i] if df['close'].iloc[i] > df['close'][i-1] else -df['volume'].iloc[i]
+                indicators.loc[df.index.iloc[i], 'OBV'] = df['volume'].iloc[i] if df['close'].iloc[i] > df['close'].iloc[i-1] else -df['volume'].iloc[i]
             else:
-                prev_obv = indicators.loc[df.index[i-1], 'OBV']
-                if df['close'].iloc[i] > df['close'][i-1]:
+                prev_obv = indicators.loc[df.index.iloc[i-1], 'OBV']
+                if df['close'].iloc[i] > df['close'].iloc[i-1]:
                     indicators.loc[df.index.iloc[i], 'OBV'] = prev_obv + df['volume'].iloc[i]
-                elif df['close'].iloc[i] < df['close'][i-1]:
+                elif df['close'].iloc[i] < df['close'].iloc[i-1]:
                     indicators.loc[df.index.iloc[i], 'OBV'] = prev_obv - df['volume'].iloc[i]
                 else:
                     indicators.loc[df.index.iloc[i], 'OBV'] = prev_obv
         
         # VWAP
         if i >= 14:
-            typical_price = (df['high'][i-13:i+1] + df['low'][i-13:i+1] + df['close'][i-13:i+1]) / 3
-            volume_slice = df['volume'][i-13:i+1]
+            typical_price = (df['high'].iloc[i-13:i+1] + df['low'].iloc[i-13:i+1] + df['close'].iloc[i-13:i+1]) / 3
+            volume_slice = df['volume'].iloc[i-13:i+1]
             indicators.loc[df.index.iloc[i], 'VWAP_14'] = (typical_price * volume_slice).sum() / volume_slice.sum()
         
         # CMF
         if i >= 20:
-            mf_multiplier = ((df['close'][i-19:i+1] - df['low'][i-19:i+1]) - 
-                            (df['high'][i-19:i+1] - df['close'][i-19:i+1])) / \
-                           (df['high'][i-19:i+1] - df['low'][i-19:i+1])
-            mf_volume = mf_multiplier * df['volume'][i-19:i+1]
-            indicators.loc[df.index.iloc[i], 'CMF_20'] = mf_volume.sum() / df['volume'][i-19:i+1].sum()
+            mf_multiplier = ((df['close'].iloc[i-19:i+1] - df['low'].iloc[i-19:i+1]) - 
+                            (df['high'].iloc[i-19:i+1] - df['close'].iloc[i-19:i+1])) / \
+                           (df['high'].iloc[i-19:i+1] - df['low'].iloc[i-19:i+1])
+            mf_volume = mf_multiplier * df['volume'].iloc[i-19:i+1]
+            indicators.loc[df.index.iloc[i], 'CMF_20'] = mf_volume.sum() / df['volume'].iloc[i-19:i+1].sum()
     
     # Add session labels
     from core.regime_classifier import add_session_labels
