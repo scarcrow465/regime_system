@@ -6,225 +6,285 @@
 
 import sys
 import os
-BASE_DIR = r"C:\Users\rs\GitProjects\regime_system\ob_model\v3.0"  # Hardcode if not importing settings yet
+BASE_DIR = r"C:\Users\rs\GitProjects\regime_system\ob_model\v3.0"
 sys.path.append(BASE_DIR)
 import pandas as pd
-import pandas_ta as ta  # All indicators from pandas_ta
 import numpy as np
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, DATA_PATH
 from core.data_loader import load_csv_data
-from sklearn.preprocessing import OneHotEncoder  # For Session
+from sklearn.preprocessing import OneHotEncoder
 
-def select_and_compute_indicators(df, regime_classes=['direction', 'volatility', 'trend_strength', 'momentum', 'session', 'structure']):
-    """Compute 2-3 low-corr indicators per class."""
-    if len(df) < 50:
-        log_message("Insufficient data—skipping", 'error')
-        return pd.DataFrame(index=df.index)
+def calculate_ema_at_point(close_series, length, end_idx):
+    """Calculate EMA using only data up to end_idx"""
+    if end_idx < length:
+        return np.nan
     
-    indicators = {}
+    # Initialize with SMA
+    sma = close_series[end_idx-length+1:end_idx+1].mean()
+    multiplier = 2 / (length + 1)
     
-    if DEBUG_LEVEL in ['debug', 'verbose']:
-        log_message("Computing indicators for all classes", 'info')
+    # Calculate EMA
+    ema = sma
+    for i in range(end_idx-length+1, end_idx+1):
+        ema = (close_series[i] - ema) * multiplier + ema
     
-    # Direction: EMA_50, ADX_14, MACD
-    if 'direction' in regime_classes:
-        ema_20 = ta.ema(df['close'], length=20)
-        ema_50 = ta.ema(df['close'], length=50)
-        ema_200 = ta.ema(df['close'], length=200)
-        adx = ta.adx(df['high'], df['low'], df['close'], length=14)['ADX_14']
-        macd = ta.macd(df['close'])['MACD_12_26_9']
-        indicators['EMA_20'] = ema_20
-        indicators['EMA_50'] = ema_50
-        indicators['EMA_200'] = ema_200
-        indicators['ADX_14'] = adx
-        indicators['MACD'] = macd
-        if DEBUG_LEVEL == 'verbose':
-            log_message("Direction indicators computed", 'info')
-    
-    # Volatility: ATR_14, BB_width, Hist Vol (stdev close)
-    if 'volatility' in regime_classes:
-        atr_7 = ta.atr(df['high'], df['low'], df['close'], length=7)
-        atr_14 = ta.atr(df['high'], df['low'], df['close'], length=14)
-        atr_30 = ta.atr(df['high'], df['low'], df['close'], length=30)
-        bb = ta.bbands(df['close'], length=20)
-        bb_width = (bb['BBU_20_2.0'] - bb['BBL_20_2.0']) / bb['BBM_20_2.0']
-        hist_vol = df['close'].pct_change().rolling(20).std() * np.sqrt(252)  # Annualized
-        kc = ta.kc(df['high'], df['low'], df['close'], length=20)
-        kc_width = (kc['KCUe_20_2'] - kc['KCLe_20_2']) / kc['KCBe_20_2']  # Now we know the column names
+    return ema
 
-        indicators['ATR_7'] = atr_7
-        indicators['ATR_14'] = atr_14
-        indicators['ATR_30'] = atr_30
-        indicators['BB_width'] = bb_width
-        indicators['Hist_Vol'] = hist_vol
-        indicators['KC_width'] = kc_width
-        if DEBUG_LEVEL == 'verbose':
-            log_message("Volatility indicators computed", 'info')
+def calculate_atr_at_point(high, low, close, length, end_idx):
+    """Calculate ATR using only data up to end_idx"""
+    if end_idx < length:
+        return np.nan
     
-    # Trend Strength: RSI_14, Stochastic, DMI (+DI from ADX)
-    if 'trend_strength' in regime_classes:
-        rsi_7 = ta.rsi(df['close'], length=7)
-        rsi_14 = ta.rsi(df['close'], length=14)
-        stoch = ta.stoch(df['high'], df['low'], df['close'], length=14)['STOCHk_14_3_3']
-        adx_full = ta.adx(df['high'], df['low'], df['close'], length=14)
-        dmi_plus = adx_full['DMP_14']
-        dmi_minus = adx_full['DMN_14']
-        indicators['RSI_7'] = rsi_7
-        indicators['RSI_14'] = rsi_14
-        indicators['Stoch'] = stoch
-        indicators['DMI_Plus'] = dmi_plus
-        indicators['DMI_Minus'] = dmi_minus
-        if DEBUG_LEVEL == 'verbose':
-            log_message("Trend Strength indicators computed", 'info')
+    tr_values = []
+    for i in range(end_idx-length+1, end_idx+1):
+        if i == 0:
+            tr = high[i] - low[i]
+        else:
+            high_low = high[i] - low[i]
+            high_close = abs(high[i] - close[i-1])
+            low_close = abs(low[i] - close[i-1])
+            tr = max(high_low, high_close, low_close)
+        tr_values.append(tr)
     
-    # Momentum: ROC_12, PPO, CCI
-    if 'momentum' in regime_classes:
-        roc = ta.roc(df['close'], length=12)
-        ppo = ta.ppo(df['close'])['PPO_12_26_9']
-        ppo_hist = ta.ppo(df['close'])['PPOh_12_26_9']  # NEW: PPO histogram
-        ppo_signal = ta.ppo(df['close'])['PPOs_12_26_9']  # NEW: PPO signal line
-        cci = ta.cci(df['high'], df['low'], df['close'], length=20)
-        indicators['ROC_12'] = roc
-        indicators['PPO'] = ppo
-        indicators['PPO_Hist'] = ppo_hist  # NEW
-        indicators['PPO_Signal'] = ppo_signal  # NEW
-        indicators['CCI_20'] = cci
-        if DEBUG_LEVEL == 'verbose':
-            log_message("Momentum indicators computed", 'info')
+    return np.mean(tr_values)
+
+def calculate_rsi_at_point(close_series, length, end_idx):
+    """Calculate RSI using only data up to end_idx"""
+    if end_idx < length + 1:
+        return np.nan
     
-    # Session: One-hot encode as categorical features
-    if 'session' in regime_classes:
-        from core.regime_classifier import add_session_labels  # Reuse
-        df = add_session_labels(df)
-        encoder = OneHotEncoder(sparse_output=False)
-        session_enc = encoder.fit_transform(df[['full_session', 'refined_session']])
-        session_df = pd.DataFrame(session_enc, index=df.index, columns=encoder.get_feature_names_out())
+    deltas = close_series[end_idx-length:end_idx+1].diff()
+    gains = deltas.where(deltas > 0, 0)
+    losses = -deltas.where(deltas < 0, 0)
+    
+    avg_gain = gains[1:].mean()
+    avg_loss = losses[1:].mean()
+    
+    if avg_loss == 0:
+        return 100
+    
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    
+    return rsi
+
+def calculate_adx_at_point(high, low, close, length, end_idx):
+    """Calculate ADX using only data up to end_idx"""
+    if end_idx < length * 2:  # Need more data for ADX
+        return np.nan, np.nan, np.nan
+    
+    # Calculate +DM and -DM
+    plus_dm = []
+    minus_dm = []
+    tr_values = []
+    
+    for i in range(end_idx-length*2+1, end_idx+1):
+        if i == 0:
+            continue
+            
+        high_diff = high[i] - high[i-1]
+        low_diff = low[i-1] - low[i]
+        
+        plus_dm_val = high_diff if high_diff > low_diff and high_diff > 0 else 0
+        minus_dm_val = low_diff if low_diff > high_diff and low_diff > 0 else 0
+        
+        plus_dm.append(plus_dm_val)
+        minus_dm.append(minus_dm_val)
+        
+        # TR calculation
+        high_low = high[i] - low[i]
+        high_close = abs(high[i] - close[i-1])
+        low_close = abs(low[i] - close[i-1])
+        tr = max(high_low, high_close, low_close)
+        tr_values.append(tr)
+    
+    # Calculate smoothed values
+    atr = np.mean(tr_values[-length:])
+    plus_di = 100 * np.mean(plus_dm[-length:]) / atr if atr != 0 else 0
+    minus_di = 100 * np.mean(minus_dm[-length:]) / atr if atr != 0 else 0
+    
+    # Calculate ADX
+    dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di) != 0 else 0
+    
+    return dx, plus_di, minus_di
+
+def select_and_compute_indicators_live(df, lookback_bars=None):
+    """
+    Compute indicators WITHOUT look-ahead bias.
+    This version can be used for live trading.
+    
+    Args:
+        df: DataFrame with OHLCV data
+        lookback_bars: If specified, only compute indicators for the last N bars (faster)
+    """
+    if len(df) < 200:
+        log_message("Insufficient data for indicators", 'error')
+        return pd.DataFrame(index=df.index), pd.DataFrame(index=df.index)
+    
+    # Initialize result dataframe
+    indicators = pd.DataFrame(index=df.index)
+    
+    # Determine which bars to calculate
+    if lookback_bars and len(df) > lookback_bars:
+        calc_start = len(df) - lookback_bars
+    else:
+        calc_start = 200  # Need at least 200 bars for EMA200
+    
+    log_message(f"Calculating indicators for bars {calc_start} to {len(df)}", 'info')
+    
+    # Calculate indicators bar by bar
+    for i in progress_bar(range(calc_start, len(df)), desc="Computing indicators"):
+        # Direction indicators
+        indicators.loc[df.index[i], 'EMA_20'] = calculate_ema_at_point(df['close'], 20, i)
+        indicators.loc[df.index[i], 'EMA_50'] = calculate_ema_at_point(df['close'], 50, i)
+        indicators.loc[df.index[i], 'EMA_200'] = calculate_ema_at_point(df['close'], 200, i)
+        
+        adx, plus_di, minus_di = calculate_adx_at_point(df['high'], df['low'], df['close'], 14, i)
+        indicators.loc[df.index[i], 'ADX_14'] = adx
+        indicators.loc[df.index[i], 'DMI_Plus'] = plus_di
+        indicators.loc[df.index[i], 'DMI_Minus'] = minus_di
+        
+        # MACD
+        if i >= 26:
+            ema12 = calculate_ema_at_point(df['close'], 12, i)
+            ema26 = calculate_ema_at_point(df['close'], 26, i)
+            indicators.loc[df.index[i], 'MACD'] = ema12 - ema26
+        
+        # Volatility indicators
+        indicators.loc[df.index[i], 'ATR_7'] = calculate_atr_at_point(df['high'], df['low'], df['close'], 7, i)
+        indicators.loc[df.index[i], 'ATR_14'] = calculate_atr_at_point(df['high'], df['low'], df['close'], 14, i)
+        indicators.loc[df.index[i], 'ATR_30'] = calculate_atr_at_point(df['high'], df['low'], df['close'], 30, i)
+        
+        # Bollinger Bands
+        if i >= 20:
+            close_slice = df['close'][i-19:i+1]
+            sma = close_slice.mean()
+            std = close_slice.std()
+            indicators.loc[df.index[i], 'BB_width'] = (4 * std) / sma if sma != 0 else 0
+            
+        # Historical volatility
+        if i >= 20:
+            returns = df['close'][i-19:i+1].pct_change().dropna()
+            indicators.loc[df.index[i], 'Hist_Vol'] = returns.std() * np.sqrt(252)
+        
+        # Keltner width
+        if i >= 20:
+            atr20 = calculate_atr_at_point(df['high'], df['low'], df['close'], 20, i)
+            ema20 = calculate_ema_at_point(df['close'], 20, i)
+            indicators.loc[df.index[i], 'KC_width'] = (4 * atr20) / ema20 if ema20 != 0 else 0
+        
+        # Trend strength indicators
+        indicators.loc[df.index[i], 'RSI_7'] = calculate_rsi_at_point(df['close'], 7, i)
+        indicators.loc[df.index[i], 'RSI_14'] = calculate_rsi_at_point(df['close'], 14, i)
+        
+        # Stochastic
+        if i >= 14:
+            high_14 = df['high'][i-13:i+1].max()
+            low_14 = df['low'][i-13:i+1].min()
+            if high_14 != low_14:
+                indicators.loc[df.index[i], 'Stoch'] = 100 * (df['close'][i] - low_14) / (high_14 - low_14)
+            else:
+                indicators.loc[df.index[i], 'Stoch'] = 50
+        
+        # Momentum indicators
+        if i >= 12:
+            indicators.loc[df.index[i], 'ROC_12'] = 100 * (df['close'][i] / df['close'][i-12] - 1)
+        
+        # PPO
+        if i >= 26:
+            ema12 = calculate_ema_at_point(df['close'], 12, i)
+            ema26 = calculate_ema_at_point(df['close'], 26, i)
+            indicators.loc[df.index[i], 'PPO'] = 100 * (ema12 - ema26) / ema26 if ema26 != 0 else 0
+        
+        # CCI
+        if i >= 20:
+            typical_price = (df['high'][i-19:i+1] + df['low'][i-19:i+1] + df['close'][i-19:i+1]) / 3
+            sma_tp = typical_price.mean()
+            mad = (typical_price - sma_tp).abs().mean()
+            indicators.loc[df.index[i], 'CCI_20'] = (typical_price.iloc[-1] - sma_tp) / (0.015 * mad) if mad != 0 else 0
+        
+        # Structure indicators
+        if i > 0:
+            # OBV
+            if i == calc_start:
+                indicators.loc[df.index[i], 'OBV'] = df['volume'][i] if df['close'][i] > df['close'][i-1] else -df['volume'][i]
+            else:
+                prev_obv = indicators.loc[df.index[i-1], 'OBV']
+                if df['close'][i] > df['close'][i-1]:
+                    indicators.loc[df.index[i], 'OBV'] = prev_obv + df['volume'][i]
+                elif df['close'][i] < df['close'][i-1]:
+                    indicators.loc[df.index[i], 'OBV'] = prev_obv - df['volume'][i]
+                else:
+                    indicators.loc[df.index[i], 'OBV'] = prev_obv
+        
+        # VWAP
+        if i >= 14:
+            typical_price = (df['high'][i-13:i+1] + df['low'][i-13:i+1] + df['close'][i-13:i+1]) / 3
+            volume_slice = df['volume'][i-13:i+1]
+            indicators.loc[df.index[i], 'VWAP_14'] = (typical_price * volume_slice).sum() / volume_slice.sum()
+        
+        # CMF
+        if i >= 20:
+            mf_multiplier = ((df['close'][i-19:i+1] - df['low'][i-19:i+1]) - 
+                            (df['high'][i-19:i+1] - df['close'][i-19:i+1])) / \
+                           (df['high'][i-19:i+1] - df['low'][i-19:i+1])
+            mf_volume = mf_multiplier * df['volume'][i-19:i+1]
+            indicators.loc[df.index[i], 'CMF_20'] = mf_volume.sum() / df['volume'][i-19:i+1].sum()
+    
+    # Add session labels
+    from core.regime_classifier import add_session_labels
+    df = add_session_labels(df)
+    indicators['full_session'] = df['full_session']
+    indicators['refined_session'] = df['refined_session']
+    
+    # One-hot encode sessions
+    encoder = OneHotEncoder(sparse_output=False)
+    session_data = df[['full_session', 'refined_session']].iloc[calc_start:]
+    if len(session_data) > 0:
+        session_enc = encoder.fit_transform(session_data)
+        session_df = pd.DataFrame(session_enc, 
+                                 index=df.index[calc_start:], 
+                                 columns=encoder.get_feature_names_out())
         for col in session_df.columns:
-            indicators[col] = session_df[col]
-        indicators['full_session'] = df['full_session']  # ADD THIS
-        indicators['refined_session'] = df['refined_session']  # ADD THIS
-        if DEBUG_LEVEL == 'verbose':
-            log_message("Session features encoded", 'info')
+            indicators.loc[session_df.index, col] = session_df[col]
     
-    # Structure: OBV, VWAP, CMF
-    if 'structure' in regime_classes:
-        obv = ta.obv(df['close'], df['volume'])
-        # FIX VWAP - handle timezone issue
-        df_temp = df.copy()
-        if hasattr(df_temp.index, 'tz'):
-            df_temp.index = df_temp.index.tz_localize(None)  # ADD THIS
-        vwap = ta.vwap(df_temp['high'], df_temp['low'], df_temp['close'], df_temp['volume'], length=14)  # CHANGED
-        cmf = ta.cmf(df['high'], df['low'], df['close'], df['volume'], length=20)
-        indicators['OBV'] = obv
-        indicators['VWAP_14'] = vwap
-        indicators['CMF_20'] = cmf
+    # Fill NaN values
+    indicators = indicators.fillna(0)
     
-    ind_df = pd.DataFrame(indicators, index=df.index).fillna(0)  # Fill NaNs
-    raw_ind_df = ind_df.copy()
-
-    # NEW: #2 Constraint - Check rows per class (simple log if <50)
-    class_groups = {
-        'direction': [col for col in ind_df if col.startswith('EMA') or col in ['ADX_14', 'MACD']],
-        'volatility': [col for col in ind_df if col.startswith('ATR') or col in ['BB_width', 'Hist_Vol', 'KC_width']],
-        'trend_strength': [col for col in ind_df if col.startswith('RSI') or col in ['Stoch', 'DMI_Plus', 'DMI_Minus']],
-        'momentum': [col for col in ind_df if col in ['ROC_12', 'PPO', 'PPO_Hist', 'PPO_Signal', 'CCI_20']],
-        'session': [col for col in ind_df.columns if 'session' in col.lower() and col not in ['full_session', 'refined_session']],  # CHANGED: exclude strings
-        'structure': [col for col in ind_df if col in ['OBV', 'VWAP_14', 'CMF_20']]
-    }
-    for cls, cols in class_groups.items():
-        if cols:
-            class_df = ind_df[cols].dropna(how='all')
-            if len(class_df) < 50:
-                log_message(f"Warning: {cls} class has only {len(class_df)} rows (<50)—may need more data", 'warning')
+    # Create raw copy before normalization
+    raw_indicators = indicators.copy()
     
-    # Normalize - use robust scaling to handle outliers
-    for col in progress_bar(ind_df.columns, desc="Normalizing"):
+    # Normalize using only historical data
+    for col in indicators.columns:
         if 'session' in col.lower():
             continue
-        
-        # Use robust scaling (median and IQR) instead of mean/std
-        median = ind_df[col].rolling(480, min_periods=50).median()
-        q75 = ind_df[col].rolling(480, min_periods=50).quantile(0.75)
-        q25 = ind_df[col].rolling(480, min_periods=50).quantile(0.25)
-        iqr = q75 - q25
-        
-        # Clip extreme values before normalizing
-        ind_df[col] = ind_df[col].clip(lower=q25 - 3*iqr, upper=q75 + 3*iqr)
-        ind_df[col] = (ind_df[col] - median) / iqr.where(iqr != 0, 1)
+            
+        for i in range(calc_start, len(df)):
+            if i < 480:  # Not enough history
+                continue
+                
+            # Use only past data for normalization
+            hist_data = indicators[col].iloc[max(0, i-480):i]
+            if len(hist_data) > 50:
+                median = hist_data.median()
+                q75 = hist_data.quantile(0.75)
+                q25 = hist_data.quantile(0.25)
+                iqr = q75 - q25
+                
+                if iqr != 0:
+                    # Normalize current value using historical statistics
+                    indicators.loc[df.index[i], col] = (indicators.loc[df.index[i], col] - median) / iqr
     
-    ind_df = ind_df.ffill().fillna(0)
-    
-    # Corr check - LESS AGGRESSIVE
-    corr = ind_df.select_dtypes(include=[np.number]).corr()  # CHANGED: exclude non-numeric
-    import matplotlib.pyplot as plt; plt.matshow(corr); plt.colorbar(); plt.savefig(os.path.join(BASE_DIR, 'exports/plots/corr_matrix.png'))
+    return indicators, raw_indicators
 
-    # Filter out session columns from correlation check
-    non_session_cols = [col for col in ind_df.columns if 'session' not in col.lower()]
-    corr_subset = ind_df[non_session_cols].corr()
-
-    high_corr = (corr_subset.abs() > 0.9) & (corr_subset.abs() < 1.0)  # Unchanged
-    if high_corr.any().any():
-        log_message("High corr detected—evaluating pairs", 'info')
-        to_drop = set()
-        
-        # Group indicators by type...
-        groups = {  # Unchanged, add your classes
-            'direction': ['EMA_20', 'EMA_50', 'EMA_200', 'ADX_14', 'MACD'],
-            'volatility': ['ATR_7', 'ATR_14', 'ATR_30', 'BB_width', 'Hist_Vol', 'KC_width'],
-            'trend_strength': ['RSI_7', 'RSI_14', 'Stoch', 'DMI_Plus'],
-            'momentum': ['ROC_12', 'PPO', 'CCI_20'],
-            'structure': ['OBV', 'VWAP_14', 'CMF_20']
-        }
-        
-        for i in range(len(high_corr.columns)):
-            for j in range(i+1, len(high_corr.columns)):
-                if high_corr.iloc[i, j]:
-                    col1, col2 = high_corr.columns[i], high_corr.columns[j]
-                    
-                    # Find groups
-                    col1_group = next((g for g, inds in groups.items() if col1 in inds), None)
-                    col2_group = next((g for g, inds in groups.items() if col2 in inds), None)
-                    
-                    if col1_group and col2_group and col1_group == col2_group:
-                        corr_value = corr_subset.iloc[i, j]
-                        if col1_group == 'volatility' and corr_value < 0.95:
-                            continue  # Skip drop for vol if <0.95
-                        
-                        # Priority keep
-                        priority_indicators = ['ATR_14', 'RSI_14', 'EMA_50', 'MACD', 'ADX_14']
-                        if col1 in priority_indicators and col2 not in priority_indicators:
-                            to_drop.add(col2)
-                        elif col2 in priority_indicators and col1 not in priority_indicators:
-                            to_drop.add(col1)
-                        # NaN check
-                        elif ind_df[col1].isna().sum() > ind_df[col2].isna().sum():
-                            to_drop.add(col1)
-                        else:
-                            to_drop.add(col2)
-                    elif DEBUG_LEVEL == 'verbose':
-                        log_message(f"Skipping drop for {col1} and {col2} - different groups", 'info')
-
-        # Add this after the correlation check:
-        # Quality check - ensure we have indicators from each category
-        required_types = ['EMA', 'ATR', 'RSI', 'ADX']
-        available = [col for col in ind_df.columns]
-        for req_type in required_types:
-            if not any(req_type in col for col in available):
-                log_message(f"Warning: No {req_type} indicator retained after correlation check", 'warning')
-
-        log_message(f"Final indicators: {sorted([c for c in ind_df.columns if 'session' not in c.lower()])}", 'info')
-        
-        if to_drop:
-            log_message(f"Dropping high-corr indicators from same groups: {to_drop}", 'info')
-            ind_df = ind_df.drop(columns=to_drop)
-        
-        log_message(f"Kept {len(ind_df.columns)} indicators after correlation check", 'info')
-    
-    return ind_df, raw_ind_df
+# For backward compatibility
+def select_and_compute_indicators(df, regime_classes=['direction', 'volatility', 'trend_strength', 'momentum', 'session', 'structure']):
+    """Wrapper for backward compatibility"""
+    return select_and_compute_indicators_live(df)
 
 if __name__ == "__main__":
     df = load_csv_data(DATA_PATH)
-    ind_df = select_and_compute_indicators(df)
-    log_message("All indicators computed", 'info')
+    ind_df, raw_ind_df = select_and_compute_indicators(df)
+    log_message("All indicators computed without look-ahead bias", 'info')
 
