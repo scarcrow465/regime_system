@@ -21,7 +21,7 @@ def calculate_ema_at_point(close_series, length, end_idx):
         return np.nan
     
     # Initialize with SMA
-    sma = close_series[end_idx-length+1:end_idx+1].mean()
+    sma = close_series.iloc[end_idx-length+1:end_idx+1].mean()
     multiplier = 2 / (length + 1)
     
     # Calculate EMA
@@ -39,11 +39,11 @@ def calculate_atr_at_point(high, low, close, length, end_idx):
     tr_values = []
     for i in range(end_idx-length+1, end_idx+1):
         if i == 0:
-            tr = high[i] - low[i]
+            tr = high.iloc[i] - low.iloc[i]
         else:
-            high_low = high[i] - low[i]
-            high_close = abs(high[i] - close[i-1])
-            low_close = abs(low[i] - close[i-1])
+            high_low = high.iloc[i] - low.iloc[i]
+            high_close = abs(high.iloc[i] - close.iloc[i-1])
+            low_close = abs(low.iloc[i] - close.iloc[i-1])
             tr = max(high_low, high_close, low_close)
         tr_values.append(tr)
     
@@ -54,7 +54,7 @@ def calculate_rsi_at_point(close_series, length, end_idx):
     if end_idx < length + 1:
         return np.nan
     
-    deltas = close_series[end_idx-length:end_idx+1].diff()
+    deltas = close_series.iloc[end_idx-length:end_idx+1].diff()
     gains = deltas.where(deltas > 0, 0)
     losses = -deltas.where(deltas < 0, 0)
     
@@ -83,8 +83,8 @@ def calculate_adx_at_point(high, low, close, length, end_idx):
         if i == 0:
             continue
             
-        high_diff = high[i] - high[i-1]
-        low_diff = low[i-1] - low[i]
+        high_diff = high.iloc[i] - high.iloc[i-1]
+        low_diff = low.iloc[i-1] - low.iloc[i]
         
         plus_dm_val = high_diff if high_diff > low_diff and high_diff > 0 else 0
         minus_dm_val = low_diff if low_diff > high_diff and low_diff > 0 else 0
@@ -93,9 +93,9 @@ def calculate_adx_at_point(high, low, close, length, end_idx):
         minus_dm.append(minus_dm_val)
         
         # TR calculation
-        high_low = high[i] - low[i]
-        high_close = abs(high[i] - close[i-1])
-        low_close = abs(low[i] - close[i-1])
+        high_low = high.iloc[i] - low.iloc[i]
+        high_close = abs(high.iloc[i] - close.iloc[i-1])
+        low_close = abs(low.iloc[i] - close.iloc[i-1])
         tr = max(high_low, high_close, low_close)
         tr_values.append(tr)
     
@@ -158,14 +158,14 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
         
         # Bollinger Bands
         if i >= 20:
-            close_slice = df['close'][i-19:i+1]
+            close_slice = df['close'].iloc[i-19:i+1]
             sma = close_slice.mean()
             std = close_slice.std()
             indicators.loc[df.index[i], 'BB_width'] = (4 * std) / sma if sma != 0 else 0
             
         # Historical volatility
         if i >= 20:
-            returns = df['close'][i-19:i+1].pct_change().dropna()
+            returns = df['close'].iloc[i-19:i+1].pct_change().dropna()
             indicators.loc[df.index[i], 'Hist_Vol'] = returns.std() * np.sqrt(252)
         
         # Keltner width
