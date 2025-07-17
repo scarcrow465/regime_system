@@ -14,7 +14,7 @@ import pandas_ta as ta
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH
 from core.regime_classifier import fit_gmm, add_session_labels
-from core.indicators import select_and_compute_indicators
+from core.indicators import select_and_compute_indicators_live
 from core.data_loader import load_csv_data
 from rich.table import Table
 from datetime import datetime
@@ -182,7 +182,7 @@ def run_strategy_probes(df, model):
     df_filtered = df[(df.index.hour >= 4) & (df.index.hour < 16)].copy()
     
     # CRITICAL FIX: Compute indicators on FULL data first to match training
-    ind_df_full, raw_ind_df_full = select_and_compute_indicators(df)  # Full data
+    ind_df_full, raw_ind_df_full = select_and_compute_indicators_live(df)  # Full data
     features_full = ind_df_full.select_dtypes(include=[np.number]).dropna()
     
     # Now filter AFTER computing features
@@ -359,7 +359,7 @@ def main():
     df = load_csv_data(DATA_PATH)
     
     # Get features and fit model
-    ind_df, _ = select_and_compute_indicators(df)
+    ind_df, _ = select_and_compute_indicators_live(df)
     features = ind_df.select_dtypes(include=[np.number]).dropna()
     
     model, _ = fit_gmm(features)
