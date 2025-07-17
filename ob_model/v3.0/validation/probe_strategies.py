@@ -13,14 +13,13 @@ import numpy as np
 import pandas_ta as ta
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH
-from core.regime_classifier import fit_gmm, add_session_labels
+from core.regime_classifier import fit_gmm, add_session_labels, class_groups
 from core.indicators import select_and_compute_indicators
 from core.data_loader import load_csv_data
 from rich.table import Table
 from datetime import datetime
 from core.helpers import console
 from utils.metrics import compute_persistence
-from core.regime_classifier import fit_gmm
 
 def ma_crossover_strategy(df, entry_bar):
     """MA crossover for trend: Buy on fast > slow MA."""
@@ -134,7 +133,14 @@ def run_strategy_probes(df, model):
     features = ind_df.select_dtypes(include=[np.number]).dropna()
     
     from core.regime_classifier import smooth_regime_labels
-    raw_labels = pd.Series(model.predict(features), index=features.index) if not isinstance(model, dict) else final_labels  # Use final from multi-class
+    if isinstance(model, dict):
+        class_labels = pd.DataFrame(index=features.index)
+        for cls, cls_model in model.items():
+            class_feats = features[class_groups.get(cls, [])]  # Use class_groups from regime_classifier (import if needed)
+            class_labels[cls] = pd.Series(cls_model.predict(class_feats), index=features.index)
+        raw_labels = class_labels.mode(axis=1)[0].astype(int)
+    else:
+        raw_labels = pd.Series(model.predict(features), index=features.index)
     labels = smooth_regime_labels(raw_labels, min_persistence=3)
     
     regime_stats = calculate_regime_characteristics(df_filtered, model, features)
