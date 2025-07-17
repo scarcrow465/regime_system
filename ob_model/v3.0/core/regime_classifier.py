@@ -13,7 +13,7 @@ from sklearn.mixture import GaussianMixture
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import OneHotEncoder
 from utils.logger import log_message, progress_bar
-from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH
+from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH, TEST_SLICE
 from core.indicators import select_and_compute_indicators_live
 import joblib
 from datetime import datetime
@@ -281,6 +281,7 @@ def name_clusters(model, features):
 
 if __name__ == "__main__":
     df = load_csv_data(DATA_PATH)
+    if TEST_SLICE > 0: df = df.iloc[:TEST_SLICE]
     ind_df, _ = select_and_compute_indicators_live(df)
     df = add_session_labels(df)
     features = ind_df.dropna()
