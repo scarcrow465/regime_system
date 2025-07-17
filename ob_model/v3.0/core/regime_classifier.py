@@ -133,7 +133,9 @@ def fit_gmm(features, n_components_range=[2,5], walk_forward=True):
             if DEBUG_LEVEL != 'none':
                 log_message(f"{cls} OOS silhouette: {test_score}", 'info')
         
-        class_labels[cls] = pd.Series(best_model.predict(class_feats), index=class_feats.index)
+        # Generate labels using the stored model
+        if best_model is not None:
+            class_labels[cls] = pd.Series(best_model.predict(class_feats), index=class_feats.index)
     
     if class_labels.empty:
         log_message("No class labels generated", 'error')
