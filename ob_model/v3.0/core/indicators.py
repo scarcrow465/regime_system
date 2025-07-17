@@ -102,6 +102,8 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
         session_df = pd.DataFrame(session_enc, index=df.index, columns=encoder.get_feature_names_out())
         for col in session_df.columns:
             indicators[col] = session_df[col]
+        indicators['full_session'] = df['full_session']  # ADD THIS
+        indicators['refined_session'] = df['refined_session']  # ADD THIS
         if DEBUG_LEVEL == 'verbose':
             log_message("Session features encoded", 'info')
     
