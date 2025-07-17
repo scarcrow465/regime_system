@@ -5,7 +5,7 @@
 
 
 import pytest
-from core.indicators import select_and_compute_indicators
+from core.indicators import select_and_compute_indicators_live
 from core.regime_classifier import add_session_labels, fit_gmm
 from core.data_loader import load_csv_data
 from utils.logger import log_message
@@ -23,7 +23,7 @@ def real_df():
     return df
 
 def test_indicators(real_df):
-    ind_df = select_and_compute_indicators(real_df)
+    ind_df = select_and_compute_indicators_live(real_df)
     assert not ind_df.empty, "Indicators computation failed"
     assert 'EMA_50' in ind_df.columns, "Missing direction indicator"
     log_message("Indicators test passed with real data", 'info')
@@ -35,7 +35,7 @@ def test_sessions(real_df):
     log_message("Sessions test passed with real data", 'info')
 
 def test_gmm(real_df):
-    ind_df = select_and_compute_indicators(real_df)
+    ind_df = select_and_compute_indicators_live(real_df)
     features = ind_df.dropna()
     if len(features) < 50:
         raise ValueError("Insufficient data for GMM (need 50+ rows)")
