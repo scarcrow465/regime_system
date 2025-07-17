@@ -17,7 +17,7 @@ from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, OB_PATH, DATA_PATH
 from validation.ob_prober import probe_filtering, load_ob_csv  # Reuse from Phase 1C
 from utils.metrics import compute_persistence, compare_is_oos  # Reuse from Phase 1B
-from core.indicators import select_and_compute_indicators
+from core.indicators import select_and_compute_indicators_live
 from core.data_loader import load_csv_data
 from core.regime_classifier import add_session_labels, export_model
 from rich.table import Table
@@ -88,7 +88,7 @@ def optuna_objective(trial, df, features):
     # Create a modified merge function that accepts pre-computed labels
     def merge_with_labels(ob_df, df, labels_series, model):
         """Modified merge that uses pre-computed smoothed labels"""
-        ind_df = select_and_compute_indicators(df)
+        ind_df = select_and_compute_indicators_live(df)
         ind_df = add_session_labels(ind_df)
         
         # Ensure timezone compatibility
@@ -180,7 +180,7 @@ def main():
     log_message(f"Date range: {df.index.min()} to {df.index.max()}", 'info')
     log_message(f"Hours present: {sorted(df.index.hour.unique())}", 'info')
     
-    ind_df = select_and_compute_indicators(df)
+    ind_df, _ = select_and_compute_indicators_live(df)
     ind_df = add_session_labels(ind_df)
     features = ind_df.select_dtypes(include=[np.number]).dropna()
     changes = []
