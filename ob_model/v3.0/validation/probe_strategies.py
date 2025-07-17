@@ -23,28 +23,38 @@ from utils.metrics import compute_persistence
 
 def ma_crossover_strategy(df, entry_bar):
     """MA crossover for trend: Buy on fast > slow MA."""
-    if entry_bar < 50 or entry_bar + 5 >= len(df):
+    if entry_bar < 200 or entry_bar + 5 >= len(df):
         return 0
-    ma_fast = ta.sma(df['close'], length=50).iloc[entry_bar]
-    ma_slow = ta.sma(df['close'], length=200).iloc[entry_bar]
+    
+    # Calculate MAs using ONLY data up to entry_bar
+    ma_fast = df['close'].iloc[max(0, entry_bar-50):entry_bar].mean()
+    ma_slow = df['close'].iloc[max(0, entry_bar-200):entry_bar].mean()
+    
     if df['close'].iloc[entry_bar] > ma_fast > ma_slow:
         entry_price = df['close'].iloc[entry_bar]
         exit_bar = min(entry_bar + 5, len(df) - 1)
         exit_price = df['close'].iloc[exit_bar]
-        return exit_price - entry_price
+        point_value = 20
+        return (exit_price - entry_price) * point_value
     return 0
 
 def bb_fade_strategy(df, entry_bar):
     """BB fade for range/low vol: Buy lower band touch."""
     if entry_bar < 20 or entry_bar + 3 >= len(df):
         return 0
-    bb = ta.bbands(df['close'], length=20)
-    lower_bb = bb['BBL_20_2.0'].iloc[entry_bar]
+    
+    # Calculate BB using ONLY historical data
+    close_slice = df['close'].iloc[max(0, entry_bar-20):entry_bar]
+    sma = close_slice.mean()
+    std = close_slice.std()
+    lower_bb = sma - (2 * std)
+    
     if df['low'].iloc[entry_bar] <= lower_bb:
         entry_price = df['close'].iloc[entry_bar]
         exit_bar = min(entry_bar + 3, len(df) - 1)
         exit_price = df['close'].iloc[exit_bar]
-        return exit_price - entry_price
+        point_value = 20
+        return (exit_price - entry_price) * point_value
     return 0
 
 def calculate_regime_characteristics(df, model, features, raw_features):
@@ -95,12 +105,21 @@ def trend_following_strategy(df, entry_bar):
         exit_price = df['close'].iloc[exit_bar]
         
         # Check stop loss (2 ATR)
-        if 'ATR_14' in df.columns:
-            stop_loss = entry_price - 2 * df['ATR_14'].iloc[entry_bar]
-            for i in range(entry_bar + 1, exit_bar + 1):
-                if df['low'].iloc[i] <= stop_loss:
-                    exit_price = stop_loss
-                    break
+        # Calculate ATR using only historical data
+        tr_list = []
+        for j in range(max(1, entry_bar-14), entry_bar):
+            high_low = df['high'].iloc[j] - df['low'].iloc[j]
+            high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
+            low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
+            tr_list.append(max(high_low, high_close, low_close))
+
+        atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
+        stop_loss = entry_price - 2 * atr_value
+
+        for i in range(entry_bar + 1, exit_bar + 1):
+            if df['low'].iloc[i] <= stop_loss:
+                exit_price = stop_loss
+                break
         
         return exit_price - entry_price
     
@@ -108,32 +127,54 @@ def trend_following_strategy(df, entry_bar):
 
 def mean_reversion_strategy(df, entry_bar):
     """
-    Mean reversion: Buy when RSI < 30 and at lower Bollinger Band
+    Mean reversion: Buy when RSI < 40 and near lower Bollinger Band
     Exit when RSI > 50 or after 3 bars
     """
     if entry_bar < 20 or entry_bar + 3 >= len(df):
         return 0
     
-    # Calculate indicators if not present
-    if 'RSI_14' not in df.columns:
-        df['RSI_14'] = ta.rsi(df['close'], length=14)
+    # Calculate RSI manually using only historical data
+    close_slice = df['close'].iloc[max(0, entry_bar-14):entry_bar+1]
+    deltas = close_slice.diff()
+    gains = deltas.where(deltas > 0, 0)
+    losses = -deltas.where(deltas < 0, 0)
+    avg_gain = gains.iloc[1:].mean()  # Skip first NaN
+    avg_loss = losses.iloc[1:].mean()
+    rs = avg_gain / avg_loss if avg_loss != 0 else 0
+    rsi_value = 100 - (100 / (1 + rs))
     
-    bb = ta.bbands(df['close'], length=20)
-    lower_bb = bb['BBL_20_2.0'].iloc[entry_bar]
+    # Calculate BB using only historical data
+    bb_slice = df['close'].iloc[max(0, entry_bar-20):entry_bar]
+    sma = bb_slice.mean()
+    std = bb_slice.std()
+    lower_bb = sma - (2 * std)
+    middle_bb = sma
     
-    # Entry logic
-    if (df['RSI_14'].iloc[entry_bar] < 30 and 
-        df['low'].iloc[entry_bar] <= lower_bb):
-        
+    # Entry conditions
+    price_pct_from_lower = (df['close'].iloc[entry_bar] - lower_bb) / (middle_bb - lower_bb) if middle_bb != lower_bb else 1
+    
+    if (rsi_value < 40 and price_pct_from_lower < 0.2):
         entry_price = df['close'].iloc[entry_bar]
         
-        # Exit logic
+        # Exit - calculate RSI for each exit bar
         for i in range(entry_bar + 1, min(entry_bar + 4, len(df))):
-            if df['RSI_14'].iloc[i] > 50:
-                return df['close'].iloc[i] - entry_price
+            # Recalculate RSI at exit bar
+            exit_close_slice = df['close'].iloc[max(0, i-14):i+1]
+            exit_deltas = exit_close_slice.diff()
+            exit_gains = exit_deltas.where(exit_deltas > 0, 0)
+            exit_losses = -exit_deltas.where(exit_deltas < 0, 0)
+            exit_avg_gain = exit_gains.iloc[1:].mean()
+            exit_avg_loss = exit_losses.iloc[1:].mean()
+            exit_rs = exit_avg_gain / exit_avg_loss if exit_avg_loss != 0 else 0
+            exit_rsi = 100 - (100 / (1 + exit_rs))
+            
+            if exit_rsi > 50:
+                point_value = 20
+                return (df['close'].iloc[i] - entry_price) * point_value
         
-        # Exit after 3 bars if no RSI exit
-        return df['close'].iloc[min(entry_bar + 3, len(df) - 1)] - entry_price
+        # Exit after 3 bars
+        point_value = 20
+        return (df['close'].iloc[min(entry_bar + 3, len(df) - 1)] - entry_price) * point_value
     
     return 0
 
@@ -208,7 +249,6 @@ def run_strategy_probes(df, model):
     
     df_filtered['regime'] = labels
     df_filtered['session'] = session_info['refined_session']
-    df_filtered = pd.concat([df_filtered, raw_features], axis=1)
     
     results = []
     
@@ -225,8 +265,9 @@ def run_strategy_probes(df, model):
             trend_pnl = reversion_pnl = ma_pnl = bb_pnl = 0
             trend_trades = reversion_trades = ma_trades = bb_trades = 0
             
-            use_trend = regime_char.get('avg_trend', 0) > 25
-            use_reversion = regime_char.get('avg_volatility', 0) < subset['ATR_14'].median()
+            # Use regime characteristics only (these are OK as they're aggregate stats)
+            use_trend = regime_char.get('avg_trend', 0) > 15
+            use_reversion = regime_char.get('avg_volatility', 0) < 0.01  # Use absolute threshold
             
             for i in range(20, len(subset) - 10):
                 if use_trend:
