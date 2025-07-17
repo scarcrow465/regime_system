@@ -65,7 +65,7 @@ def calculate_regime_characteristics(df, model, features):
     
     # Calculate average indicators per regime
     regime_stats = {}
-    for regime in range(model.n_components):
+    for regime in labels.unique():
         regime_data = features[labels == regime]
         if len(regime_data) > 0:
             regime_stats[regime] = {
