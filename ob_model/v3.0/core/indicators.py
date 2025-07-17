@@ -121,6 +121,7 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
         indicators['CMF_20'] = cmf
     
     ind_df = pd.DataFrame(indicators, index=df.index).fillna(0)  # Fill NaNs
+    raw_ind_df = ind_df.copy()
 
     # NEW: #2 Constraint - Check rows per class (simple log if <50)
     class_groups = {
@@ -220,7 +221,7 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
         
         log_message(f"Kept {len(ind_df.columns)} indicators after correlation check", 'info')
     
-    return ind_df
+    return ind_df, raw_ind_df
 
 if __name__ == "__main__":
     df = load_csv_data(DATA_PATH)
