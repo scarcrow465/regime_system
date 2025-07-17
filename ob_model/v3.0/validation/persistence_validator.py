@@ -10,7 +10,7 @@ from sklearn.metrics import silhouette_score  # For KS alt if needed
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH
 from core.regime_classifier import fit_gmm, add_session_labels, export_model, smooth_regime_labels
-from core.indicators import select_and_compute_indicators
+from core.indicators import select_and_compute_indicators_live
 from core.data_loader import load_csv_data
 from core.helpers import console  # Assuming console is defined in utils or similar
 import os
@@ -40,7 +40,7 @@ def analyze_distributions(labels, sessions=None):
 from core.regime_classifier import smooth_regime_labels
 
 def run_validation_iteration(df, iter_num):
-    ind_df = select_and_compute_indicators(df)
+    ind_df = select_and_compute_indicators_live(df)
     ind_df = add_session_labels(ind_df)
     features = ind_df.select_dtypes(include=[np.number]).dropna()
 
