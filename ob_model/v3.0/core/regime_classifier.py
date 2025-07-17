@@ -62,7 +62,12 @@ def add_session_labels(df):
     from sklearn.preprocessing import OneHotEncoder
     full_cats = ['Other', 'Sydney', 'Tokyo', 'London', 'NY']
     refined_cats = ['Other', 'London_Open', 'NY_Open', 'NY_Midday', 'NY_Afternoon', 'Power_Hour']
-    encoder = OneHotEncoder(sparse_output=False, categories=[full_cats, refined_cats])
+    # Force all categories even if not present
+    encoder = OneHotEncoder(
+        sparse_output=False, 
+        categories=[full_cats, refined_cats],
+        handle_unknown='ignore'  # ADD THIS
+    )
     session_enc = encoder.fit_transform(df[['full_session', 'refined_session']])
     session_df = pd.DataFrame(session_enc, index=df.index, columns=encoder.get_feature_names_out())
     df = pd.concat([df, session_df], axis=1)
@@ -241,12 +246,9 @@ def name_clusters(model, features):
 
 if __name__ == "__main__":
     df = load_csv_data(DATA_PATH)
-    if df.empty:
-        log_message("No data loaded—check path", 'error')
-        exit(1)
-    df = select_and_compute_indicators(df)
+    ind_df = select_and_compute_indicators(df)
     df = add_session_labels(df)
-    features = df.dropna()
+    features = ind_df.dropna()
     if len(features) < 5:
         log_message("Insufficient data—need 5+ rows", 'error')
         exit(1)
