@@ -170,11 +170,14 @@ def run_strategy_probes(df, model):
     else:
         # Multi-model voting case
         class_labels = pd.DataFrame(index=features.index)
-        
+
+        log_message(f"Feature columns: {list(features.columns)[:10]}...", 'debug')
+
         for cls, model_info in model.items():
             try:
                 if isinstance(model_info, tuple):
                     cls_model, fitted_cols = model_info
+                    log_message(f"{cls}: Expected {len(fitted_cols)} cols, got {len([c for c in fitted_cols if c in features.columns])}", 'debug')
                     # Ensure columns exist
                     available_cols = [col for col in fitted_cols if col in features.columns]
                     if not available_cols:
