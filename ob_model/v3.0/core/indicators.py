@@ -155,7 +155,7 @@ def select_and_compute_indicators(df, regime_classes=['direction', 'volatility',
     ind_df = ind_df.ffill().fillna(0)
     
     # Corr check - LESS AGGRESSIVE
-    corr = ind_df.corr()
+    corr = ind_df.select_dtypes(include=[np.number]).corr()  # CHANGED: exclude non-numeric
     import matplotlib.pyplot as plt; plt.matshow(corr); plt.colorbar(); plt.savefig(os.path.join(BASE_DIR, 'exports/plots/corr_matrix.png'))
 
     # Filter out session columns from correlation check
