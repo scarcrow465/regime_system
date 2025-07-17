@@ -142,7 +142,6 @@ def run_strategy_probes(df, model):
     
     # CRITICAL FIX: Compute indicators on FULL data first to match training
     ind_df_full = select_and_compute_indicators(df)  # Full data
-    ind_df_full = add_session_labels(ind_df_full)
     features_full = ind_df_full.select_dtypes(include=[np.number]).dropna()
     
     # Now filter AFTER computing features
