@@ -13,7 +13,8 @@ import numpy as np
 import pandas_ta as ta
 from utils.logger import log_message, progress_bar
 from config.settings import DEBUG_LEVEL, BASE_DIR, DATA_PATH
-from core.regime_classifier import fit_gmm, add_session_labels, class_groups
+from core.regime_classifier import fit_gmm, add_session_labels
+from core.regime_classifier import class_groups  # Import class_groups for multi-class handling
 from core.indicators import select_and_compute_indicators
 from core.data_loader import load_csv_data
 from rich.table import Table
