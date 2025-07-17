@@ -19,6 +19,34 @@ from core.data_loader import load_csv_data
 from rich.table import Table
 from datetime import datetime
 from core.helpers import console
+from utils.metrics import compute_persistence
+from core.regime_classifier import final_labels
+
+def ma_crossover_strategy(df, entry_bar):
+    """MA crossover for trend: Buy on fast > slow MA."""
+    if entry_bar < 50 or entry_bar + 5 >= len(df):
+        return 0
+    ma_fast = ta.sma(df['close'], length=50).iloc[entry_bar]
+    ma_slow = ta.sma(df['close'], length=200).iloc[entry_bar]
+    if df['close'].iloc[entry_bar] > ma_fast > ma_slow:
+        entry_price = df['close'].iloc[entry_bar]
+        exit_bar = min(entry_bar + 5, len(df) - 1)
+        exit_price = df['close'].iloc[exit_bar]
+        return exit_price - entry_price
+    return 0
+
+def bb_fade_strategy(df, entry_bar):
+    """BB fade for range/low vol: Buy lower band touch."""
+    if entry_bar < 20 or entry_bar + 3 >= len(df):
+        return 0
+    bb = ta.bbands(df['close'], length=20)
+    lower_bb = bb['BBL_20_2.0'].iloc[entry_bar]
+    if df['low'].iloc[entry_bar] <= lower_bb:
+        entry_price = df['close'].iloc[entry_bar]
+        exit_bar = min(entry_bar + 3, len(df) - 1)
+        exit_price = df['close'].iloc[exit_bar]
+        return exit_price - entry_price
+    return 0
 
 def calculate_regime_characteristics(df, model, features):
     """Pre-calculate regime characteristics to avoid repeated calls."""
@@ -99,24 +127,18 @@ def mean_reversion_strategy(df, entry_bar):
     return 0
 
 def run_strategy_probes(df, model):
-    """Run strategies on each regime/session combination."""
-    # Filter to trading hours
-    df_filtered = df[(df.index.hour >= 4) & (df.index.hour < 16)].copy()
+    df_filtered = df[(df.index.hour >= 4) & (df.index.hour < 16)].copy()  # Session window
     
-    # Get features and labels
     ind_df = select_and_compute_indicators(df_filtered)
     ind_df = add_session_labels(ind_df)
     features = ind_df.select_dtypes(include=[np.number]).dropna()
     
-    # Get regime labels with smoothing
     from core.regime_classifier import smooth_regime_labels
-    raw_labels = pd.Series(model.predict(features), index=features.index)
+    raw_labels = pd.Series(model.predict(features), index=features.index) if not isinstance(model, dict) else final_labels  # Use final from multi-class
     labels = smooth_regime_labels(raw_labels, min_persistence=3)
     
-    # Calculate regime characteristics once
     regime_stats = calculate_regime_characteristics(df_filtered, model, features)
     
-    # Merge everything
     df_filtered['regime'] = labels
     df_filtered['session'] = ind_df['refined_session']
     
@@ -126,50 +148,66 @@ def run_strategy_probes(df, model):
         regime_char = regime_stats.get(regime, {})
         
         for session in df_filtered['session'].unique():
-            subset = df_filtered[(df_filtered['regime'] == regime) & 
-                               (df_filtered['session'] == session)]
+            subset = df_filtered[(df_filtered['regime'] == regime) & (df_filtered['session'] == session)].reset_index(drop=False)
             
-            if len(subset) < 100:  # Need minimum data
+            if len(subset) < 100:  # #2 Min data
                 continue
             
-            # Reset index for easier iteration
-            subset = subset.reset_index(drop=False)
+            # Run probes (existing + new)
+            trend_pnl = reversion_pnl = ma_pnl = bb_pnl = 0
+            trend_trades = reversion_trades = ma_trades = bb_trades = 0
             
-            trend_pnl = 0
-            reversion_pnl = 0
-            trend_trades = 0
-            reversion_trades = 0
+            use_trend = regime_char.get('avg_trend', 0) > 25
+            use_reversion = regime_char.get('avg_volatility', 0) < subset['ATR_14'].median()
             
-            # Choose strategy based on regime characteristics
-            use_trend = regime_char.get('avg_trend', 0) > 25  # Strong trend
-            use_reversion = regime_char.get('avg_volatility', 0) < subset['ATR_14'].median()  # Low vol
-            
-            # Run through bars
-            for i in range(20, len(subset) - 10):  # Leave room for exits
+            for i in range(20, len(subset) - 10):
                 if use_trend:
                     pnl = trend_following_strategy(subset, i)
                     if pnl != 0:
                         trend_pnl += pnl
                         trend_trades += 1
-                
+                    pnl = ma_crossover_strategy(subset, i)  # New
+                    if pnl != 0:
+                        ma_pnl += pnl
+                        ma_trades += 1
                 if use_reversion:
                     pnl = mean_reversion_strategy(subset, i)
                     if pnl != 0:
                         reversion_pnl += pnl
                         reversion_trades += 1
+                    pnl = bb_fade_strategy(subset, i)  # New
+                    if pnl != 0:
+                        bb_pnl += pnl
+                        bb_trades += 1
+            
+            # #1 Per-Regime Metrics (risk/reward, frequency)
+            total_pnl = trend_pnl + reversion_pnl + ma_pnl + bb_pnl
+            total_trades = trend_trades + reversion_trades + ma_trades + bb_trades
+            if total_trades > 0:
+                wins = total_pnl > 0  # Simple proxy
+                risk_reward = (total_pnl if wins else 0) / abs(total_pnl) if total_pnl < 0 else 1
+            else:
+                risk_reward = 1
+            frequency = total_trades / len(subset) * 100 if len(subset) > 0 else 0
             
             results.append({
                 'regime': regime,
                 'session': session,
                 'bars': len(subset),
                 'trend_pnl': trend_pnl,
-                'trend_trades': trend_trades,
                 'reversion_pnl': reversion_pnl,
-                'reversion_trades': reversion_trades,
-                'total_pnl': trend_pnl + reversion_pnl,
+                'ma_pnl': ma_pnl,
+                'bb_pnl': bb_pnl,
+                'total_pnl': total_pnl,
+                'risk_reward': risk_reward,  # #1
+                'frequency': frequency,  # #1
                 'avg_trend': regime_char.get('avg_trend', 0),
                 'avg_volatility': regime_char.get('avg_volatility', 0)
             })
+            
+            # #2 Constraints (min trades, persistence)
+            if total_trades < 30:
+                log_message(f"Warning: Regime {regime}/{session} has {total_trades} trades <30—low reliability", 'warning')
     
     results_df = pd.DataFrame(results)
     
@@ -199,6 +237,11 @@ def run_strategy_probes(df, model):
         os.path.join(BASE_DIR, 'exports', 'csv', f"{timestamp}_strategy_probe_results.csv"), 
         index=False
     )
+
+    # Global #2 persistence (from labels)
+    persistence, _ = compute_persistence(labels)
+    if persistence < 75:
+        log_message(f"Warning: Overall persistence {persistence:.1f}% <75%—iterate", 'warning')
     
     log_message(f"Strategy probes complete. Total results: {len(results_df)}", 'info')
     return results_df
