@@ -27,7 +27,7 @@ def calculate_ema_at_point(close_series, length, end_idx):
     # Calculate EMA
     ema = sma
     for i in range(end_idx-length+1, end_idx+1):
-        ema = (close_series[i] - ema) * multiplier + ema
+        ema = (close_series.iloc[i] - ema) * multiplier + ema
     
     return ema
 
@@ -39,11 +39,11 @@ def calculate_atr_at_point(high, low, close, length, end_idx):
     tr_values = []
     for i in range(end_idx-length+1, end_idx+1):
         if i == 0:
-            tr = high[i] - low[i]
+            tr = high.iloc[i] - low.iloc[i]
         else:
-            high_low = high[i] - low[i]
-            high_close = abs(high[i] - close[i-1])
-            low_close = abs(low[i] - close[i-1])
+            high_low = high.iloc[i] - low.iloc[i]
+            high_close = abs(high.iloc[i] - close[i-1])
+            low_close = abs(low.iloc[i] - close[i-1])
             tr = max(high_low, high_close, low_close)
         tr_values.append(tr)
     
@@ -83,8 +83,8 @@ def calculate_adx_at_point(high, low, close, length, end_idx):
         if i == 0:
             continue
             
-        high_diff = high[i] - high[i-1]
-        low_diff = low[i-1] - low[i]
+        high_diff = high.iloc[i] - high[i-1]
+        low_diff = low[i-1] - low.iloc[i]
         
         plus_dm_val = high_diff if high_diff > low_diff and high_diff > 0 else 0
         minus_dm_val = low_diff if low_diff > high_diff and low_diff > 0 else 0
@@ -93,9 +93,9 @@ def calculate_adx_at_point(high, low, close, length, end_idx):
         minus_dm.append(minus_dm_val)
         
         # TR calculation
-        high_low = high[i] - low[i]
-        high_close = abs(high[i] - close[i-1])
-        low_close = abs(low[i] - close[i-1])
+        high_low = high.iloc[i] - low.iloc[i]
+        high_close = abs(high.iloc[i] - close[i-1])
+        low_close = abs(low.iloc[i] - close[i-1])
         tr = max(high_low, high_close, low_close)
         tr_values.append(tr)
     
@@ -136,93 +136,93 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
     # Calculate indicators bar by bar
     for i in progress_bar(range(calc_start, len(df)), desc="Computing indicators"):
         # Direction indicators
-        indicators.loc[df.index[i], 'EMA_20'] = calculate_ema_at_point(df['close'], 20, i)
-        indicators.loc[df.index[i], 'EMA_50'] = calculate_ema_at_point(df['close'], 50, i)
-        indicators.loc[df.index[i], 'EMA_200'] = calculate_ema_at_point(df['close'], 200, i)
+        indicators.loc[df.index.iloc[i], 'EMA_20'] = calculate_ema_at_point(df['close'], 20, i)
+        indicators.loc[df.index.iloc[i], 'EMA_50'] = calculate_ema_at_point(df['close'], 50, i)
+        indicators.loc[df.index.iloc[i], 'EMA_200'] = calculate_ema_at_point(df['close'], 200, i)
         
         adx, plus_di, minus_di = calculate_adx_at_point(df['high'], df['low'], df['close'], 14, i)
-        indicators.loc[df.index[i], 'ADX_14'] = adx
-        indicators.loc[df.index[i], 'DMI_Plus'] = plus_di
-        indicators.loc[df.index[i], 'DMI_Minus'] = minus_di
+        indicators.loc[df.index.iloc[i], 'ADX_14'] = adx
+        indicators.loc[df.index.iloc[i], 'DMI_Plus'] = plus_di
+        indicators.loc[df.index.iloc[i], 'DMI_Minus'] = minus_di
         
         # MACD
         if i >= 26:
             ema12 = calculate_ema_at_point(df['close'], 12, i)
             ema26 = calculate_ema_at_point(df['close'], 26, i)
-            indicators.loc[df.index[i], 'MACD'] = ema12 - ema26
+            indicators.loc[df.index.iloc[i], 'MACD'] = ema12 - ema26
         
         # Volatility indicators
-        indicators.loc[df.index[i], 'ATR_7'] = calculate_atr_at_point(df['high'], df['low'], df['close'], 7, i)
-        indicators.loc[df.index[i], 'ATR_14'] = calculate_atr_at_point(df['high'], df['low'], df['close'], 14, i)
-        indicators.loc[df.index[i], 'ATR_30'] = calculate_atr_at_point(df['high'], df['low'], df['close'], 30, i)
+        indicators.loc[df.index.iloc[i], 'ATR_7'] = calculate_atr_at_point(df['high'], df['low'], df['close'], 7, i)
+        indicators.loc[df.index.iloc[i], 'ATR_14'] = calculate_atr_at_point(df['high'], df['low'], df['close'], 14, i)
+        indicators.loc[df.index.iloc[i], 'ATR_30'] = calculate_atr_at_point(df['high'], df['low'], df['close'], 30, i)
         
         # Bollinger Bands
         if i >= 20:
             close_slice = df['close'][i-19:i+1]
             sma = close_slice.mean()
             std = close_slice.std()
-            indicators.loc[df.index[i], 'BB_width'] = (4 * std) / sma if sma != 0 else 0
+            indicators.loc[df.index.iloc[i], 'BB_width'] = (4 * std) / sma if sma != 0 else 0
             
         # Historical volatility
         if i >= 20:
             returns = df['close'][i-19:i+1].pct_change().dropna()
-            indicators.loc[df.index[i], 'Hist_Vol'] = returns.std() * np.sqrt(252)
+            indicators.loc[df.index.iloc[i], 'Hist_Vol'] = returns.std() * np.sqrt(252)
         
         # Keltner width
         if i >= 20:
             atr20 = calculate_atr_at_point(df['high'], df['low'], df['close'], 20, i)
             ema20 = calculate_ema_at_point(df['close'], 20, i)
-            indicators.loc[df.index[i], 'KC_width'] = (4 * atr20) / ema20 if ema20 != 0 else 0
+            indicators.loc[df.index.iloc[i], 'KC_width'] = (4 * atr20) / ema20 if ema20 != 0 else 0
         
         # Trend strength indicators
-        indicators.loc[df.index[i], 'RSI_7'] = calculate_rsi_at_point(df['close'], 7, i)
-        indicators.loc[df.index[i], 'RSI_14'] = calculate_rsi_at_point(df['close'], 14, i)
+        indicators.loc[df.index.iloc[i], 'RSI_7'] = calculate_rsi_at_point(df['close'], 7, i)
+        indicators.loc[df.index.iloc[i], 'RSI_14'] = calculate_rsi_at_point(df['close'], 14, i)
         
         # Stochastic
         if i >= 14:
             high_14 = df['high'][i-13:i+1].max()
             low_14 = df['low'][i-13:i+1].min()
             if high_14 != low_14:
-                indicators.loc[df.index[i], 'Stoch'] = 100 * (df['close'][i] - low_14) / (high_14 - low_14)
+                indicators.loc[df.index.iloc[i], 'Stoch'] = 100 * (df['close'].iloc[i] - low_14) / (high_14 - low_14)
             else:
-                indicators.loc[df.index[i], 'Stoch'] = 50
+                indicators.loc[df.index.iloc[i], 'Stoch'] = 50
         
         # Momentum indicators
         if i >= 12:
-            indicators.loc[df.index[i], 'ROC_12'] = 100 * (df['close'][i] / df['close'][i-12] - 1)
+            indicators.loc[df.index.iloc[i], 'ROC_12'] = 100 * (df['close'].iloc[i] / df['close'][i-12] - 1)
         
         # PPO
         if i >= 26:
             ema12 = calculate_ema_at_point(df['close'], 12, i)
             ema26 = calculate_ema_at_point(df['close'], 26, i)
-            indicators.loc[df.index[i], 'PPO'] = 100 * (ema12 - ema26) / ema26 if ema26 != 0 else 0
+            indicators.loc[df.index.iloc[i], 'PPO'] = 100 * (ema12 - ema26) / ema26 if ema26 != 0 else 0
         
         # CCI
         if i >= 20:
             typical_price = (df['high'][i-19:i+1] + df['low'][i-19:i+1] + df['close'][i-19:i+1]) / 3
             sma_tp = typical_price.mean()
             mad = (typical_price - sma_tp).abs().mean()
-            indicators.loc[df.index[i], 'CCI_20'] = (typical_price.iloc[-1] - sma_tp) / (0.015 * mad) if mad != 0 else 0
+            indicators.loc[df.index.iloc[i], 'CCI_20'] = (typical_price.iloc[-1] - sma_tp) / (0.015 * mad) if mad != 0 else 0
         
         # Structure indicators
         if i > 0:
             # OBV
             if i == calc_start:
-                indicators.loc[df.index[i], 'OBV'] = df['volume'][i] if df['close'][i] > df['close'][i-1] else -df['volume'][i]
+                indicators.loc[df.index.iloc[i], 'OBV'] = df['volume'].iloc[i] if df['close'].iloc[i] > df['close'][i-1] else -df['volume'].iloc[i]
             else:
                 prev_obv = indicators.loc[df.index[i-1], 'OBV']
-                if df['close'][i] > df['close'][i-1]:
-                    indicators.loc[df.index[i], 'OBV'] = prev_obv + df['volume'][i]
-                elif df['close'][i] < df['close'][i-1]:
-                    indicators.loc[df.index[i], 'OBV'] = prev_obv - df['volume'][i]
+                if df['close'].iloc[i] > df['close'][i-1]:
+                    indicators.loc[df.index.iloc[i], 'OBV'] = prev_obv + df['volume'].iloc[i]
+                elif df['close'].iloc[i] < df['close'][i-1]:
+                    indicators.loc[df.index.iloc[i], 'OBV'] = prev_obv - df['volume'].iloc[i]
                 else:
-                    indicators.loc[df.index[i], 'OBV'] = prev_obv
+                    indicators.loc[df.index.iloc[i], 'OBV'] = prev_obv
         
         # VWAP
         if i >= 14:
             typical_price = (df['high'][i-13:i+1] + df['low'][i-13:i+1] + df['close'][i-13:i+1]) / 3
             volume_slice = df['volume'][i-13:i+1]
-            indicators.loc[df.index[i], 'VWAP_14'] = (typical_price * volume_slice).sum() / volume_slice.sum()
+            indicators.loc[df.index.iloc[i], 'VWAP_14'] = (typical_price * volume_slice).sum() / volume_slice.sum()
         
         # CMF
         if i >= 20:
@@ -230,7 +230,7 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
                             (df['high'][i-19:i+1] - df['close'][i-19:i+1])) / \
                            (df['high'][i-19:i+1] - df['low'][i-19:i+1])
             mf_volume = mf_multiplier * df['volume'][i-19:i+1]
-            indicators.loc[df.index[i], 'CMF_20'] = mf_volume.sum() / df['volume'][i-19:i+1].sum()
+            indicators.loc[df.index.iloc[i], 'CMF_20'] = mf_volume.sum() / df['volume'][i-19:i+1].sum()
     
     # Add session labels
     from core.regime_classifier import add_session_labels
@@ -274,7 +274,7 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
                 
                 if iqr != 0:
                     # Normalize current value using historical statistics
-                    indicators.loc[df.index[i], col] = (indicators.loc[df.index[i], col] - median) / iqr
+                    indicators.loc[df.index.iloc[i], col] = (indicators.loc[df.index.iloc[i], col] - median) / iqr
     
     return indicators, raw_indicators
 
