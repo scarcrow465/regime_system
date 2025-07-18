@@ -255,7 +255,14 @@ def run_strategy_probes(df, model):
         return pd.DataFrame()
     
     # Predict regimes
-    labels = pd.Series(model.predict(features), index=features.index)
+    class_labels = pd.DataFrame(index=features.index)
+    for cls, model_info in model.items():
+        if isinstance(model_info, tuple):
+            cls_model, fitted_cols = model_info
+            available_cols = [col for col in fitted_cols if col in features.columns]
+            if available_cols:
+                class_labels[cls] = pd.Series(cls_model.predict(features[available_cols]), index=features.index)
+    labels = class_labels.mode(axis=1)[0].astype(int) if not class_labels.empty else pd.Series(0, index=features.index)
     labels = smooth_regime_labels(labels, min_persistence=3)
     
     # Add to dataframe
