@@ -57,7 +57,7 @@ STRATEGY_PARAMS = {
 def ma_crossover_strategy(df, entry_bar, scope='normal'):
     params = STRATEGY_PARAMS['ma_cross'][scope]
     if entry_bar < params['slow_len'] or entry_bar + params['hold_bars'] >= len(df):
-        return 0, 0
+        return 0, 0, 0
     
     # Calculate ATR
     tr_list = []
@@ -77,13 +77,13 @@ def ma_crossover_strategy(df, entry_bar, scope='normal'):
         exit_bar = min(entry_bar + params['hold_bars'], len(df) - 1)
         exit_price = df['close'].iloc[exit_bar]
         pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, 0
+        return pnl, atr_value, entry_price
+    return 0, 0, 0
 
 def bb_fade_strategy(df, entry_bar, scope='normal'):
     params = STRATEGY_PARAMS['bb_fade'][scope]
     if entry_bar < params['bb_len'] or entry_bar + params['hold_bars'] >= len(df):
-        return 0, 0
+        return 0, 0, 0
     
     # Calculate ATR
     tr_list = []
@@ -105,13 +105,13 @@ def bb_fade_strategy(df, entry_bar, scope='normal'):
         exit_bar = min(entry_bar + params['hold_bars'], len(df) - 1)
         exit_price = df['close'].iloc[exit_bar]
         pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, 0
+        return pnl, atr_value, entry_price
+    return 0, 0, 0
 
 def trend_following_strategy(df, entry_bar, scope='normal'):
     params = STRATEGY_PARAMS['trend'][scope]
     if entry_bar < params['break_len'] or entry_bar + params['hold_bars'] >= len(df):
-        return 0, 0
+        return 0, 0, 0
     
     # Calculate ATR for risk normalization
     tr_list = []
@@ -139,14 +139,14 @@ def trend_following_strategy(df, entry_bar, scope='normal'):
                 break
         
         pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
+        return pnl, atr_value, entry_price
     
-    return 0, 0
+    return 0, 0, 0
 
 def mean_reversion_strategy(df, entry_bar, scope='normal'):
     params = STRATEGY_PARAMS['reversion'][scope]
     if entry_bar < params['rsi_len'] +1 or entry_bar + params['hold_bars'] >= len(df):
-        return 0, 0
+        return 0, 0, 0
     
     # Calculate ATR
     tr_list = []
@@ -194,18 +194,18 @@ def mean_reversion_strategy(df, entry_bar, scope='normal'):
             
             if exit_rsi > params['rsi_exit_low']:
                 pnl = (df['close'].iloc[i] - entry_price) * POINT_VALUE * CONTRACT_SIZE
-                return pnl, atr_value
+                return pnl, atr_value, entry_price
         
         # Exit after hold_bars
         pnl = (df['close'].iloc[min(entry_bar + params['hold_bars'], len(df) - 1)] - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
+        return pnl, atr_value, entry_price
     
-    return 0, 0
+    return 0, 0, 0
 
 def trend_following_strategy_short(df, entry_bar, scope='normal'):
     params = STRATEGY_PARAMS['trend'][scope]
     if entry_bar < params['break_len'] or entry_bar + params['hold_bars'] >= len(df):
-        return 0, 0
+        return 0, 0, 0
     
     # Calculate ATR (same as long version)
     tr_list = []
@@ -233,14 +233,14 @@ def trend_following_strategy_short(df, entry_bar, scope='normal'):
                 break
         
         pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
+        return pnl, atr_value, entry_price
     
-    return 0, 0
+    return 0, 0, 0
 
 def mean_reversion_strategy_short(df, entry_bar, scope='normal'):
     params = STRATEGY_PARAMS['reversion'][scope]
     if entry_bar < params['rsi_len'] +1 or entry_bar + params['hold_bars'] >= len(df):
-        return 0, 0
+        return 0, 0, 0
     
     # Calculate ATR
     tr_list = []
@@ -287,18 +287,18 @@ def mean_reversion_strategy_short(df, entry_bar, scope='normal'):
             
             if exit_rsi < params['rsi_exit_high']:  # Use exit_high for short (lower threshold)
                 pnl = (entry_price - df['close'].iloc[i]) * POINT_VALUE * CONTRACT_SIZE
-                return pnl, atr_value
+                return pnl, atr_value, entry_price
         
         # Exit after hold_bars
         pnl = (entry_price - df['close'].iloc[min(entry_bar + params['hold_bars'], len(df) - 1)]) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
+        return pnl, atr_value, entry_price
     
-    return 0, 0
+    return 0, 0, 0
 
 def ma_crossover_strategy_short(df, entry_bar, scope='normal'):
     params = STRATEGY_PARAMS['ma_cross'][scope]
     if entry_bar < params['slow_len'] or entry_bar + params['hold_bars'] >= len(df):
-        return 0, 0
+        return 0, 0, 0
     
     # Calculate ATR
     tr_list = []
@@ -318,13 +318,13 @@ def ma_crossover_strategy_short(df, entry_bar, scope='normal'):
         exit_bar = min(entry_bar + params['hold_bars'], len(df) - 1)
         exit_price = df['close'].iloc[exit_bar]
         pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, 0
+        return pnl, atr_value, entry_price
+    return 0, 0, 0
 
 def bb_fade_strategy_short(df, entry_bar, scope='normal'):
     params = STRATEGY_PARAMS['bb_fade'][scope]
     if entry_bar < params['bb_len'] or entry_bar + params['hold_bars'] >= len(df):
-        return 0, 0
+        return 0, 0, 0
     
     # Calculate ATR
     tr_list = []
@@ -346,8 +346,8 @@ def bb_fade_strategy_short(df, entry_bar, scope='normal'):
         exit_bar = min(entry_bar + params['hold_bars'], len(df) - 1)
         exit_price = df['close'].iloc[exit_bar]
         pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, 0
+        return pnl, atr_value, entry_price
+    return 0, 0, 0
 
 def calculate_regime_characteristics(df, model, features, raw_features):
     """Pre-calculate regime characteristics to avoid repeated calls."""
@@ -449,7 +449,7 @@ def calculate_trade_metrics(trades, use_normalized=True):
         if len(downside_returns) > 1 and downside_returns.std() > 0:
             sortino_ratio = (returns.mean() / downside_returns.std() * np.sqrt(252))
         else:
-            sortino_ratio = sharpe_ratio * 1.5 if sharpe_ratio > 0 else 0
+            sortino_ratio = 0
             
         # Calmar ratio (annual return / max drawdown)
         annual_return = returns.mean() * 252
@@ -498,27 +498,23 @@ def normalize_metrics_by_time(metrics, session_hours):
     
     return normalized
 
-def normalize_trade_risk(pnl, atr_at_entry=None, fixed_risk_percent=1.0):
+def normalize_trade_risk(pnl, entry_price, fixed_risk_percent=1.0):
     """
-    Normalize trade PnL by ATR-based risk for fair comparison
+    Normalize trade PnL to % return on position value (fixed contract size)
     
     Args:
         pnl: Raw PnL from trade
-        atr_at_entry: ATR value at entry (for volatility normalization)
+        entry_price: Entry price for position value calculation
         fixed_risk_percent: Target risk per trade (default 1%)
     
     Returns:
-        Normalized PnL as percentage of risk
+        Normalized PnL as percentage of position value
     """
-    if atr_at_entry and atr_at_entry > 0:
-        # Risk is based on 2 ATR stop loss with 1 contract
-        risk_dollars = 2 * atr_at_entry * POINT_VALUE * CONTRACT_SIZE
-        # Return as percentage of risk taken
-        return_pct = (pnl / risk_dollars) * 100
+    if entry_price > 0:
+        position_value = entry_price * POINT_VALUE * CONTRACT_SIZE
+        return_pct = (pnl / position_value) * 100
     else:
-        # Fallback: assume $1000 risk if no ATR
-        return_pct = (pnl / 1000) * 100
-    
+        return_pct = 0
     return return_pct
 
 def run_strategy_probes(df, model):
@@ -609,341 +605,364 @@ def run_strategy_probes(df, model):
             
             # Run strategies and collect trades
             for i in range(200, len(subset) - 10):  # Need 200 bars for MA strategies
-
-                # Trend following - LONG
+                # Trend following - NORMAL LONG
                 if use_trend:
-                    pnl, atr = trend_following_strategy(subset, i, 'normal')
+                    pnl, atr, entry_price = trend_following_strategy(subset, i, 'normal')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['trend']['normal']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['trend']['all'].append(trade)
                         strategy_trades['trend']['long'].append(trade)
                     
-                    # Trend following - SHORT
-                    pnl, atr = trend_following_strategy_short(subset, i, 'normal')
+                    # Trend following - NORMAL SHORT
+                    pnl, atr, entry_price = trend_following_strategy_short(subset, i, 'normal')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['trend']['normal']['hold_bars'],
                             'direction': 'short'
                         }
                         strategy_trades['trend']['all'].append(trade)
                         strategy_trades['trend']['short'].append(trade)
-
-                    # Fast Trend - LONG
-                    pnl, atr = trend_following_strategy(subset, i, 'fast')
+                    
+                    # Trend following - FAST LONG
+                    pnl, atr, entry_price = trend_following_strategy(subset, i, 'fast')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['trend']['fast']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['trend_fast']['all'].append(trade)
                         strategy_trades['trend_fast']['long'].append(trade)
-
-                    # Fast Trend - SHORT
-                    pnl, atr = trend_following_strategy_short(subset, i, 'fast')
+                    
+                    # Trend following - FAST SHORT
+                    pnl, atr, entry_price = trend_following_strategy_short(subset, i, 'fast')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['trend']['fast']['hold_bars'],
                             'direction': 'short'
                         }
                         strategy_trades['trend_fast']['all'].append(trade)
                         strategy_trades['trend_fast']['short'].append(trade)
-
-                    # Slow Trend - LONG
-                    pnl, atr = trend_following_strategy(subset, i, 'slow')
+                    
+                    # Trend following - SLOW LONG
+                    pnl, atr, entry_price = trend_following_strategy(subset, i, 'slow')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['trend']['slow']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['trend_slow']['all'].append(trade)
                         strategy_trades['trend_slow']['long'].append(trade)
-
-                    # Slow Trend - SHORT
-                    pnl, atr = trend_following_strategy_short(subset, i, 'slow')
+                    
+                    # Trend following - SLOW SHORT
+                    pnl, atr, entry_price = trend_following_strategy_short(subset, i, 'slow')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['trend']['slow']['hold_bars'],
                             'direction': 'short'
                         }
                         strategy_trades['trend_slow']['all'].append(trade)
                         strategy_trades['trend_slow']['short'].append(trade)
                 
-                # Mean reversion - LONG
+                # Mean reversion - NORMAL LONG
                 if use_reversion:
-                    pnl, atr = mean_reversion_strategy(subset, i, 'normal')
+                    pnl, atr, entry_price = mean_reversion_strategy(subset, i, 'normal')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['reversion']['normal']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['reversion']['all'].append(trade)
                         strategy_trades['reversion']['long'].append(trade)
                     
-                    # Mean reversion - SHORT
-                    pnl, atr = mean_reversion_strategy_short(subset, i, 'normal')
+                    # Mean reversion - NORMAL SHORT
+                    pnl, atr, entry_price = mean_reversion_strategy_short(subset, i, 'normal')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['reversion']['normal']['hold_bars'],
                             'direction': 'short'
                         }
                         strategy_trades['reversion']['all'].append(trade)
                         strategy_trades['reversion']['short'].append(trade)
-
-                    # Fast Reversion - LONG  
-                    pnl, atr = mean_reversion_strategy(subset, i, 'fast')
+                    
+                    # Mean reversion - FAST LONG
+                    pnl, atr, entry_price = mean_reversion_strategy(subset, i, 'fast')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['reversion']['fast']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['reversion_fast']['all'].append(trade)
                         strategy_trades['reversion_fast']['long'].append(trade)
-
-                    # Fast Reversion - SHORT
-                    pnl, atr = mean_reversion_strategy_short(subset, i, 'fast')
+                    
+                    # Mean reversion - FAST SHORT
+                    pnl, atr, entry_price = mean_reversion_strategy_short(subset, i, 'fast')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['reversion']['fast']['hold_bars'],
                             'direction': 'short'
                         }
                         strategy_trades['reversion_fast']['all'].append(trade)
-                        strategy_trades['reversion_fast']['short'].append(trade)                    
+                        strategy_trades['reversion_fast']['short'].append(trade)
                     
-                    # Slow Reversion - LONG
-                    pnl, atr = mean_reversion_strategy(subset, i, 'slow')
+                    # Mean reversion - SLOW LONG
+                    pnl, atr, entry_price = mean_reversion_strategy(subset, i, 'slow')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['reversion']['slow']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['reversion_slow']['all'].append(trade)
                         strategy_trades['reversion_slow']['long'].append(trade)
-
-                    # Slow Reversion - SHORT
-                    pnl, atr = mean_reversion_strategy_short(subset, i, 'slow')
+                    
+                    # Mean reversion - SLOW SHORT
+                    pnl, atr, entry_price = mean_reversion_strategy_short(subset, i, 'slow')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['reversion']['slow']['hold_bars'],
                             'direction': 'short'
                         }
                         strategy_trades['reversion_slow']['all'].append(trade)
                         strategy_trades['reversion_slow']['short'].append(trade)
-
-                # MA Crossover - LONG
+                
+                # MA Crossover - NORMAL LONG
                 if use_ma_cross:
-                    pnl, atr = ma_crossover_strategy(subset, i, 'normal')
+                    pnl, atr, entry_price = ma_crossover_strategy(subset, i, 'normal')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['ma_cross']['normal']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['ma_cross']['all'].append(trade)
                         strategy_trades['ma_cross']['long'].append(trade)
                     
-                    # MA Crossover - SHORT
-                    pnl, atr = ma_crossover_strategy_short(subset, i, 'normal')
+                    # MA Crossover - NORMAL SHORT
+                    pnl, atr, entry_price = ma_crossover_strategy_short(subset, i, 'normal')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['ma_cross']['normal']['hold_bars'],
                             'direction': 'short'
                         }
                         strategy_trades['ma_cross']['all'].append(trade)
                         strategy_trades['ma_cross']['short'].append(trade)
                     
-                    # MA CROSS FAST - LONG
-                    pnl, atr = ma_crossover_strategy(subset, i, 'fast')
+                    # MA Crossover - FAST LONG
+                    pnl, atr, entry_price = ma_crossover_strategy(subset, i, 'fast')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['ma_cross']['fast']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['ma_cross_fast']['all'].append(trade)
                         strategy_trades['ma_cross_fast']['long'].append(trade)
-
-                    # MA CROSS FAST - SHORT
-                    pnl, atr = ma_crossover_strategy_short(subset, i, 'fast')
+                    
+                    # MA Crossover - FAST SHORT
+                    pnl, atr, entry_price = ma_crossover_strategy_short(subset, i, 'fast')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['ma_cross']['fast']['hold_bars'],
                             'direction': 'short'
                         }
                         strategy_trades['ma_cross_fast']['all'].append(trade)
                         strategy_trades['ma_cross_fast']['short'].append(trade)
                     
-                    # MA CROSS SLOW - LONG
-                    pnl, atr = ma_crossover_strategy(subset, i, 'slow')
+                    # MA Crossover - SLOW LONG
+                    pnl, atr, entry_price = ma_crossover_strategy(subset, i, 'slow')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['ma_cross']['slow']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['ma_cross_slow']['all'].append(trade)
                         strategy_trades['ma_cross_slow']['long'].append(trade)
-
-                    # MA CROSS SLOW - SHORT                
-                    pnl, atr = ma_crossover_strategy_short(subset, i, 'slow')
+                    
+                    # MA Crossover - SLOW SHORT
+                    pnl, atr, entry_price = ma_crossover_strategy_short(subset, i, 'slow')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['ma_cross']['slow']['hold_bars'],
                             'direction': 'short'
                         }
                         strategy_trades['ma_cross_slow']['all'].append(trade)
                         strategy_trades['ma_cross_slow']['short'].append(trade)
                 
+                # BB Fade - NORMAL LONG
                 if use_bb_fade:
-                    # BB Fade - LONG
-                    pnl, atr = bb_fade_strategy(subset, i, 'normal')
+                    pnl, atr, entry_price = bb_fade_strategy(subset, i, 'normal')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['bb_fade']['normal']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['bb_fade']['all'].append(trade)
                         strategy_trades['bb_fade']['long'].append(trade)
                     
-                    # BB Fade - SHORT
-                    pnl, atr = bb_fade_strategy_short(subset, i, 'normal')
+                    # BB Fade - NORMAL SHORT
+                    pnl, atr, entry_price = bb_fade_strategy_short(subset, i, 'normal')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['bb_fade']['normal']['hold_bars'],
                             'direction': 'short'
                         }
                         strategy_trades['bb_fade']['all'].append(trade)
                         strategy_trades['bb_fade']['short'].append(trade)
-
-                    # BB FADE FAST - LONG
-                    pnl, atr = bb_fade_strategy(subset, i, 'fast')
+                    
+                    # BB Fade - FAST LONG
+                    pnl, atr, entry_price = bb_fade_strategy(subset, i, 'fast')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['bb_fade']['fast']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['bb_fade_fast']['all'].append(trade)
                         strategy_trades['bb_fade_fast']['long'].append(trade)
-
-                    # BB FADE FAST - SHORT
-                    pnl, atr = bb_fade_strategy_short(subset, i, 'fast')
+                    
+                    # BB Fade - FAST SHORT
+                    pnl, atr, entry_price = bb_fade_strategy_short(subset, i, 'fast')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
-                            'duration': 2,
+                            'entry_price': entry_price,
+                            'duration': STRATEGY_PARAMS['bb_fade']['fast']['hold_bars'],
                             'direction': 'short'
                         }
                         strategy_trades['bb_fade_fast']['all'].append(trade)
                         strategy_trades['bb_fade_fast']['short'].append(trade)
                     
-                    # BB FADE SLOW - LONG
-                    pnl, atr = bb_fade_strategy(subset, i, 'slow')
+                    # BB Fade - SLOW LONG
+                    pnl, atr, entry_price = bb_fade_strategy(subset, i, 'slow')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['bb_fade']['slow']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['bb_fade_slow']['all'].append(trade)
                         strategy_trades['bb_fade_slow']['long'].append(trade)
                     
-                    # BB FADE SLOW - SHORT
-                    pnl, atr = bb_fade_strategy_short(subset, i, 'slow')
+                    # BB Fade - SLOW SHORT
+                    pnl, atr, entry_price = bb_fade_strategy_short(subset, i, 'slow')
                     if pnl != 0:
-                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        normalized_pnl = normalize_trade_risk(pnl, entry_price)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
+                            'entry_price': entry_price,
                             'duration': STRATEGY_PARAMS['bb_fade']['slow']['hold_bars'],
                             'direction': 'short'
                         }
