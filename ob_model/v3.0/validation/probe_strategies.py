@@ -38,31 +38,30 @@ STRATEGY_PARAMS = {
         'slow': {'break_len': 50, 'hold_bars': 20, 'stop_mult': 3, 'atr_len': 20}
     },
     'reversion': {
-        'normal': {'rsi_len': 14, 'rsi_low': 40, 'rsi_high': 60, 'rsi_exit': 50, 'hold_bars': 3, 'bb_std': 2},
-        'fast': {'rsi_len': 7, 'rsi_low': 30, 'rsi_high': 70, 'rsi_exit_low': 40, 'rsi_exit_high': 60, 'hold_bars': 2},
-        'slow': {'rsi_len': 20, 'rsi_low': 45, 'rsi_high': 55, 'rsi_exit': 50, 'hold_bars': 10}
+        'normal': {'rsi_len': 14, 'rsi_low': 40, 'rsi_high': 60, 'rsi_exit_low': 50, 'rsi_exit_high': 50, 'hold_bars': 3, 'bb_std': 2, 'atr_len': 14},
+        'fast': {'rsi_len': 7, 'rsi_low': 30, 'rsi_high': 70, 'rsi_exit_low': 40, 'rsi_exit_high': 60, 'hold_bars': 2, 'atr_len': 7},
+        'slow': {'rsi_len': 20, 'rsi_low': 45, 'rsi_high': 55, 'rsi_exit_low': 55, 'rsi_exit_high': 45, 'hold_bars': 10, 'atr_len': 20}
     },
     'ma_cross': {
-        'normal': {'fast_len': 50, 'slow_len': 200, 'hold_bars': 5},
-        'fast': {'fast_len': 20, 'slow_len': 50, 'hold_bars': 3},
-        'slow': {'fast_len': 100, 'slow_len': 200, 'hold_bars': 20}
+        'normal': {'fast_len': 50, 'slow_len': 200, 'hold_bars': 5, 'atr_len': 14},
+        'fast': {'fast_len': 20, 'slow_len': 50, 'hold_bars': 3, 'atr_len': 7},
+        'slow': {'fast_len': 100, 'slow_len': 200, 'hold_bars': 20, 'atr_len': 20}
     },
     'bb_fade': {
-        'normal': {'bb_len': 20, 'bb_std': 2, 'hold_bars': 3},
-        'fast': {'bb_len': 10, 'bb_std': 1.5, 'hold_bars': 2},
-        'slow': {'bb_len': 50, 'bb_std': 2.5, 'hold_bars': 10}
+        'normal': {'bb_len': 20, 'bb_std': 2, 'hold_bars': 3, 'atr_len': 14},
+        'fast': {'bb_len': 10, 'bb_std': 1.5, 'hold_bars': 2, 'atr_len': 7},
+        'slow': {'bb_len': 50, 'bb_std': 2.5, 'hold_bars': 10, 'atr_len': 20}
     }
 }
 
-def ma_crossover_strategy(df, entry_bar):
-    """MA crossover for trend: Buy on fast > slow MA.
-    Returns: (pnl, atr_at_entry) tuple"""
-    if entry_bar < 200 or entry_bar + 5 >= len(df):
+def ma_crossover_strategy(df, entry_bar, scope='normal'):
+    params = STRATEGY_PARAMS['ma_cross'][scope]
+    if entry_bar < params['slow_len'] or entry_bar + params['hold_bars'] >= len(df):
         return 0, 0
     
     # Calculate ATR
     tr_list = []
-    for j in range(max(1, entry_bar-14), entry_bar):
+    for j in range(max(1, entry_bar-params['atr_len']), entry_bar):
         high_low = df['high'].iloc[j] - df['low'].iloc[j]
         high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
         low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
@@ -70,26 +69,25 @@ def ma_crossover_strategy(df, entry_bar):
     atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
     
     # Calculate MAs using ONLY data up to entry_bar
-    ma_fast = df['close'].iloc[max(0, entry_bar-50):entry_bar].mean()
-    ma_slow = df['close'].iloc[max(0, entry_bar-200):entry_bar].mean()
+    ma_fast = df['close'].iloc[max(0, entry_bar-params['fast_len']):entry_bar].mean()
+    ma_slow = df['close'].iloc[max(0, entry_bar-params['slow_len']):entry_bar].mean()
     
     if df['close'].iloc[entry_bar] > ma_fast > ma_slow:
         entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 5, len(df) - 1)
+        exit_bar = min(entry_bar + params['hold_bars'], len(df) - 1)
         exit_price = df['close'].iloc[exit_bar]
         pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
         return pnl, atr_value
     return 0, 0
 
-def bb_fade_strategy(df, entry_bar):
-    """BB fade for range/low vol: Buy lower band touch.
-    Returns: (pnl, atr_at_entry) tuple"""
-    if entry_bar < 20 or entry_bar + 3 >= len(df):
+def bb_fade_strategy(df, entry_bar, scope='normal'):
+    params = STRATEGY_PARAMS['bb_fade'][scope]
+    if entry_bar < params['bb_len'] or entry_bar + params['hold_bars'] >= len(df):
         return 0, 0
     
     # Calculate ATR
     tr_list = []
-    for j in range(max(1, entry_bar-14), entry_bar):
+    for j in range(max(1, entry_bar-params['atr_len']), entry_bar):
         high_low = df['high'].iloc[j] - df['low'].iloc[j]
         high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
         low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
@@ -97,16 +95,257 @@ def bb_fade_strategy(df, entry_bar):
     atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
     
     # Calculate BB using ONLY historical data
-    close_slice = df['close'].iloc[max(0, entry_bar-20):entry_bar]
+    close_slice = df['close'].iloc[max(0, entry_bar-params['bb_len']):entry_bar]
     sma = close_slice.mean()
     std = close_slice.std()
-    lower_bb = sma - (2 * std)
+    lower_bb = sma - (params['bb_std'] * std)
     
     if df['low'].iloc[entry_bar] <= lower_bb:
         entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 3, len(df) - 1)
+        exit_bar = min(entry_bar + params['hold_bars'], len(df) - 1)
         exit_price = df['close'].iloc[exit_bar]
         pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
+        return pnl, atr_value
+    return 0, 0
+
+def trend_following_strategy(df, entry_bar, scope='normal'):
+    params = STRATEGY_PARAMS['trend'][scope]
+    if entry_bar < params['break_len'] or entry_bar + params['hold_bars'] >= len(df):
+        return 0, 0
+    
+    # Calculate ATR for risk normalization
+    tr_list = []
+    for j in range(max(1, entry_bar-params['atr_len']), entry_bar):
+        high_low = df['high'].iloc[j] - df['low'].iloc[j]
+        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
+        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
+        tr_list.append(max(high_low, high_close, low_close))
+    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
+    
+    # Entry logic
+    high_break = df['high'].iloc[entry_bar-params['break_len']:entry_bar].max()
+    if df['close'].iloc[entry_bar] > high_break:
+        entry_price = df['close'].iloc[entry_bar]
+        
+        # Hold for up to hold_bars
+        exit_bar = min(entry_bar + params['hold_bars'], len(df) - 1)
+        exit_price = df['close'].iloc[exit_bar]
+        
+        # Check stop loss (stop_mult ATR)
+        stop_loss = entry_price - params['stop_mult'] * atr_value
+        for i in range(entry_bar + 1, exit_bar + 1):
+            if df['low'].iloc[i] <= stop_loss:
+                exit_price = stop_loss
+                break
+        
+        pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
+        return pnl, atr_value
+    
+    return 0, 0
+
+def mean_reversion_strategy(df, entry_bar, scope='normal'):
+    params = STRATEGY_PARAMS['reversion'][scope]
+    if entry_bar < params['rsi_len'] +1 or entry_bar + params['hold_bars'] >= len(df):
+        return 0, 0
+    
+    # Calculate ATR
+    tr_list = []
+    for j in range(max(1, entry_bar-params['atr_len']), entry_bar):
+        high_low = df['high'].iloc[j] - df['low'].iloc[j]
+        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
+        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
+        tr_list.append(max(high_low, high_close, low_close))
+    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
+    
+    # Calculate RSI manually using only historical data
+    close_slice = df['close'].iloc[max(0, entry_bar-params['rsi_len']):entry_bar+1]
+    deltas = close_slice.diff()
+    gains = deltas.where(deltas > 0, 0)
+    losses = -deltas.where(deltas < 0, 0)
+    avg_gain = gains.iloc[1:].mean()  # Skip first NaN
+    avg_loss = losses.iloc[1:].mean()
+    rs = avg_gain / avg_loss if avg_loss != 0 else 0
+    rsi_value = 100 - (100 / (1 + rs))
+    
+    # Calculate BB using only historical data
+    bb_slice = df['close'].iloc[max(0, entry_bar-params.get('bb_len', 20)):entry_bar]  # Default if no bb_len
+    sma = bb_slice.mean()
+    std = bb_slice.std()
+    lower_bb = sma - (params['bb_std'] * std)
+    middle_bb = sma
+    
+    # Entry conditions
+    price_pct_from_lower = (df['close'].iloc[entry_bar] - lower_bb) / (middle_bb - lower_bb) if middle_bb != lower_bb else 1
+    
+    if (rsi_value < params['rsi_low'] and price_pct_from_lower < 0.2):
+        entry_price = df['close'].iloc[entry_bar]
+        
+        # Exit - calculate RSI for each exit bar
+        for i in range(entry_bar + 1, min(entry_bar + params['hold_bars'] +1, len(df))):
+            # Recalculate RSI at exit bar
+            exit_close_slice = df['close'].iloc[max(0, i-params['rsi_len']):i+1]
+            exit_deltas = exit_close_slice.diff()
+            exit_gains = exit_deltas.where(exit_deltas > 0, 0)
+            exit_losses = -exit_deltas.where(exit_deltas < 0, 0)
+            exit_avg_gain = exit_gains.iloc[1:].mean()
+            exit_avg_loss = exit_losses.iloc[1:].mean()
+            exit_rs = exit_avg_gain / exit_avg_loss if exit_avg_loss != 0 else 0
+            exit_rsi = 100 - (100 / (1 + exit_rs))
+            
+            if exit_rsi > params['rsi_exit_low']:
+                pnl = (df['close'].iloc[i] - entry_price) * POINT_VALUE * CONTRACT_SIZE
+                return pnl, atr_value
+        
+        # Exit after hold_bars
+        pnl = (df['close'].iloc[min(entry_bar + params['hold_bars'], len(df) - 1)] - entry_price) * POINT_VALUE * CONTRACT_SIZE
+        return pnl, atr_value
+    
+    return 0, 0
+
+def trend_following_strategy_short(df, entry_bar, scope='normal'):
+    params = STRATEGY_PARAMS['trend'][scope]
+    if entry_bar < params['break_len'] or entry_bar + params['hold_bars'] >= len(df):
+        return 0, 0
+    
+    # Calculate ATR (same as long version)
+    tr_list = []
+    for j in range(max(1, entry_bar-params['atr_len']), entry_bar):
+        high_low = df['high'].iloc[j] - df['low'].iloc[j]
+        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
+        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
+        tr_list.append(max(high_low, high_close, low_close))
+    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
+    
+    # Entry logic - opposite of long
+    low_break = df['low'].iloc[entry_bar-params['break_len']:entry_bar].min()
+    if df['close'].iloc[entry_bar] < low_break:
+        entry_price = df['close'].iloc[entry_bar]
+        
+        # Hold for up to hold_bars
+        exit_bar = min(entry_bar + params['hold_bars'], len(df) - 1)
+        exit_price = df['close'].iloc[exit_bar]
+        
+        # Check stop loss (stop_mult ATR above entry)
+        stop_loss = entry_price + params['stop_mult'] * atr_value
+        for i in range(entry_bar + 1, exit_bar + 1):
+            if df['high'].iloc[i] >= stop_loss:
+                exit_price = stop_loss
+                break
+        
+        pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
+        return pnl, atr_value
+    
+    return 0, 0
+
+def mean_reversion_strategy_short(df, entry_bar, scope='normal'):
+    params = STRATEGY_PARAMS['reversion'][scope]
+    if entry_bar < params['rsi_len'] +1 or entry_bar + params['hold_bars'] >= len(df):
+        return 0, 0
+    
+    # Calculate ATR
+    tr_list = []
+    for j in range(max(1, entry_bar-params['atr_len']), entry_bar):
+        high_low = df['high'].iloc[j] - df['low'].iloc[j]
+        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
+        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
+        tr_list.append(max(high_low, high_close, low_close))
+    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
+    
+    # Calculate RSI manually using only historical data
+    close_slice = df['close'].iloc[max(0, entry_bar-params['rsi_len']):entry_bar+1]
+    deltas = close_slice.diff()
+    gains = deltas.where(deltas > 0, 0)
+    losses = -deltas.where(deltas < 0, 0)
+    avg_gain = gains.iloc[1:].mean()
+    avg_loss = losses.iloc[1:].mean()
+    rs = avg_gain / avg_loss if avg_loss != 0 else 0
+    rsi_value = 100 - (100 / (1 + rs))
+    
+    # Calculate BB using only historical data
+    bb_slice = df['close'].iloc[max(0, entry_bar-params.get('bb_len', 20)):entry_bar]
+    sma = bb_slice.mean()
+    std = bb_slice.std()
+    upper_bb = sma + (params['bb_std'] * std)
+    middle_bb = sma
+    
+    # Entry conditions - opposite of long
+    price_pct_from_upper = (upper_bb - df['close'].iloc[entry_bar]) / (upper_bb - middle_bb) if upper_bb != middle_bb else 1
+    
+    if (rsi_value > params['rsi_high'] and price_pct_from_upper < 0.2):
+        entry_price = df['close'].iloc[entry_bar]
+        
+        # Exit - calculate RSI for each exit bar
+        for i in range(entry_bar + 1, min(entry_bar + params['hold_bars'] +1, len(df))):
+            exit_close_slice = df['close'].iloc[max(0, i-params['rsi_len']):i+1]
+            exit_deltas = exit_close_slice.diff()
+            exit_gains = exit_deltas.where(exit_deltas > 0, 0)
+            exit_losses = -exit_deltas.where(exit_deltas < 0, 0)
+            exit_avg_gain = exit_gains.iloc[1:].mean()
+            exit_avg_loss = exit_losses.iloc[1:].mean()
+            exit_rs = exit_avg_gain / exit_avg_loss if exit_avg_loss != 0 else 0
+            exit_rsi = 100 - (100 / (1 + exit_rs))
+            
+            if exit_rsi < params['rsi_exit_high']:  # Use exit_high for short (lower threshold)
+                pnl = (entry_price - df['close'].iloc[i]) * POINT_VALUE * CONTRACT_SIZE
+                return pnl, atr_value
+        
+        # Exit after hold_bars
+        pnl = (entry_price - df['close'].iloc[min(entry_bar + params['hold_bars'], len(df) - 1)]) * POINT_VALUE * CONTRACT_SIZE
+        return pnl, atr_value
+    
+    return 0, 0
+
+def ma_crossover_strategy_short(df, entry_bar, scope='normal'):
+    params = STRATEGY_PARAMS['ma_cross'][scope]
+    if entry_bar < params['slow_len'] or entry_bar + params['hold_bars'] >= len(df):
+        return 0, 0
+    
+    # Calculate ATR
+    tr_list = []
+    for j in range(max(1, entry_bar-params['atr_len']), entry_bar):
+        high_low = df['high'].iloc[j] - df['low'].iloc[j]
+        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
+        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
+        tr_list.append(max(high_low, high_close, low_close))
+    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
+    
+    # Calculate MAs using ONLY data up to entry_bar
+    ma_fast = df['close'].iloc[max(0, entry_bar-params['fast_len']):entry_bar].mean()
+    ma_slow = df['close'].iloc[max(0, entry_bar-params['slow_len']):entry_bar].mean()
+    
+    if df['close'].iloc[entry_bar] < ma_fast < ma_slow:
+        entry_price = df['close'].iloc[entry_bar]
+        exit_bar = min(entry_bar + params['hold_bars'], len(df) - 1)
+        exit_price = df['close'].iloc[exit_bar]
+        pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
+        return pnl, atr_value
+    return 0, 0
+
+def bb_fade_strategy_short(df, entry_bar, scope='normal'):
+    params = STRATEGY_PARAMS['bb_fade'][scope]
+    if entry_bar < params['bb_len'] or entry_bar + params['hold_bars'] >= len(df):
+        return 0, 0
+    
+    # Calculate ATR
+    tr_list = []
+    for j in range(max(1, entry_bar-params['atr_len']), entry_bar):
+        high_low = df['high'].iloc[j] - df['low'].iloc[j]
+        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
+        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
+        tr_list.append(max(high_low, high_close, low_close))
+    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
+    
+    # Calculate BB using ONLY historical data
+    close_slice = df['close'].iloc[max(0, entry_bar-params['bb_len']):entry_bar]
+    sma = close_slice.mean()
+    std = close_slice.std()
+    upper_bb = sma + (params['bb_std'] * std)
+    
+    if df['high'].iloc[entry_bar] >= upper_bb:
+        entry_price = df['close'].iloc[entry_bar]
+        exit_bar = min(entry_bar + params['hold_bars'], len(df) - 1)
+        exit_price = df['close'].iloc[exit_bar]
+        pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
         return pnl, atr_value
     return 0, 0
 
@@ -140,820 +379,6 @@ def calculate_regime_characteristics(df, model, features, raw_features):
     
     return regime_stats
 
-def trend_following_strategy(df, entry_bar):
-    """
-    Trend following: Enter when price breaks above 20-bar high
-    Exit after 5 bars or stop loss hit
-    Returns: (pnl, atr_at_entry) tuple
-    """
-    if entry_bar < 20 or entry_bar + 5 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR for risk normalization
-    tr_list = []
-    for j in range(max(1, entry_bar-14), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Entry logic
-    high_20 = df['high'].iloc[entry_bar-20:entry_bar].max()
-    if df['close'].iloc[entry_bar] > high_20:
-        entry_price = df['close'].iloc[entry_bar]
-        
-        # Hold for up to 5 bars
-        exit_bar = min(entry_bar + 5, len(df) - 1)
-        exit_price = df['close'].iloc[exit_bar]
-        
-        # Check stop loss (2 ATR)
-        stop_loss = entry_price - 2 * atr_value
-
-        for i in range(entry_bar + 1, exit_bar + 1):
-            if df['low'].iloc[i] <= stop_loss:
-                exit_price = stop_loss
-                break
-        
-        pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    
-    return 0, 0
-
-def mean_reversion_strategy(df, entry_bar):
-    """
-    Mean reversion: Buy when RSI < 40 and near lower Bollinger Band
-    Exit when RSI > 50 or after 3 bars
-    Returns: (pnl, atr_at_entry) tuple
-    """
-    if entry_bar < 20 or entry_bar + 3 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR for risk normalization
-    tr_list = []
-    for j in range(max(1, entry_bar-14), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Calculate RSI manually using only historical data
-    close_slice = df['close'].iloc[max(0, entry_bar-14):entry_bar+1]
-    deltas = close_slice.diff()
-    gains = deltas.where(deltas > 0, 0)
-    losses = -deltas.where(deltas < 0, 0)
-    avg_gain = gains.iloc[1:].mean()  # Skip first NaN
-    avg_loss = losses.iloc[1:].mean()
-    rs = avg_gain / avg_loss if avg_loss != 0 else 0
-    rsi_value = 100 - (100 / (1 + rs))
-    
-    # Calculate BB using only historical data
-    bb_slice = df['close'].iloc[max(0, entry_bar-20):entry_bar]
-    sma = bb_slice.mean()
-    std = bb_slice.std()
-    lower_bb = sma - (2 * std)
-    middle_bb = sma
-    
-    # Entry conditions
-    price_pct_from_lower = (df['close'].iloc[entry_bar] - lower_bb) / (middle_bb - lower_bb) if middle_bb != lower_bb else 1
-    
-    if (rsi_value < 40 and price_pct_from_lower < 0.2):
-        entry_price = df['close'].iloc[entry_bar]
-        
-        # Exit - calculate RSI for each exit bar
-        for i in range(entry_bar + 1, min(entry_bar + 4, len(df))):
-            # Recalculate RSI at exit bar
-            exit_close_slice = df['close'].iloc[max(0, i-14):i+1]
-            exit_deltas = exit_close_slice.diff()
-            exit_gains = exit_deltas.where(exit_deltas > 0, 0)
-            exit_losses = -exit_deltas.where(exit_deltas < 0, 0)
-            exit_avg_gain = exit_gains.iloc[1:].mean()
-            exit_avg_loss = exit_losses.iloc[1:].mean()
-            exit_rs = exit_avg_gain / exit_avg_loss if exit_avg_loss != 0 else 0
-            exit_rsi = 100 - (100 / (1 + exit_rs))
-            
-            if exit_rsi > 50:
-                pnl = (df['close'].iloc[i] - entry_price) * POINT_VALUE * CONTRACT_SIZE
-                return pnl, atr_value
-        
-        # Exit after 3 bars
-        point_value = 20
-        pnl = (df['close'].iloc[min(entry_bar + 3, len(df) - 1)] - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    
-    return 0, 0
-
-def trend_following_strategy_short(df, entry_bar):
-    """
-    Trend following short: Enter when price breaks below 20-bar low
-    Exit after 5 bars or stop loss hit
-    Returns: (pnl, atr_at_entry) tuple
-    """
-    if entry_bar < 20 or entry_bar + 5 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR (same as long version)
-    tr_list = []
-    for j in range(max(1, entry_bar-14), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Entry logic - opposite of long
-    low_20 = df['low'].iloc[entry_bar-20:entry_bar].min()
-    if df['close'].iloc[entry_bar] < low_20:
-        entry_price = df['close'].iloc[entry_bar]
-        
-        # Hold for up to 5 bars
-        exit_bar = min(entry_bar + 5, len(df) - 1)
-        exit_price = df['close'].iloc[exit_bar]
-        
-        # Check stop loss (2 ATR above entry)
-        stop_loss = entry_price + 2 * atr_value
-
-        for i in range(entry_bar + 1, exit_bar + 1):
-            if df['high'].iloc[i] >= stop_loss:
-                exit_price = stop_loss
-                break
-        
-        pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    
-    return 0, 0
-
-def mean_reversion_strategy_short(df, entry_bar):
-    """
-    Mean reversion short: Sell when RSI > 60 and near upper Bollinger Band
-    Exit when RSI < 50 or after 3 bars
-    Returns: (pnl, atr_at_entry) tuple
-    """
-    if entry_bar < 20 or entry_bar + 3 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-14), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Calculate RSI manually using only historical data
-    close_slice = df['close'].iloc[max(0, entry_bar-14):entry_bar+1]
-    deltas = close_slice.diff()
-    gains = deltas.where(deltas > 0, 0)
-    losses = -deltas.where(deltas < 0, 0)
-    avg_gain = gains.iloc[1:].mean()
-    avg_loss = losses.iloc[1:].mean()
-    rs = avg_gain / avg_loss if avg_loss != 0 else 0
-    rsi_value = 100 - (100 / (1 + rs))
-    
-    # Calculate BB using only historical data
-    bb_slice = df['close'].iloc[max(0, entry_bar-20):entry_bar]
-    sma = bb_slice.mean()
-    std = bb_slice.std()
-    upper_bb = sma + (2 * std)
-    middle_bb = sma
-    
-    # Entry conditions - opposite of long
-    price_pct_from_upper = (upper_bb - df['close'].iloc[entry_bar]) / (upper_bb - middle_bb) if upper_bb != middle_bb else 1
-    
-    if (rsi_value > 60 and price_pct_from_upper < 0.2):
-        entry_price = df['close'].iloc[entry_bar]
-        
-        # Exit - calculate RSI for each exit bar
-        for i in range(entry_bar + 1, min(entry_bar + 4, len(df))):
-            exit_close_slice = df['close'].iloc[max(0, i-14):i+1]
-            exit_deltas = exit_close_slice.diff()
-            exit_gains = exit_deltas.where(exit_deltas > 0, 0)
-            exit_losses = -exit_deltas.where(exit_deltas < 0, 0)
-            exit_avg_gain = exit_gains.iloc[1:].mean()
-            exit_avg_loss = exit_losses.iloc[1:].mean()
-            exit_rs = exit_avg_gain / exit_avg_loss if exit_avg_loss != 0 else 0
-            exit_rsi = 100 - (100 / (1 + exit_rs))
-            
-            if exit_rsi < 50:
-                pnl = (entry_price - df['close'].iloc[i]) * POINT_VALUE * CONTRACT_SIZE
-                return pnl, atr_value
-        
-        # Exit after 3 bars
-        pnl = (entry_price - df['close'].iloc[min(entry_bar + 3, len(df) - 1)]) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    
-    return 0, atr_value  # Return ATR even if no trade
-
-def ma_crossover_strategy_short(df, entry_bar):
-    """MA crossover short: Sell on fast < slow MA (death cross)
-    Returns: (pnl, atr_at_entry) tuple"""
-    if entry_bar < 200 or entry_bar + 5 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-14), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Calculate MAs using ONLY data up to entry_bar
-    ma_fast = df['close'].iloc[max(0, entry_bar-50):entry_bar].mean()
-    ma_slow = df['close'].iloc[max(0, entry_bar-200):entry_bar].mean()
-    
-    if df['close'].iloc[entry_bar] < ma_fast < ma_slow:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 5, len(df) - 1)
-        exit_price = df['close'].iloc[exit_bar]
-        pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, atr_value  # Return ATR even if no trade
-
-def bb_fade_strategy_short(df, entry_bar):
-    """BB fade short: Sell upper band touch
-    Returns: (pnl, atr_at_entry) tuple"""
-    if entry_bar < 20 or entry_bar + 3 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-14), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Calculate BB using ONLY historical data
-    close_slice = df['close'].iloc[max(0, entry_bar-20):entry_bar]
-    sma = close_slice.mean()
-    std = close_slice.std()
-    upper_bb = sma + (2 * std)
-    
-    if df['high'].iloc[entry_bar] >= upper_bb:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 3, len(df) - 1)
-        exit_price = df['close'].iloc[exit_bar]
-        pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, atr_value  # Return ATR even if no trade
-
-# MA CROSSOVER FAST/SLOW VARIANTS
-
-def ma_crossover_strategy_fast(df, entry_bar):
-    """Fast MA crossover: 20/50 period, hold 3 bars"""
-    if entry_bar < 50 or entry_bar + 3 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-7), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Fast MAs
-    ma_fast = df['close'].iloc[max(0, entry_bar-20):entry_bar].mean()
-    ma_slow = df['close'].iloc[max(0, entry_bar-50):entry_bar].mean()
-    
-    if df['close'].iloc[entry_bar] > ma_fast > ma_slow:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 3, len(df) - 1)
-        exit_price = df['close'].iloc[exit_bar]
-        pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, 0
-
-def ma_crossover_strategy_fast_short(df, entry_bar):
-    """Fast MA crossover short: 20/50 period, hold 3 bars"""
-    if entry_bar < 50 or entry_bar + 3 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-7), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Fast MAs
-    ma_fast = df['close'].iloc[max(0, entry_bar-20):entry_bar].mean()
-    ma_slow = df['close'].iloc[max(0, entry_bar-50):entry_bar].mean()
-    
-    if df['close'].iloc[entry_bar] < ma_fast < ma_slow:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 3, len(df) - 1)
-        exit_price = df['close'].iloc[exit_bar]
-        pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, 0
-
-def ma_crossover_strategy_slow(df, entry_bar):
-    """Slow MA crossover: 100/200 period, hold 20 bars"""
-    if entry_bar < 200 or entry_bar + 20 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-20), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Slow MAs
-    ma_fast = df['close'].iloc[max(0, entry_bar-100):entry_bar].mean()
-    ma_slow = df['close'].iloc[max(0, entry_bar-200):entry_bar].mean()
-    
-    if df['close'].iloc[entry_bar] > ma_fast > ma_slow:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 20, len(df) - 1)
-        exit_price = df['close'].iloc[exit_bar]
-        pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, 0
-
-def ma_crossover_strategy_slow_short(df, entry_bar):
-    """Slow MA crossover short: 100/200 period, hold 20 bars"""
-    if entry_bar < 200 or entry_bar + 20 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-20), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Slow MAs
-    ma_fast = df['close'].iloc[max(0, entry_bar-100):entry_bar].mean()
-    ma_slow = df['close'].iloc[max(0, entry_bar-200):entry_bar].mean()
-    
-    if df['close'].iloc[entry_bar] < ma_fast < ma_slow:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 20, len(df) - 1)
-        exit_price = df['close'].iloc[exit_bar]
-        pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, 0
-
-# BB FADE FAST/SLOW VARIANTS
-
-def bb_fade_strategy_fast(df, entry_bar):
-    """Fast BB fade: 10 period BB, 1.5 std, hold 2 bars"""
-    if entry_bar < 10 or entry_bar + 2 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-7), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Fast BB
-    close_slice = df['close'].iloc[max(0, entry_bar-10):entry_bar]
-    sma = close_slice.mean()
-    std = close_slice.std()
-    lower_bb = sma - (1.5 * std)  # Tighter bands
-    
-    if df['low'].iloc[entry_bar] <= lower_bb:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 2, len(df) - 1)
-        exit_price = df['close'].iloc[exit_bar]
-        pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, 0
-
-def bb_fade_strategy_fast_short(df, entry_bar):
-    """Fast BB fade short: 10 period BB, 1.5 std, hold 2 bars"""
-    if entry_bar < 10 or entry_bar + 2 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-7), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Fast BB
-    close_slice = df['close'].iloc[max(0, entry_bar-10):entry_bar]
-    sma = close_slice.mean()
-    std = close_slice.std()
-    upper_bb = sma + (1.5 * std)  # Tighter bands
-    
-    if df['high'].iloc[entry_bar] >= upper_bb:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 2, len(df) - 1)
-        exit_price = df['close'].iloc[exit_bar]
-        pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, 0
-
-def bb_fade_strategy_slow(df, entry_bar):
-    """Slow BB fade: 50 period BB, 2.5 std, hold 10 bars"""
-    if entry_bar < 50 or entry_bar + 10 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-20), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Slow BB
-    close_slice = df['close'].iloc[max(0, entry_bar-50):entry_bar]
-    sma = close_slice.mean()
-    std = close_slice.std()
-    lower_bb = sma - (2.5 * std)  # Wider bands
-    
-    if df['low'].iloc[entry_bar] <= lower_bb:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 10, len(df) - 1)
-        exit_price = df['close'].iloc[exit_bar]
-        pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, 0
-
-def bb_fade_strategy_slow_short(df, entry_bar):
-    """Slow BB fade short: 50 period BB, 2.5 std, hold 10 bars"""
-    if entry_bar < 50 or entry_bar + 10 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-20), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Slow BB
-    close_slice = df['close'].iloc[max(0, entry_bar-50):entry_bar]
-    sma = close_slice.mean()
-    std = close_slice.std()
-    upper_bb = sma + (2.5 * std)  # Wider bands
-    
-    if df['high'].iloc[entry_bar] >= upper_bb:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 10, len(df) - 1)
-        exit_price = df['close'].iloc[exit_bar]
-        pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    return 0, 0
-
-# FAST SCOPE STRATEGIES (1-3 bar holds, tight parameters)
-
-def trend_following_strategy_fast(df, entry_bar):
-    """Fast trend: Break of 10-bar high, hold 2 bars"""
-    if entry_bar < 10 or entry_bar + 2 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-7), entry_bar):  # Faster ATR
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Entry logic - 10 bar breakout
-    high_10 = df['high'].iloc[entry_bar-10:entry_bar].max()
-    if df['close'].iloc[entry_bar] > high_10:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 2, len(df) - 1)  # Fast exit
-        exit_price = df['close'].iloc[exit_bar]
-        
-        # Tight stop (1 ATR)
-        stop_loss = entry_price - 1 * atr_value
-        for i in range(entry_bar + 1, exit_bar + 1):
-            if df['low'].iloc[i] <= stop_loss:
-                exit_price = stop_loss
-                break
-        
-        pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    
-    return 0, 0
-
-def mean_reversion_strategy_fast(df, entry_bar):
-    """Fast reversion: RSI < 30, exit at RSI > 40 or 2 bars"""
-    if entry_bar < 10 or entry_bar + 2 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-7), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Fast RSI (7 period)
-    close_slice = df['close'].iloc[max(0, entry_bar-7):entry_bar+1]
-    deltas = close_slice.diff()
-    gains = deltas.where(deltas > 0, 0)
-    losses = -deltas.where(deltas < 0, 0)
-    avg_gain = gains.iloc[1:].mean()
-    avg_loss = losses.iloc[1:].mean()
-    rs = avg_gain / avg_loss if avg_loss != 0 else 0
-    rsi_value = 100 - (100 / (1 + rs))
-    
-    if rsi_value < 30:  # Tighter threshold
-        entry_price = df['close'].iloc[entry_bar]
-        
-        # Fast exit
-        for i in range(entry_bar + 1, min(entry_bar + 3, len(df))):
-            # Recalc RSI
-            exit_close_slice = df['close'].iloc[max(0, i-7):i+1]
-            exit_deltas = exit_close_slice.diff()
-            exit_gains = exit_deltas.where(exit_deltas > 0, 0)
-            exit_losses = -exit_deltas.where(exit_deltas < 0, 0)
-            exit_avg_gain = exit_gains.iloc[1:].mean()
-            exit_avg_loss = exit_losses.iloc[1:].mean()
-            exit_rs = exit_avg_gain / exit_avg_loss if exit_avg_loss != 0 else 0
-            exit_rsi = 100 - (100 / (1 + exit_rs))
-            
-            if exit_rsi > 40:  # Quick exit
-                pnl = (df['close'].iloc[i] - entry_price) * POINT_VALUE * CONTRACT_SIZE
-                return pnl, atr_value
-        
-        # Exit after 2 bars max
-        pnl = (df['close'].iloc[min(entry_bar + 2, len(df) - 1)] - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    
-    return 0, 0
-
-def trend_following_strategy_fast_short(df, entry_bar):
-    """Fast trend short: Break of 10-bar low, hold 2 bars"""
-    if entry_bar < 10 or entry_bar + 2 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-7), entry_bar):  # Faster ATR
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Entry logic - 10 bar breakdown
-    low_10 = df['low'].iloc[entry_bar-10:entry_bar].min()
-    if df['close'].iloc[entry_bar] < low_10:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 2, len(df) - 1)  # Fast exit
-        exit_price = df['close'].iloc[exit_bar]
-        
-        # Tight stop (1 ATR)
-        stop_loss = entry_price + 1 * atr_value
-        for i in range(entry_bar + 1, exit_bar + 1):
-            if df['high'].iloc[i] >= stop_loss:
-                exit_price = stop_loss
-                break
-        
-        pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    
-    return 0, 0
-
-def mean_reversion_strategy_fast_short(df, entry_bar):
-    """Fast reversion short: RSI > 70, exit at RSI < 60 or 2 bars"""
-    if entry_bar < 10 or entry_bar + 2 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-7), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Fast RSI (7 period)
-    close_slice = df['close'].iloc[max(0, entry_bar-7):entry_bar+1]
-    deltas = close_slice.diff()
-    gains = deltas.where(deltas > 0, 0)
-    losses = -deltas.where(deltas < 0, 0)
-    avg_gain = gains.iloc[1:].mean()
-    avg_loss = losses.iloc[1:].mean()
-    rs = avg_gain / avg_loss if avg_loss != 0 else 0
-    rsi_value = 100 - (100 / (1 + rs))
-    
-    if rsi_value > 70:  # Tighter threshold
-        entry_price = df['close'].iloc[entry_bar]
-        
-        # Fast exit
-        for i in range(entry_bar + 1, min(entry_bar + 3, len(df))):
-            # Recalc RSI
-            exit_close_slice = df['close'].iloc[max(0, i-7):i+1]
-            exit_deltas = exit_close_slice.diff()
-            exit_gains = exit_deltas.where(exit_deltas > 0, 0)
-            exit_losses = -exit_deltas.where(exit_deltas < 0, 0)
-            exit_avg_gain = exit_gains.iloc[1:].mean()
-            exit_avg_loss = exit_losses.iloc[1:].mean()
-            exit_rs = exit_avg_gain / exit_avg_loss if exit_avg_loss != 0 else 0
-            exit_rsi = 100 - (100 / (1 + exit_rs))
-            
-            if exit_rsi < 60:  # Quick exit
-                pnl = (entry_price - df['close'].iloc[i]) * POINT_VALUE * CONTRACT_SIZE
-                return pnl, atr_value
-        
-        # Exit after 2 bars max
-        pnl = (entry_price - df['close'].iloc[min(entry_bar + 2, len(df) - 1)]) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    
-    return 0, 0
-
-# SLOW SCOPE STRATEGIES (20-30 bar holds, loose parameters)
-
-def trend_following_strategy_slow(df, entry_bar):
-    """Slow trend: Break of 50-bar high, hold 20 bars"""
-    if entry_bar < 50 or entry_bar + 20 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-20), entry_bar):  # Slower ATR
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Entry logic - 50 bar breakout
-    high_50 = df['high'].iloc[entry_bar-50:entry_bar].max()
-    if df['close'].iloc[entry_bar] > high_50:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 20, len(df) - 1)  # Long hold
-        exit_price = df['close'].iloc[exit_bar]
-        
-        # Wide stop (3 ATR)
-        stop_loss = entry_price - 3 * atr_value
-        for i in range(entry_bar + 1, exit_bar + 1):
-            if df['low'].iloc[i] <= stop_loss:
-                exit_price = stop_loss
-                break
-        
-        pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    
-    return 0, 0
-
-def mean_reversion_strategy_slow(df, entry_bar):
-    """Slow reversion: RSI < 45, exit at RSI > 55 or 10 bars"""
-    if entry_bar < 30 or entry_bar + 10 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-20), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Slow RSI (20 period)
-    close_slice = df['close'].iloc[max(0, entry_bar-20):entry_bar+1]
-    deltas = close_slice.diff()
-    gains = deltas.where(deltas > 0, 0)
-    losses = -deltas.where(deltas < 0, 0)
-    avg_gain = gains.iloc[1:].mean()
-    avg_loss = losses.iloc[1:].mean()
-    rs = avg_gain / avg_loss if avg_loss != 0 else 0
-    rsi_value = 100 - (100 / (1 + rs))
-    
-    if rsi_value < 45:  # Looser threshold
-        entry_price = df['close'].iloc[entry_bar]
-        
-        # Slow exit
-        for i in range(entry_bar + 1, min(entry_bar + 11, len(df))):
-            # Recalc RSI
-            exit_close_slice = df['close'].iloc[max(0, i-20):i+1]
-            exit_deltas = exit_close_slice.diff()
-            exit_gains = exit_deltas.where(exit_deltas > 0, 0)
-            exit_losses = -exit_deltas.where(exit_deltas < 0, 0)
-            exit_avg_gain = exit_gains.iloc[1:].mean()
-            exit_avg_loss = exit_losses.iloc[1:].mean()
-            exit_rs = exit_avg_gain / exit_avg_loss if exit_avg_loss != 0 else 0
-            exit_rsi = 100 - (100 / (1 + exit_rs))
-            
-            if exit_rsi > 55:  # Patient exit
-                pnl = (df['close'].iloc[i] - entry_price) * POINT_VALUE * CONTRACT_SIZE
-                return pnl, atr_value
-        
-        # Exit after 10 bars max
-        pnl = (df['close'].iloc[min(entry_bar + 10, len(df) - 1)] - entry_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    
-    return 0, 0
-
-def trend_following_strategy_slow_short(df, entry_bar):
-    """Slow trend short: Break of 50-bar low, hold 20 bars"""
-    if entry_bar < 50 or entry_bar + 20 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-20), entry_bar):  # Slower ATR
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Entry logic - 50 bar breakdown
-    low_50 = df['low'].iloc[entry_bar-50:entry_bar].min()
-    if df['close'].iloc[entry_bar] < low_50:
-        entry_price = df['close'].iloc[entry_bar]
-        exit_bar = min(entry_bar + 20, len(df) - 1)  # Long hold
-        exit_price = df['close'].iloc[exit_bar]
-        
-        # Wide stop (3 ATR)
-        stop_loss = entry_price + 3 * atr_value
-        for i in range(entry_bar + 1, exit_bar + 1):
-            if df['high'].iloc[i] >= stop_loss:
-                exit_price = stop_loss
-                break
-        
-        pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    
-    return 0, 0
-
-def mean_reversion_strategy_slow_short(df, entry_bar):
-    """Slow reversion short: RSI > 55, exit at RSI < 45 or 10 bars"""
-    if entry_bar < 30 or entry_bar + 10 >= len(df):
-        return 0, 0
-    
-    # Calculate ATR
-    tr_list = []
-    for j in range(max(1, entry_bar-20), entry_bar):
-        high_low = df['high'].iloc[j] - df['low'].iloc[j]
-        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
-        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
-        tr_list.append(max(high_low, high_close, low_close))
-    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
-    
-    # Slow RSI (20 period)
-    close_slice = df['close'].iloc[max(0, entry_bar-20):entry_bar+1]
-    deltas = close_slice.diff()
-    gains = deltas.where(deltas > 0, 0)
-    losses = -deltas.where(deltas < 0, 0)
-    avg_gain = gains.iloc[1:].mean()
-    avg_loss = losses.iloc[1:].mean()
-    rs = avg_gain / avg_loss if avg_loss != 0 else 0
-    rsi_value = 100 - (100 / (1 + rs))
-    
-    if rsi_value > 55:  # Looser threshold
-        entry_price = df['close'].iloc[entry_bar]
-        
-        # Slow exit
-        for i in range(entry_bar + 1, min(entry_bar + 11, len(df))):
-            # Recalc RSI
-            exit_close_slice = df['close'].iloc[max(0, i-20):i+1]
-            exit_deltas = exit_close_slice.diff()
-            exit_gains = exit_deltas.where(exit_deltas > 0, 0)
-            exit_losses = -exit_deltas.where(exit_deltas < 0, 0)
-            exit_avg_gain = exit_gains.iloc[1:].mean()
-            exit_avg_loss = exit_losses.iloc[1:].mean()
-            exit_rs = exit_avg_gain / exit_avg_loss if exit_avg_loss != 0 else 0
-            exit_rsi = 100 - (100 / (1 + exit_rs))
-            
-            if exit_rsi < 45:  # Patient exit
-                pnl = (entry_price - df['close'].iloc[i]) * POINT_VALUE * CONTRACT_SIZE
-                return pnl, atr_value
-        
-        # Exit after 10 bars max
-        pnl = (entry_price - df['close'].iloc[min(entry_bar + 10, len(df) - 1)]) * POINT_VALUE * CONTRACT_SIZE
-        return pnl, atr_value
-    
-    return 0, 0
-
 def calculate_trade_metrics(trades, use_normalized=True):
     """Calculate comprehensive metrics for a list of trades"""
     if len(trades) == 0:
@@ -984,7 +409,7 @@ def calculate_trade_metrics(trades, use_normalized=True):
     equity_curve = ACCOUNT_SIZE + cumulative_pnl
     running_max = np.maximum.accumulate(equity_curve)
     drawdown_dollars = equity_curve - running_max
-    drawdown_pct = (drawdown_dollars / running_max) * 100
+    drawdown_pct = (drawdown_dollars / running_max) * 100 if np.any(running_max > 0) else np.zeros_like(drawdown_dollars)
     max_drawdown_dollars = abs(min(drawdown_dollars)) if len(drawdown_dollars) > 0 else 0
     max_drawdown_pct = abs(min(drawdown_pct)) if len(drawdown_pct) > 0 else 0
     
@@ -1184,7 +609,7 @@ def run_strategy_probes(df, model):
             for i in range(200, len(subset) - 10):  # Need 200 bars for MA strategies
                 # Trend following - LONG
                 if use_trend:
-                    pnl, atr = trend_following_strategy(subset, i)
+                    pnl, atr = trend_following_strategy(subset, i, 'slow')
                     if pnl != 0:
                         normalized_pnl = normalize_trade_risk(pnl, atr)
                         trade = {
@@ -1198,7 +623,7 @@ def run_strategy_probes(df, model):
                         strategy_trades['trend']['long'].append(trade)
                     
                     # Trend following - SHORT
-                    pnl, atr = trend_following_strategy_short(subset, i)
+                    pnl, atr = trend_following_strategy_short(subset, i, 'normal')
                     if pnl != 0:
                         normalized_pnl = normalize_trade_risk(pnl, atr)
                         trade = {
@@ -1212,7 +637,7 @@ def run_strategy_probes(df, model):
                         strategy_trades['trend']['short'].append(trade)
                 
                 # MA Crossover - LONG
-                pnl, atr = ma_crossover_strategy(subset, i)
+                pnl, atr = ma_crossover_strategy(subset, i, 'normal')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1226,7 +651,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['ma_cross']['long'].append(trade)
                 
                 # MA Crossover - SHORT
-                pnl, atr = ma_crossover_strategy_short(subset, i)
+                pnl, atr = ma_crossover_strategy_short(subset, i, 'normal')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1241,7 +666,7 @@ def run_strategy_probes(df, model):
                 
                 # Mean reversion - LONG
                 if use_reversion:
-                    pnl, atr = mean_reversion_strategy(subset, i)
+                    pnl, atr = mean_reversion_strategy(subset, i, 'normal')
                     if pnl != 0:
                         normalized_pnl = normalize_trade_risk(pnl, atr)
                         trade = {
@@ -1255,7 +680,7 @@ def run_strategy_probes(df, model):
                         strategy_trades['reversion']['long'].append(trade)
                     
                     # Mean reversion - SHORT
-                    pnl, atr = mean_reversion_strategy_short(subset, i)
+                    pnl, atr = mean_reversion_strategy_short(subset, i, 'normal')
                     if pnl != 0:
                         normalized_pnl = normalize_trade_risk(pnl, atr)
                         trade = {
@@ -1269,7 +694,7 @@ def run_strategy_probes(df, model):
                         strategy_trades['reversion']['short'].append(trade)
                 
                 # BB Fade - LONG
-                pnl, atr = bb_fade_strategy(subset, i)
+                pnl, atr = bb_fade_strategy(subset, i, 'normal')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1283,7 +708,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['bb_fade']['long'].append(trade)
                 
                 # BB Fade - SHORT
-                pnl, atr = bb_fade_strategy_short(subset, i)
+                pnl, atr = bb_fade_strategy_short(subset, i, 'normal')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1298,7 +723,7 @@ def run_strategy_probes(df, model):
 
             # FAST SCOPE STRATEGIES
                 # Fast Trend - LONG
-                pnl, atr = trend_following_strategy_fast(subset, i)
+                pnl, atr = trend_following_strategy(subset, i, 'fast')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1312,7 +737,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['trend_fast']['long'].append(trade)
                 
                 # Fast Reversion - LONG  
-                pnl, atr = mean_reversion_strategy_fast(subset, i)
+                pnl, atr = mean_reversion_strategy(subset, i, 'fast')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1327,7 +752,7 @@ def run_strategy_probes(df, model):
                 
                 # SLOW SCOPE STRATEGIES
                 # Slow Trend - LONG
-                pnl, atr = trend_following_strategy_slow(subset, i)
+                pnl, atr = trend_following_strategy(subset, i, 'slow')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1341,7 +766,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['trend_slow']['long'].append(trade)
                 
                 # Slow Reversion - LONG
-                pnl, atr = mean_reversion_strategy_slow(subset, i)
+                pnl, atr = mean_reversion_strategy(subset, i, 'slow')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1356,7 +781,7 @@ def run_strategy_probes(df, model):
 
                 # FAST SCOPE - SHORT STRATEGIES
                 # Fast Trend - SHORT
-                pnl, atr = trend_following_strategy_fast_short(subset, i)
+                pnl, atr = trend_following_strategy_short(subset, i, 'fast')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1370,7 +795,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['trend_fast']['short'].append(trade)
                 
                 # Fast Reversion - SHORT
-                pnl, atr = mean_reversion_strategy_fast_short(subset, i)
+                pnl, atr = mean_reversion_strategy_short(subset, i, 'fast')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1385,7 +810,7 @@ def run_strategy_probes(df, model):
                 
                 # SLOW SCOPE - SHORT STRATEGIES
                 # Slow Trend - SHORT
-                pnl, atr = trend_following_strategy_slow_short(subset, i)
+                pnl, atr = trend_following_strategy_short(subset, i, 'slow')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1399,7 +824,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['trend_slow']['short'].append(trade)
                 
                 # Slow Reversion - SHORT
-                pnl, atr = mean_reversion_strategy_slow_short(subset, i)
+                pnl, atr = mean_reversion_strategy_short(subset, i, 'slow')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1413,7 +838,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['reversion_slow']['short'].append(trade)
                 
                 # MA CROSS FAST - LONG & SHORT
-                pnl, atr = ma_crossover_strategy_fast(subset, i)
+                pnl, atr = ma_crossover_strategy(subset, i, 'fast')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1426,7 +851,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['ma_cross_fast']['all'].append(trade)
                     strategy_trades['ma_cross_fast']['long'].append(trade)
                 
-                pnl, atr = ma_crossover_strategy_fast_short(subset, i)
+                pnl, atr = ma_crossover_strategy_short(subset, i, 'fast')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1440,7 +865,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['ma_cross_fast']['short'].append(trade)
                 
                 # MA CROSS SLOW - LONG & SHORT
-                pnl, atr = ma_crossover_strategy_slow(subset, i)
+                pnl, atr = ma_crossover_strategy(subset, i, 'slow')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1453,7 +878,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['ma_cross_slow']['all'].append(trade)
                     strategy_trades['ma_cross_slow']['long'].append(trade)
                 
-                pnl, atr = ma_crossover_strategy_slow_short(subset, i)
+                pnl, atr = ma_crossover_strategy_short(subset, i, 'slow')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1467,7 +892,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['ma_cross_slow']['short'].append(trade)
                 
                 # BB FADE FAST - LONG & SHORT
-                pnl, atr = bb_fade_strategy_fast(subset, i)
+                pnl, atr = bb_fade_strategy(subset, i, 'fast')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1480,7 +905,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['bb_fade_fast']['all'].append(trade)
                     strategy_trades['bb_fade_fast']['long'].append(trade)
                 
-                pnl, atr = bb_fade_strategy_fast_short(subset, i)
+                pnl, atr = bb_fade_strategy_short(subset, i, 'fast')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1494,7 +919,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['bb_fade_fast']['short'].append(trade)
                 
                 # BB FADE SLOW - LONG & SHORT
-                pnl, atr = bb_fade_strategy_slow(subset, i)
+                pnl, atr = bb_fade_strategy(subset, i, 'slow')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
@@ -1507,7 +932,7 @@ def run_strategy_probes(df, model):
                     strategy_trades['bb_fade_slow']['all'].append(trade)
                     strategy_trades['bb_fade_slow']['long'].append(trade)
                 
-                pnl, atr = bb_fade_strategy_slow_short(subset, i)
+                pnl, atr = bb_fade_strategy_short(subset, i, 'slow')
                 if pnl != 0:
                     normalized_pnl = normalize_trade_risk(pnl, atr)
                     trade = {
