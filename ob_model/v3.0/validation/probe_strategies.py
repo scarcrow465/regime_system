@@ -604,19 +604,22 @@ def run_strategy_probes(df, model):
             # Always run all strategies for comprehensive testing
             use_trend = True
             use_reversion = True
+            use_ma_cross = True
+            use_bb_fade = True
             
             # Run strategies and collect trades
             for i in range(200, len(subset) - 10):  # Need 200 bars for MA strategies
+
                 # Trend following - LONG
                 if use_trend:
-                    pnl, atr = trend_following_strategy(subset, i, 'slow')
+                    pnl, atr = trend_following_strategy(subset, i, 'normal')
                     if pnl != 0:
                         normalized_pnl = normalize_trade_risk(pnl, atr)
                         trade = {
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
-                            'duration': 5,
+                            'duration': STRATEGY_PARAMS['trend']['normal']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['trend']['all'].append(trade)
@@ -630,39 +633,67 @@ def run_strategy_probes(df, model):
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
-                            'duration': 5,
+                            'duration': STRATEGY_PARAMS['trend']['normal']['hold_bars'],
                             'direction': 'short'
                         }
                         strategy_trades['trend']['all'].append(trade)
                         strategy_trades['trend']['short'].append(trade)
-                
-                # MA Crossover - LONG
-                pnl, atr = ma_crossover_strategy(subset, i, 'normal')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 5,
-                        'direction': 'long'
-                    }
-                    strategy_trades['ma_cross']['all'].append(trade)
-                    strategy_trades['ma_cross']['long'].append(trade)
-                
-                # MA Crossover - SHORT
-                pnl, atr = ma_crossover_strategy_short(subset, i, 'normal')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 5,
-                        'direction': 'short'
-                    }
-                    strategy_trades['ma_cross']['all'].append(trade)
-                    strategy_trades['ma_cross']['short'].append(trade)
+
+                    # Fast Trend - LONG
+                    pnl, atr = trend_following_strategy(subset, i, 'fast')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['trend']['fast']['hold_bars'],
+                            'direction': 'long'
+                        }
+                        strategy_trades['trend_fast']['all'].append(trade)
+                        strategy_trades['trend_fast']['long'].append(trade)
+
+                    # Fast Trend - SHORT
+                    pnl, atr = trend_following_strategy_short(subset, i, 'fast')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['trend']['fast']['hold_bars'],
+                            'direction': 'short'
+                        }
+                        strategy_trades['trend_fast']['all'].append(trade)
+                        strategy_trades['trend_fast']['short'].append(trade)
+
+                    # Slow Trend - LONG
+                    pnl, atr = trend_following_strategy(subset, i, 'slow')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['trend']['slow']['hold_bars'],
+                            'direction': 'long'
+                        }
+                        strategy_trades['trend_slow']['all'].append(trade)
+                        strategy_trades['trend_slow']['long'].append(trade)
+
+                    # Slow Trend - SHORT
+                    pnl, atr = trend_following_strategy_short(subset, i, 'slow')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['trend']['slow']['hold_bars'],
+                            'direction': 'short'
+                        }
+                        strategy_trades['trend_slow']['all'].append(trade)
+                        strategy_trades['trend_slow']['short'].append(trade)
                 
                 # Mean reversion - LONG
                 if use_reversion:
@@ -673,7 +704,7 @@ def run_strategy_probes(df, model):
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
-                            'duration': 3,
+                            'duration': STRATEGY_PARAMS['reversion']['normal']['hold_bars'],
                             'direction': 'long'
                         }
                         strategy_trades['reversion']['all'].append(trade)
@@ -687,263 +718,237 @@ def run_strategy_probes(df, model):
                             'pnl': pnl,
                             'normalized_pnl': normalized_pnl,
                             'atr': atr,
-                            'duration': 3,
+                            'duration': STRATEGY_PARAMS['reversion']['normal']['hold_bars'],
                             'direction': 'short'
                         }
                         strategy_trades['reversion']['all'].append(trade)
                         strategy_trades['reversion']['short'].append(trade)
-                
-                # BB Fade - LONG
-                pnl, atr = bb_fade_strategy(subset, i, 'normal')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 3,
-                        'direction': 'long'
-                    }
-                    strategy_trades['bb_fade']['all'].append(trade)
-                    strategy_trades['bb_fade']['long'].append(trade)
-                
-                # BB Fade - SHORT
-                pnl, atr = bb_fade_strategy_short(subset, i, 'normal')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 3,
-                        'direction': 'short'
-                    }
-                    strategy_trades['bb_fade']['all'].append(trade)
-                    strategy_trades['bb_fade']['short'].append(trade)
 
-            # FAST SCOPE STRATEGIES
-                # Fast Trend - LONG
-                pnl, atr = trend_following_strategy(subset, i, 'fast')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 2,
-                        'direction': 'long'
-                    }
-                    strategy_trades['trend_fast']['all'].append(trade)
-                    strategy_trades['trend_fast']['long'].append(trade)
-                
-                # Fast Reversion - LONG  
-                pnl, atr = mean_reversion_strategy(subset, i, 'fast')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 2,
-                        'direction': 'long'
-                    }
-                    strategy_trades['reversion_fast']['all'].append(trade)
-                    strategy_trades['reversion_fast']['long'].append(trade)
-                
-                # SLOW SCOPE STRATEGIES
-                # Slow Trend - LONG
-                pnl, atr = trend_following_strategy(subset, i, 'slow')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 20,
-                        'direction': 'long'
-                    }
-                    strategy_trades['trend_slow']['all'].append(trade)
-                    strategy_trades['trend_slow']['long'].append(trade)
-                
-                # Slow Reversion - LONG
-                pnl, atr = mean_reversion_strategy(subset, i, 'slow')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 10,
-                        'direction': 'long'
-                    }
-                    strategy_trades['reversion_slow']['all'].append(trade)
-                    strategy_trades['reversion_slow']['long'].append(trade)
+                    # Fast Reversion - LONG  
+                    pnl, atr = mean_reversion_strategy(subset, i, 'fast')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['reversion']['fast']['hold_bars'],
+                            'direction': 'long'
+                        }
+                        strategy_trades['reversion_fast']['all'].append(trade)
+                        strategy_trades['reversion_fast']['long'].append(trade)
 
-                # FAST SCOPE - SHORT STRATEGIES
-                # Fast Trend - SHORT
-                pnl, atr = trend_following_strategy_short(subset, i, 'fast')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 2,
-                        'direction': 'short'
-                    }
-                    strategy_trades['trend_fast']['all'].append(trade)
-                    strategy_trades['trend_fast']['short'].append(trade)
+                    # Fast Reversion - SHORT
+                    pnl, atr = mean_reversion_strategy_short(subset, i, 'fast')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['reversion']['fast']['hold_bars'],
+                            'direction': 'short'
+                        }
+                        strategy_trades['reversion_fast']['all'].append(trade)
+                        strategy_trades['reversion_fast']['short'].append(trade)                    
+                    
+                    # Slow Reversion - LONG
+                    pnl, atr = mean_reversion_strategy(subset, i, 'slow')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['reversion']['slow']['hold_bars'],
+                            'direction': 'long'
+                        }
+                        strategy_trades['reversion_slow']['all'].append(trade)
+                        strategy_trades['reversion_slow']['long'].append(trade)
+
+                    # Slow Reversion - SHORT
+                    pnl, atr = mean_reversion_strategy_short(subset, i, 'slow')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['reversion']['slow']['hold_bars'],
+                            'direction': 'short'
+                        }
+                        strategy_trades['reversion_slow']['all'].append(trade)
+                        strategy_trades['reversion_slow']['short'].append(trade)
+
+                # MA Crossover - LONG
+                if use_ma_cross:
+                    pnl, atr = ma_crossover_strategy(subset, i, 'normal')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['ma_cross']['normal']['hold_bars'],
+                            'direction': 'long'
+                        }
+                        strategy_trades['ma_cross']['all'].append(trade)
+                        strategy_trades['ma_cross']['long'].append(trade)
+                    
+                    # MA Crossover - SHORT
+                    pnl, atr = ma_crossover_strategy_short(subset, i, 'normal')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['ma_cross']['normal']['hold_bars'],
+                            'direction': 'short'
+                        }
+                        strategy_trades['ma_cross']['all'].append(trade)
+                        strategy_trades['ma_cross']['short'].append(trade)
+                    
+                    # MA CROSS FAST - LONG
+                    pnl, atr = ma_crossover_strategy(subset, i, 'fast')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['ma_cross']['fast']['hold_bars'],
+                            'direction': 'long'
+                        }
+                        strategy_trades['ma_cross_fast']['all'].append(trade)
+                        strategy_trades['ma_cross_fast']['long'].append(trade)
+
+                    # MA CROSS FAST - SHORT
+                    pnl, atr = ma_crossover_strategy_short(subset, i, 'fast')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['ma_cross']['fast']['hold_bars'],
+                            'direction': 'short'
+                        }
+                        strategy_trades['ma_cross_fast']['all'].append(trade)
+                        strategy_trades['ma_cross_fast']['short'].append(trade)
+                    
+                    # MA CROSS SLOW - LONG
+                    pnl, atr = ma_crossover_strategy(subset, i, 'slow')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['ma_cross']['slow']['hold_bars'],
+                            'direction': 'long'
+                        }
+                        strategy_trades['ma_cross_slow']['all'].append(trade)
+                        strategy_trades['ma_cross_slow']['long'].append(trade)
+
+                    # MA CROSS SLOW - SHORT                
+                    pnl, atr = ma_crossover_strategy_short(subset, i, 'slow')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['ma_cross']['slow']['hold_bars'],
+                            'direction': 'short'
+                        }
+                        strategy_trades['ma_cross_slow']['all'].append(trade)
+                        strategy_trades['ma_cross_slow']['short'].append(trade)
                 
-                # Fast Reversion - SHORT
-                pnl, atr = mean_reversion_strategy_short(subset, i, 'fast')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 2,
-                        'direction': 'short'
-                    }
-                    strategy_trades['reversion_fast']['all'].append(trade)
-                    strategy_trades['reversion_fast']['short'].append(trade)
-                
-                # SLOW SCOPE - SHORT STRATEGIES
-                # Slow Trend - SHORT
-                pnl, atr = trend_following_strategy_short(subset, i, 'slow')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 20,
-                        'direction': 'short'
-                    }
-                    strategy_trades['trend_slow']['all'].append(trade)
-                    strategy_trades['trend_slow']['short'].append(trade)
-                
-                # Slow Reversion - SHORT
-                pnl, atr = mean_reversion_strategy_short(subset, i, 'slow')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 10,
-                        'direction': 'short'
-                    }
-                    strategy_trades['reversion_slow']['all'].append(trade)
-                    strategy_trades['reversion_slow']['short'].append(trade)
-                
-                # MA CROSS FAST - LONG & SHORT
-                pnl, atr = ma_crossover_strategy(subset, i, 'fast')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 3,
-                        'direction': 'long'
-                    }
-                    strategy_trades['ma_cross_fast']['all'].append(trade)
-                    strategy_trades['ma_cross_fast']['long'].append(trade)
-                
-                pnl, atr = ma_crossover_strategy_short(subset, i, 'fast')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 3,
-                        'direction': 'short'
-                    }
-                    strategy_trades['ma_cross_fast']['all'].append(trade)
-                    strategy_trades['ma_cross_fast']['short'].append(trade)
-                
-                # MA CROSS SLOW - LONG & SHORT
-                pnl, atr = ma_crossover_strategy(subset, i, 'slow')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 20,
-                        'direction': 'long'
-                    }
-                    strategy_trades['ma_cross_slow']['all'].append(trade)
-                    strategy_trades['ma_cross_slow']['long'].append(trade)
-                
-                pnl, atr = ma_crossover_strategy_short(subset, i, 'slow')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 20,
-                        'direction': 'short'
-                    }
-                    strategy_trades['ma_cross_slow']['all'].append(trade)
-                    strategy_trades['ma_cross_slow']['short'].append(trade)
-                
-                # BB FADE FAST - LONG & SHORT
-                pnl, atr = bb_fade_strategy(subset, i, 'fast')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 2,
-                        'direction': 'long'
-                    }
-                    strategy_trades['bb_fade_fast']['all'].append(trade)
-                    strategy_trades['bb_fade_fast']['long'].append(trade)
-                
-                pnl, atr = bb_fade_strategy_short(subset, i, 'fast')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 2,
-                        'direction': 'short'
-                    }
-                    strategy_trades['bb_fade_fast']['all'].append(trade)
-                    strategy_trades['bb_fade_fast']['short'].append(trade)
-                
-                # BB FADE SLOW - LONG & SHORT
-                pnl, atr = bb_fade_strategy(subset, i, 'slow')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 10,
-                        'direction': 'long'
-                    }
-                    strategy_trades['bb_fade_slow']['all'].append(trade)
-                    strategy_trades['bb_fade_slow']['long'].append(trade)
-                
-                pnl, atr = bb_fade_strategy_short(subset, i, 'slow')
-                if pnl != 0:
-                    normalized_pnl = normalize_trade_risk(pnl, atr)
-                    trade = {
-                        'pnl': pnl,
-                        'normalized_pnl': normalized_pnl,
-                        'atr': atr,
-                        'duration': 10,
-                        'direction': 'short'
-                    }
-                    strategy_trades['bb_fade_slow']['all'].append(trade)
-                    strategy_trades['bb_fade_slow']['short'].append(trade)
+                if use_bb_fade:
+                    # BB Fade - LONG
+                    pnl, atr = bb_fade_strategy(subset, i, 'normal')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['bb_fade']['normal']['hold_bars'],
+                            'direction': 'long'
+                        }
+                        strategy_trades['bb_fade']['all'].append(trade)
+                        strategy_trades['bb_fade']['long'].append(trade)
+                    
+                    # BB Fade - SHORT
+                    pnl, atr = bb_fade_strategy_short(subset, i, 'normal')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['bb_fade']['normal']['hold_bars'],
+                            'direction': 'short'
+                        }
+                        strategy_trades['bb_fade']['all'].append(trade)
+                        strategy_trades['bb_fade']['short'].append(trade)
+
+                    # BB FADE FAST - LONG
+                    pnl, atr = bb_fade_strategy(subset, i, 'fast')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['bb_fade']['fast']['hold_bars'],
+                            'direction': 'long'
+                        }
+                        strategy_trades['bb_fade_fast']['all'].append(trade)
+                        strategy_trades['bb_fade_fast']['long'].append(trade)
+
+                    # BB FADE FAST - SHORT
+                    pnl, atr = bb_fade_strategy_short(subset, i, 'fast')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': 2,
+                            'direction': 'short'
+                        }
+                        strategy_trades['bb_fade_fast']['all'].append(trade)
+                        strategy_trades['bb_fade_fast']['short'].append(trade)
+                    
+                    # BB FADE SLOW - LONG
+                    pnl, atr = bb_fade_strategy(subset, i, 'slow')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['bb_fade']['slow']['hold_bars'],
+                            'direction': 'long'
+                        }
+                        strategy_trades['bb_fade_slow']['all'].append(trade)
+                        strategy_trades['bb_fade_slow']['long'].append(trade)
+                    
+                    # BB FADE SLOW - SHORT
+                    pnl, atr = bb_fade_strategy_short(subset, i, 'slow')
+                    if pnl != 0:
+                        normalized_pnl = normalize_trade_risk(pnl, atr)
+                        trade = {
+                            'pnl': pnl,
+                            'normalized_pnl': normalized_pnl,
+                            'atr': atr,
+                            'duration': STRATEGY_PARAMS['bb_fade']['slow']['hold_bars'],
+                            'direction': 'short'
+                        }
+                        strategy_trades['bb_fade_slow']['all'].append(trade)
+                        strategy_trades['bb_fade_slow']['short'].append(trade)
             
             # Calculate metrics for each strategy
             hours = session_hours.get(session, 2.0)
