@@ -261,9 +261,19 @@ def mean_reversion_strategy_short(df, entry_bar):
     """
     Mean reversion short: Sell when RSI > 60 and near upper Bollinger Band
     Exit when RSI < 50 or after 3 bars
+    Returns: (pnl, atr_at_entry) tuple
     """
     if entry_bar < 20 or entry_bar + 3 >= len(df):
-        return 0
+        return 0, 0
+    
+    # Calculate ATR
+    tr_list = []
+    for j in range(max(1, entry_bar-14), entry_bar):
+        high_low = df['high'].iloc[j] - df['low'].iloc[j]
+        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
+        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
+        tr_list.append(max(high_low, high_close, low_close))
+    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
     
     # Calculate RSI manually using only historical data
     close_slice = df['close'].iloc[max(0, entry_bar-14):entry_bar+1]
@@ -301,18 +311,30 @@ def mean_reversion_strategy_short(df, entry_bar):
             
             if exit_rsi < 50:
                 point_value = 20
-                return (entry_price - df['close'].iloc[i]) * point_value
+                pnl = (entry_price - df['close'].iloc[i]) * point_value
+                return pnl, atr_value
         
         # Exit after 3 bars
         point_value = 20
-        return (entry_price - df['close'].iloc[min(entry_bar + 3, len(df) - 1)]) * point_value
+        pnl = (entry_price - df['close'].iloc[min(entry_bar + 3, len(df) - 1)]) * point_value
+        return pnl, atr_value
     
-    return 0
+    return 0, atr_value  # Return ATR even if no trade
 
 def ma_crossover_strategy_short(df, entry_bar):
-    """MA crossover short: Sell on fast < slow MA (death cross)"""
+    """MA crossover short: Sell on fast < slow MA (death cross)
+    Returns: (pnl, atr_at_entry) tuple"""
     if entry_bar < 200 or entry_bar + 5 >= len(df):
-        return 0
+        return 0, 0
+    
+    # Calculate ATR
+    tr_list = []
+    for j in range(max(1, entry_bar-14), entry_bar):
+        high_low = df['high'].iloc[j] - df['low'].iloc[j]
+        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
+        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
+        tr_list.append(max(high_low, high_close, low_close))
+    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
     
     # Calculate MAs using ONLY data up to entry_bar
     ma_fast = df['close'].iloc[max(0, entry_bar-50):entry_bar].mean()
@@ -323,13 +345,24 @@ def ma_crossover_strategy_short(df, entry_bar):
         exit_bar = min(entry_bar + 5, len(df) - 1)
         exit_price = df['close'].iloc[exit_bar]
         point_value = 20
-        return (entry_price - exit_price) * point_value
-    return 0
+        pnl = (entry_price - exit_price) * point_value
+        return pnl, atr_value
+    return 0, atr_value  # Return ATR even if no trade
 
 def bb_fade_strategy_short(df, entry_bar):
-    """BB fade short: Sell upper band touch"""
+    """BB fade short: Sell upper band touch
+    Returns: (pnl, atr_at_entry) tuple"""
     if entry_bar < 20 or entry_bar + 3 >= len(df):
-        return 0
+        return 0, 0
+    
+    # Calculate ATR
+    tr_list = []
+    for j in range(max(1, entry_bar-14), entry_bar):
+        high_low = df['high'].iloc[j] - df['low'].iloc[j]
+        high_close = abs(df['high'].iloc[j] - df['close'].iloc[j-1])
+        low_close = abs(df['low'].iloc[j] - df['close'].iloc[j-1])
+        tr_list.append(max(high_low, high_close, low_close))
+    atr_value = sum(tr_list) / len(tr_list) if tr_list else 0
     
     # Calculate BB using ONLY historical data
     close_slice = df['close'].iloc[max(0, entry_bar-20):entry_bar]
@@ -342,8 +375,9 @@ def bb_fade_strategy_short(df, entry_bar):
         exit_bar = min(entry_bar + 3, len(df) - 1)
         exit_price = df['close'].iloc[exit_bar]
         point_value = 20
-        return (entry_price - exit_price) * point_value
-    return 0
+        pnl = (entry_price - exit_price) * point_value
+        return pnl, atr_value
+    return 0, atr_value  # Return ATR even if no trade
 
 # FAST SCOPE STRATEGIES (1-3 bar holds, tight parameters)
 
@@ -611,7 +645,7 @@ def normalize_trade_risk(pnl, atr_at_entry=None, fixed_risk_percent=1.0):
     else:
         # Simple normalization - assume $1000 risk per trade
         # With point value of 20, that's 50 points risk
-        return_pct = (pnl / 1000) * fixed_risk_percent
+        return_pct = pnl / 1000 * fixed_risk_percent
     
     return return_pct
 
