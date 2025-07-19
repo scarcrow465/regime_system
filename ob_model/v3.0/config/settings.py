@@ -27,7 +27,7 @@ EXPORTS_DIR = os.path.join(BASE_DIR, 'exports')
 LOGS_DIR = os.path.join(EXPORTS_DIR, 'logs')
 # etc.
 
-TEST_SLICE = 10000  # Rows to slice for fast tests (0 for full)
+TEST_SLICE = 5500  # Rows to slice for fast tests (0 for full)
 
 OB_PATH = r"C:\Users\rs\OneDrive\Desktop\TV DB\Backtest_Results\Backtest_Results\20250702_2051_NQ_backtest.csv"
 
