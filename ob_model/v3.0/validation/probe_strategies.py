@@ -376,10 +376,12 @@ def calculate_regime_characteristics(df, model, features, raw_features):
         regime_data = raw_features[labels == regime]
         if len(regime_data) > 0:
             trend_value = regime_data[['EMA_20', 'EMA_50']].diff().mean().mean() if 'EMA_20' in regime_data and 'EMA_50' in regime_data else 0
+            volatility_value = regime_data['ATR_14'].mean() if 'ATR_14' in regime_data.columns else 0
+            rsi_value = regime_data['RSI_14'].mean() if 'RSI_14' in regime_data.columns else 50
             regime_stats[regime] = {
                 'avg_trend': trend_value if not pd.isna(trend_value) else 0,
-                'avg_volatility': regime_data['ATR_14'].mean() if 'ATR_14' in regime_data.columns else 0,
-                'avg_rsi': regime_data['RSI_14'].mean() if 'RSI_14' in regime_data.columns else 50,
+                'avg_volatility': volatility_value if not pd.isna(volatility_value) else 0,
+                'avg_rsi': rsi_value if not pd.isna(rsi_value) else 50,
                 'count': len(regime_data)
             }
     return regime_stats
