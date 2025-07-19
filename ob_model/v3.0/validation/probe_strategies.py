@@ -38,7 +38,7 @@ STRATEGY_PARAMS = {
         'slow': {'break_len': 50, 'hold_bars': 20, 'stop_mult': 3, 'atr_len': 20}
     },
     'reversion': {
-        'normal': {'rsi_len': 14, 'rsi_low': 40, 'rsi_high': 60, 'rsi_exit_low': 50, 'rsi_exit_high': 50, 'hold_bars': 3, 'bb_std': 2, 'atr_len': 14},
+        'normal': {'rsi_len': 14, 'rsi_low': 40, 'rsi_high': 60, 'rsi_exit_low': 50, 'rsi_exit_high': 50, 'hold_bars': 3, 'atr_len': 14},
         'fast': {'rsi_len': 7, 'rsi_low': 30, 'rsi_high': 70, 'rsi_exit_low': 40, 'rsi_exit_high': 60, 'hold_bars': 2, 'atr_len': 7},
         'slow': {'rsi_len': 20, 'rsi_low': 45, 'rsi_high': 55, 'rsi_exit_low': 55, 'rsi_exit_high': 45, 'hold_bars': 10, 'atr_len': 20}
     },
@@ -503,21 +503,20 @@ def normalize_metrics_by_time(metrics, session_hours):
     
     return normalized
 
-def normalize_trade_risk(pnl, entry_price, fixed_risk_percent=1.0):
+def normalize_trade_risk(pnl, entry_price):
     """
     Normalize trade PnL to % return on position value (fixed contract size)
     
     Args:
         pnl: Raw PnL from trade
         entry_price: Entry price for position value calculation
-        fixed_risk_percent: Target risk per trade (default 1%)
     
     Returns:
         Normalized PnL as percentage of position value
     """
     if entry_price > 0:
         position_value = entry_price * POINT_VALUE * CONTRACT_SIZE
-        return_pct = (pnl / position_value) * 100
+        return_pct = (pnl / position_value) * 100 if position_value > 0 else 0
     else:
         return_pct = 0
     return return_pct
