@@ -144,6 +144,8 @@ def trend_following_strategy(df, entry_bar, scope='normal'):
     return 0, 0, 0
 
 def mean_reversion_strategy(df, entry_bar, scope='normal'):
+    if not isinstance(df, pd.DataFrame) or not all(col in df.columns for col in ['high', 'low', 'close']):
+        return 0, 0, 0
     params = STRATEGY_PARAMS['reversion'][scope]
     if entry_bar < params['rsi_len'] +1 or entry_bar + params['hold_bars'] >= len(df):
         return 0, 0, 0
@@ -162,13 +164,13 @@ def mean_reversion_strategy(df, entry_bar, scope='normal'):
     deltas = close_slice.diff()
     gains = deltas.where(deltas > 0, 0)
     losses = -deltas.where(deltas < 0, 0)
-    avg_gain = gains.iloc[1:].mean()  # Skip first NaN
+    avg_gain = gains.iloc[1:].mean()
     avg_loss = losses.iloc[1:].mean()
     rs = avg_gain / avg_loss if avg_loss != 0 else 0
     rsi_value = 100 - (100 / (1 + rs))
     
     # Calculate BB using only historical data
-    bb_slice = df['close'].iloc[max(0, entry_bar-params.get('bb_len', 20)):entry_bar]  # Default if no bb_len
+    bb_slice = df['close'].iloc[max(0, entry_bar-params.get('bb_len', 20)):entry_bar]
     sma = bb_slice.mean()
     std = bb_slice.std()
     lower_bb = sma - (params['bb_std'] * std)
@@ -182,7 +184,6 @@ def mean_reversion_strategy(df, entry_bar, scope='normal'):
         
         # Exit - calculate RSI for each exit bar
         for i in range(entry_bar + 1, min(entry_bar + params['hold_bars'] +1, len(df))):
-            # Recalculate RSI at exit bar
             exit_close_slice = df['close'].iloc[max(0, i-params['rsi_len']):i+1]
             exit_deltas = exit_close_slice.diff()
             exit_gains = exit_deltas.where(exit_deltas > 0, 0)
@@ -374,8 +375,9 @@ def calculate_regime_characteristics(df, model, features, raw_features):
     for regime in labels.unique():
         regime_data = raw_features[labels == regime]
         if len(regime_data) > 0:
+            trend_value = regime_data[['EMA_20', 'EMA_50']].diff().mean().mean() if 'EMA_20' in regime_data and 'EMA_50' in regime_data else 0
             regime_stats[regime] = {
-                'avg_trend': regime_data[['EMA_20', 'EMA_50']].diff().mean().mean() if 'EMA_20' in regime_data and 'EMA_50' in regime_data else 0,
+                'avg_trend': trend_value if not pd.isna(trend_value) else 0,
                 'avg_volatility': regime_data['ATR_14'].mean() if 'ATR_14' in regime_data.columns else 0,
                 'avg_rsi': regime_data['RSI_14'].mean() if 'RSI_14' in regime_data.columns else 50,
                 'count': len(regime_data)
@@ -548,16 +550,7 @@ def run_strategy_probes(df, model):
     df_filtered['session'] = ind_df.loc[labels.index, 'refined_session']
     
     # Calculate regime characteristics
-    regime_stats = {}
-    for regime in df_filtered['regime'].unique():
-        regime_data = df_filtered[df_filtered['regime'] == regime]
-        regime_feats = raw_ind_df.loc[regime_data.index]
-        
-        regime_stats[regime] = {
-            'avg_trend': regime_feats[['EMA_20', 'EMA_50']].diff().mean().mean(),
-            'avg_volatility': regime_feats[['ATR_14']].mean().values[0] if 'ATR_14' in regime_feats else 0,
-            'count': len(regime_data)
-            }
+    regime_stats = calculate_regime_characteristics(df_filtered, model, features, raw_ind_df)
     
     # Define session hours
     session_hours = {
