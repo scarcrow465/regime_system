@@ -38,9 +38,9 @@ STRATEGY_PARAMS = {
         'slow': {'break_len': 50, 'hold_bars': 20, 'stop_mult': 3, 'atr_len': 20}
     },
     'reversion': {
-        'normal': {'rsi_len': 14, 'rsi_low': 40, 'rsi_high': 60, 'rsi_exit_low': 50, 'rsi_exit_high': 50, 'hold_bars': 3, 'atr_len': 14},
-        'fast': {'rsi_len': 7, 'rsi_low': 30, 'rsi_high': 70, 'rsi_exit_low': 40, 'rsi_exit_high': 60, 'hold_bars': 2, 'atr_len': 7},
-        'slow': {'rsi_len': 20, 'rsi_low': 45, 'rsi_high': 55, 'rsi_exit_low': 55, 'rsi_exit_high': 45, 'hold_bars': 10, 'atr_len': 20}
+        'normal': {'rsi_len': 14, 'rsi_low': 40, 'rsi_high': 60, 'rsi_exit_low': 50, 'rsi_exit_high': 50, 'hold_bars': 3, 'bb_std': 2, 'atr_len': 14},
+        'fast': {'rsi_len': 7, 'rsi_low': 30, 'rsi_high': 70, 'rsi_exit_low': 40, 'rsi_exit_high': 60, 'hold_bars': 2, 'bb_std': 2, 'atr_len': 7},
+        'slow': {'rsi_len': 20, 'rsi_low': 45, 'rsi_high': 55, 'rsi_exit_low': 55, 'rsi_exit_high': 45, 'hold_bars': 10, 'bb_std': 2.5, 'atr_len': 20}
     },
     'ma_cross': {
         'normal': {'fast_len': 50, 'slow_len': 200, 'hold_bars': 5, 'atr_len': 14},
