@@ -55,6 +55,8 @@ STRATEGY_PARAMS = {
 }
 
 def ma_crossover_strategy(df, entry_bar, scope='normal'):
+    if not isinstance(df, pd.DataFrame) or not all(col in df.columns for col in ['high', 'low', 'close']):
+        return 0, 0, 0
     params = STRATEGY_PARAMS['ma_cross'][scope]
     if entry_bar < params['slow_len'] or entry_bar + params['hold_bars'] >= len(df):
         return 0, 0, 0
@@ -81,6 +83,8 @@ def ma_crossover_strategy(df, entry_bar, scope='normal'):
     return 0, 0, 0
 
 def bb_fade_strategy(df, entry_bar, scope='normal'):
+    if not isinstance(df, pd.DataFrame) or not all(col in df.columns for col in ['high', 'low', 'close']):
+        return 0, 0, 0
     params = STRATEGY_PARAMS['bb_fade'][scope]
     if entry_bar < params['bb_len'] or entry_bar + params['hold_bars'] >= len(df):
         return 0, 0, 0
@@ -109,11 +113,13 @@ def bb_fade_strategy(df, entry_bar, scope='normal'):
     return 0, 0, 0
 
 def trend_following_strategy(df, entry_bar, scope='normal'):
+    if not isinstance(df, pd.DataFrame) or not all(col in df.columns for col in ['high', 'low', 'close']):
+        return 0, 0, 0
     params = STRATEGY_PARAMS['trend'][scope]
     if entry_bar < params['break_len'] or entry_bar + params['hold_bars'] >= len(df):
         return 0, 0, 0
     
-    # Calculate ATR for risk normalization
+    # Calculate ATR
     tr_list = []
     for j in range(max(1, entry_bar-params['atr_len']), entry_bar):
         high_low = df['high'].iloc[j] - df['low'].iloc[j]
@@ -126,21 +132,15 @@ def trend_following_strategy(df, entry_bar, scope='normal'):
     high_break = df['high'].iloc[entry_bar-params['break_len']:entry_bar].max()
     if df['close'].iloc[entry_bar] > high_break:
         entry_price = df['close'].iloc[entry_bar]
-        
-        # Hold for up to hold_bars
         exit_bar = min(entry_bar + params['hold_bars'], len(df) - 1)
         exit_price = df['close'].iloc[exit_bar]
-        
-        # Check stop loss (stop_mult ATR)
         stop_loss = entry_price - params['stop_mult'] * atr_value
         for i in range(entry_bar + 1, exit_bar + 1):
             if df['low'].iloc[i] <= stop_loss:
                 exit_price = stop_loss
                 break
-        
         pnl = (exit_price - entry_price) * POINT_VALUE * CONTRACT_SIZE
         return pnl, atr_value, entry_price
-    
     return 0, 0, 0
 
 def mean_reversion_strategy(df, entry_bar, scope='normal'):
@@ -203,11 +203,13 @@ def mean_reversion_strategy(df, entry_bar, scope='normal'):
     return 0, 0, 0
 
 def trend_following_strategy_short(df, entry_bar, scope='normal'):
+    if not isinstance(df, pd.DataFrame) or not all(col in df.columns for col in ['high', 'low', 'close']):
+        return 0, 0, 0
     params = STRATEGY_PARAMS['trend'][scope]
     if entry_bar < params['break_len'] or entry_bar + params['hold_bars'] >= len(df):
         return 0, 0, 0
     
-    # Calculate ATR (same as long version)
+    # Calculate ATR
     tr_list = []
     for j in range(max(1, entry_bar-params['atr_len']), entry_bar):
         high_low = df['high'].iloc[j] - df['low'].iloc[j]
@@ -220,24 +222,20 @@ def trend_following_strategy_short(df, entry_bar, scope='normal'):
     low_break = df['low'].iloc[entry_bar-params['break_len']:entry_bar].min()
     if df['close'].iloc[entry_bar] < low_break:
         entry_price = df['close'].iloc[entry_bar]
-        
-        # Hold for up to hold_bars
         exit_bar = min(entry_bar + params['hold_bars'], len(df) - 1)
         exit_price = df['close'].iloc[exit_bar]
-        
-        # Check stop loss (stop_mult ATR above entry)
         stop_loss = entry_price + params['stop_mult'] * atr_value
         for i in range(entry_bar + 1, exit_bar + 1):
             if df['high'].iloc[i] >= stop_loss:
                 exit_price = stop_loss
                 break
-        
         pnl = (entry_price - exit_price) * POINT_VALUE * CONTRACT_SIZE
         return pnl, atr_value, entry_price
-    
     return 0, 0, 0
 
 def mean_reversion_strategy_short(df, entry_bar, scope='normal'):
+    if not isinstance(df, pd.DataFrame) or not all(col in df.columns for col in ['high', 'low', 'close']):
+        return 0, 0, 0
     params = STRATEGY_PARAMS['reversion'][scope]
     if entry_bar < params['rsi_len'] +1 or entry_bar + params['hold_bars'] >= len(df):
         return 0, 0, 0
@@ -285,7 +283,7 @@ def mean_reversion_strategy_short(df, entry_bar, scope='normal'):
             exit_rs = exit_avg_gain / exit_avg_loss if exit_avg_loss != 0 else 0
             exit_rsi = 100 - (100 / (1 + exit_rs))
             
-            if exit_rsi < params['rsi_exit_high']:  # Use exit_high for short (lower threshold)
+            if exit_rsi < params['rsi_exit_high']:
                 pnl = (entry_price - df['close'].iloc[i]) * POINT_VALUE * CONTRACT_SIZE
                 return pnl, atr_value, entry_price
         
@@ -296,6 +294,8 @@ def mean_reversion_strategy_short(df, entry_bar, scope='normal'):
     return 0, 0, 0
 
 def ma_crossover_strategy_short(df, entry_bar, scope='normal'):
+    if not isinstance(df, pd.DataFrame) or not all(col in df.columns for col in ['high', 'low', 'close']):
+        return 0, 0, 0
     params = STRATEGY_PARAMS['ma_cross'][scope]
     if entry_bar < params['slow_len'] or entry_bar + params['hold_bars'] >= len(df):
         return 0, 0, 0
@@ -322,6 +322,8 @@ def ma_crossover_strategy_short(df, entry_bar, scope='normal'):
     return 0, 0, 0
 
 def bb_fade_strategy_short(df, entry_bar, scope='normal'):
+    if not isinstance(df, pd.DataFrame) or not all(col in df.columns for col in ['high', 'low', 'close']):
+        return 0, 0, 0
     params = STRATEGY_PARAMS['bb_fade'][scope]
     if entry_bar < params['bb_len'] or entry_bar + params['hold_bars'] >= len(df):
         return 0, 0, 0
@@ -351,6 +353,8 @@ def bb_fade_strategy_short(df, entry_bar, scope='normal'):
 
 def calculate_regime_characteristics(df, model, features, raw_features):
     """Pre-calculate regime characteristics to avoid repeated calls."""
+    if not isinstance(df, pd.DataFrame) or not all(col in df.columns for col in ['high', 'low', 'close']):
+        return {}
     # Handle dict of models
     if isinstance(model, dict):
         # Use voting to get labels
@@ -371,12 +375,11 @@ def calculate_regime_characteristics(df, model, features, raw_features):
         regime_data = raw_features[labels == regime]
         if len(regime_data) > 0:
             regime_stats[regime] = {
+                'avg_trend': regime_data[['EMA_20', 'EMA_50']].diff().mean().mean() if 'EMA_20' in regime_data and 'EMA_50' in regime_data else 0,
                 'avg_volatility': regime_data['ATR_14'].mean() if 'ATR_14' in regime_data.columns else 0,
-                'avg_trend': regime_data['ADX_14'].mean() if 'ADX_14' in regime_data.columns else 0,
                 'avg_rsi': regime_data['RSI_14'].mean() if 'RSI_14' in regime_data.columns else 50,
                 'count': len(regime_data)
             }
-    
     return regime_stats
 
 def calculate_trade_metrics(trades, use_normalized=True):
@@ -465,13 +468,13 @@ def calculate_trade_metrics(trades, use_normalized=True):
     risk_reward = avg_win / avg_loss if avg_loss > 0 else 0
     
     # Expectancy (average profit per trade)
-    expectancy = total_pnl / len(trades)
+    expectancy = total_pnl / len(trades) if len(trades) > 0 else 0
     
     return {
         'num_trades': len(trades),
         'total_pnl': sum(raw_pnls),  # Always raw PnL
         'normalized_pnl': total_pnl,  # Normalized total
-        'avg_pnl': sum(raw_pnls) / len(trades),
+        'avg_pnl': sum(raw_pnls) / len(trades) if len(trades) > 0 else 0,
         'win_rate': win_rate,
         'profit_factor': profit_factor,
         'max_drawdown': max_drawdown_dollars,
@@ -554,7 +557,7 @@ def run_strategy_probes(df, model):
             'avg_trend': regime_feats[['EMA_20', 'EMA_50']].diff().mean().mean(),
             'avg_volatility': regime_feats[['ATR_14']].mean().values[0] if 'ATR_14' in regime_feats else 0,
             'count': len(regime_data)
-        }
+            }
     
     # Define session hours
     session_hours = {
