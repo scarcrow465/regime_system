@@ -118,6 +118,7 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
         df: DataFrame with OHLCV data
         lookback_bars: If specified, only compute indicators for the last N bars (faster)
     """
+    from scipy.stats import iqr as scipy_iqr
     if len(df) < 200:
         log_message("Insufficient data for indicators", 'error')
         return pd.DataFrame(index=df.index), pd.DataFrame(index=df.index)
@@ -166,7 +167,7 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
         # Historical volatility
         if i >= 20:
             returns = df['close'].iloc[i-19:i+1].pct_change().dropna()
-            indicators.loc[df.index[i], 'Hist_Vol'] = returns.std() * np.sqrt(252)
+            indicators.loc[df.index[i], 'Hist_Vol'] = returns.std() * np.sqrt(252) if len(returns) > 0 else 0
         
         # Keltner width
         if i >= 20:
@@ -189,7 +190,7 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
         
         # Momentum indicators
         if i >= 12:
-            indicators.loc[df.index[i], 'ROC_12'] = 100 * (df['close'].iloc[i] / df['close'].iloc[i-12] - 1)
+            indicators.loc[df.index[i], 'ROC_12'] = 100 * (df['close'].iloc[i] / df['close'].iloc[i-12] - 1) if df['close'].iloc[i-12] != 0 else 0
         
         # PPO
         if i >= 26:
@@ -222,7 +223,7 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
         if i >= 14:
             typical_price = (df['high'].iloc[i-13:i+1] + df['low'].iloc[i-13:i+1] + df['close'].iloc[i-13:i+1]) / 3
             volume_slice = df['volume'].iloc[i-13:i+1]
-            indicators.loc[df.index[i], 'VWAP_14'] = (typical_price * volume_slice).sum() / volume_slice.sum()
+            indicators.loc[df.index[i], 'VWAP_14'] = (typical_price * volume_slice).sum() / volume_slice.sum() if volume_slice.sum() != 0 else 0
         
         # CMF
         if i >= 20:
@@ -230,7 +231,7 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
                             (df['high'].iloc[i-19:i+1] - df['close'].iloc[i-19:i+1])) / \
                         (df['high'].iloc[i-19:i+1] - df['low'].iloc[i-19:i+1])
             mf_volume = mf_multiplier * df['volume'].iloc[i-19:i+1]
-            indicators.loc[df.index[i], 'CMF_20'] = mf_volume.sum() / df['volume'].iloc[i-19:i+1].sum()
+            indicators.loc[df.index[i], 'CMF_20'] = mf_volume.sum() / df['volume'].iloc[i-19:i+1].sum() if df['volume'].iloc[i-19:i+1].sum() != 0 else 0
     
     # Add session labels
     from core.regime_classifier import add_session_labels
@@ -268,13 +269,12 @@ def select_and_compute_indicators_live(df, lookback_bars=None):
             hist_data = indicators[col].iloc[max(0, i-480):i]
             if len(hist_data) > 50:
                 median = hist_data.median()
-                q75 = hist_data.quantile(0.75)
-                q25 = hist_data.quantile(0.25)
-                iqr = q75 - q25
-                
-                if iqr != 0:
-                    # Normalize current value using historical statistics
-                    indicators.loc[df.index[i], col] = (indicators.loc[df.index[i], col] - median) / iqr
+                iqr_value = scipy_iqr(hist_data, nan_policy='omit')
+                if iqr_value == 0:
+                    indicators.loc[df.index[i], col] = 0
+                else:
+                    scaled_value = (indicators.loc[df.index[i], col] - median) / iqr_value
+                    indicators.loc[df.index[i], col] = np.clip(scaled_value, -1e6, 1e6)
     
     return indicators, raw_indicators
 
