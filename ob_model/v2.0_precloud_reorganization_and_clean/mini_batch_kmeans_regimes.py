@@ -10,12 +10,12 @@ from sklearn.cluster import MiniBatchKMeans
 from tqdm import tqdm
 
 # Centralized parameters - Adjust these as needed
-TEST_SLICE = 10000  # Number of rows to use from the end of the dataset (set to None for full dataset)
+TEST_SLICE = 0  # Number of rows to use from the end of the dataset (set to None for full dataset)
 K_CLUSTERS = 5  # Number of clusters for MiniBatchKMeans
 BATCH_SIZE = 100  # Batch size for MiniBatchKMeans
 LOOKBACK = 200  # Lookback period for rolling calculations
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'regime_labeled_data_2.csv'  # Output CSV file name
+OUTPUT_FILE = 'regime_labeled_data_3_full.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Simple data loading function (assuming CSV with Date, open, high, low, close columns)
