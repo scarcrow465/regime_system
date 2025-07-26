@@ -12,7 +12,7 @@ from tqdm import tqdm
 # Centralized parameters - Adjust these as needed
 TEST_SLICE = None  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'regime_labeled_data_10.csv'  # Output CSV file name
+OUTPUT_FILE = 'regime_labeled_data_11.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Adaptive regime parameters (base multipliers that scale with market conditions)
