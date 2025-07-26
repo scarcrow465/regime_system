@@ -245,20 +245,28 @@ def classify_regimes_adaptive(data):
     data.loc[bull_breakout_condition, 'Regime'] = 'Bull Breakout'
     data.loc[bear_breakout_condition, 'Regime'] = 'Bear Breakout'
     
-    # 2. Consolidation detection (requires 3 of 4 confirmations)
-    consolidation_score = (
-        (data['Range_Compression_Signal'] >= 1).astype(int) +  # At least 2 of 3 windows compressed
-        (data['Low_Momentum_Signal'] == True).astype(int) +     # Low momentum
-        (data['Low_Volatility_Signal'] == True).astype(int) +   # Low volatility
-        (data['Central_Position_Signal'] >= 1).astype(int)      # At least somewhat central
+    # 2. Simple consolidation detection - core logic only
+    # Consolidation = not breaking out AND no sustained momentum
+
+    # Check for sustained momentum (stronger than adaptive threshold over longer period)
+    sustained_bull_momentum = (
+        (data['Price_Change_5'] > data['Adaptive_Momentum_Threshold']) &
+        (data['Price_Change_15'] > data['Adaptive_Momentum_Threshold'] * 1.5)
     )
 
-    consolidation_condition = (
-        (consolidation_score >= 3) &               # At least 3 of 4 conditions
-        ~bull_breakout_condition &                 # Not during breakouts
-        ~bear_breakout_condition
+    sustained_bear_momentum = (
+        (data['Price_Change_5'] < -data['Adaptive_Momentum_Threshold']) &
+        (data['Price_Change_15'] < -data['Adaptive_Momentum_Threshold'] * 1.5)
     )
-    
+
+    # Consolidation = everything that's not breakout and not sustained trending
+    consolidation_condition = (
+        ~bull_breakout_condition &          # Not bull breakout
+        ~bear_breakout_condition &          # Not bear breakout  
+        ~sustained_bull_momentum &          # Not sustained uptrend
+        ~sustained_bear_momentum            # Not sustained downtrend
+    )
+
     data.loc[consolidation_condition, 'Regime'] = 'Consolidation'
     
     return data
