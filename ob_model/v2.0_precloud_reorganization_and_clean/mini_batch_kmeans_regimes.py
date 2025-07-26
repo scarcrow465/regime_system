@@ -15,7 +15,7 @@ K_CLUSTERS = 6  # Reduced to 4 base clusters (Bull Breakout, Bear Breakout, Cons
 BATCH_SIZE = 100  # Batch size for MiniBatchKMeans
 LOOKBACK = 200  # Base lookback period for rolling calculations
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'regime_labeled_data_5.csv'  # Output CSV file name
+OUTPUT_FILE = 'regime_labeled_data_6.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
 MIN_REGIME_PERSISTENCE = 2  # Minimum bars for regime confirmation
 
