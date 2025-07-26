@@ -11,13 +11,13 @@ from tqdm import tqdm
 
 # Centralized parameters - Adjust these as needed
 TEST_SLICE = 10000  # Number of rows to use from the end of the dataset (set to None for full dataset)
-K_CLUSTERS = 4  # Reduced to 4 base clusters (Bull Breakout, Bear Breakout, Consolidation, Neutral)
+K_CLUSTERS = 6  # Reduced to 4 base clusters (Bull Breakout, Bear Breakout, Consolidation, Neutral)
 BATCH_SIZE = 100  # Batch size for MiniBatchKMeans
 LOOKBACK = 200  # Base lookback period for rolling calculations
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
 OUTPUT_FILE = 'regime_labeled_data_5.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
-MIN_REGIME_PERSISTENCE = 3  # Minimum bars for regime confirmation
+MIN_REGIME_PERSISTENCE = 2  # Minimum bars for regime confirmation
 
 # Simple data loading function (assuming CSV with Date, open, high, low, close columns)
 def load_csv_data(file_path, timeframe):
