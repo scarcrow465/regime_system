@@ -15,7 +15,7 @@ K_CLUSTERS = 6  # Number of clusters for MiniBatchKMeans (increased to 6 for Pos
 BATCH_SIZE = 100  # Batch size for MiniBatchKMeans
 LOOKBACK = 200  # Lookback period for rolling calculations
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'regime_labeled_data.csv'  # Output CSV file name
+OUTPUT_FILE = 'regime_labeled_data_4.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Simple data loading function (assuming CSV with Date, open, high, low, close columns)
