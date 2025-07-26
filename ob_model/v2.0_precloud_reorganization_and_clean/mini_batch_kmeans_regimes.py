@@ -15,10 +15,10 @@ K_CLUSTERS = 5  # Number of clusters for MiniBatchKMeans
 BATCH_SIZE = 100  # Batch size for MiniBatchKMeans
 LOOKBACK = 200  # Lookback period for rolling calculations
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'regime_labeled_data.csv'  # Output CSV file name
+OUTPUT_FILE = 'regime_labeled_data_2.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
 
-# Simple data loading function (assuming CSV with Date, Open, High, Low, Close columns)
+# Simple data loading function (assuming CSV with Date, open, high, low, close columns)
 def load_csv_data(file_path, timeframe):
     print(f"Loading data from {file_path}")
     df = pd.read_csv(file_path, parse_dates=['Date'])
@@ -74,9 +74,18 @@ def main():
     }
     data['Regime_Label'] = data['Regime'].map(regime_map)
 
-    # Export to CSV
+    # Add numbered index for continuous plotting (ignores time gaps)
+    data['Index'] = range(len(data))
+
+    # Reset index to include Date as column
     data = data.reset_index()
-    output_columns = ['Date', 'open', 'high', 'low', 'close', 'Regime_Label']  # Add Volume if present
+
+    # Split Date (datetime) into separate Date and Time columns
+    data['Date_Separate'] = data['Date'].dt.date
+    data['Time'] = data['Date'].dt.time
+
+    # Export to CSV with separate Date and Time, and Index
+    output_columns = ['Index', 'Date_Separate', 'Time', 'open', 'high', 'low', 'close', 'Regime_Label']  # Add Volume if present
     data[output_columns].to_csv(OUTPUT_FILE, index=False)
     print(f"Exported labeled data to {OUTPUT_FILE}")
 
