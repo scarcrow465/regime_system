@@ -10,12 +10,12 @@ from sklearn.cluster import MiniBatchKMeans
 from tqdm import tqdm
 
 # Centralized parameters - Adjust these as needed
-TEST_SLICE = None  # Number of rows to use from the end of the dataset (set to None for full dataset)
-K_CLUSTERS = 5  # Number of clusters for MiniBatchKMeans
+TEST_SLICE = 10000  # Number of rows to use from the end of the dataset (set to None for full dataset)
+K_CLUSTERS = 6  # Number of clusters for MiniBatchKMeans (increased to 6 for Post-Bear and Post-Bull)
 BATCH_SIZE = 100  # Batch size for MiniBatchKMeans
 LOOKBACK = 200  # Lookback period for rolling calculations
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'regime_labeled_data_3_full.csv'  # Output CSV file name
+OUTPUT_FILE = 'regime_labeled_data.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Simple data loading function (assuming CSV with Date, open, high, low, close columns)
@@ -69,8 +69,9 @@ def main():
         centroids_sorted.index[0]: "Bear Breakout",
         centroids_sorted.index[1]: "Consolidation",
         centroids_sorted.index[2]: "Neutral",
-        centroids_sorted.index[3]: "Post-Bull",
-        centroids_sorted.index[4]: "Bull Breakout"
+        centroids_sorted.index[3]: "Post-Bear",
+        centroids_sorted.index[4]: "Post-Bull",
+        centroids_sorted.index[5]: "Bull Breakout"
     }
     data['Regime_Label'] = data['Regime'].map(regime_map)
 
