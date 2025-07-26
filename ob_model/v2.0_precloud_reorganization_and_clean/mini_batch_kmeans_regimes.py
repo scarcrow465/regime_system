@@ -10,7 +10,7 @@ from sklearn.cluster import MiniBatchKMeans
 from tqdm import tqdm
 
 # Centralized parameters - Adjust these as needed
-TEST_SLICE = 0  # Number of rows to use from the end of the dataset (set to None for full dataset)
+TEST_SLICE = None  # Number of rows to use from the end of the dataset (set to None for full dataset)
 K_CLUSTERS = 5  # Number of clusters for MiniBatchKMeans
 BATCH_SIZE = 100  # Batch size for MiniBatchKMeans
 LOOKBACK = 200  # Lookback period for rolling calculations
