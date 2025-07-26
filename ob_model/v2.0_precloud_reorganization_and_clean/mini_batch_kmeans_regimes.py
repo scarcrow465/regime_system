@@ -18,7 +18,7 @@ TIMEFRAME = '15min'  # Timeframe for data loading
 # Adaptive regime parameters (base multipliers that scale with market conditions)
 ADAPTIVE_PARAMS = {
     'breakout_base_threshold': 0.75,  # Base ATR multiple for breakout (reduced from 1.5)
-    'consolidation_base_threshold': 1.8,  # Base ATR multiple for consolidation range (increased from 0.5)
+    'consolidation_base_threshold': 2.5,  # Base ATR multiple for consolidation range (increased from 0.5)
     'momentum_lookback': 20,  # Bars to look back for adaptive momentum calculation
     'volatility_lookback': 50,  # Bars for volatility regime calculation
     'adaptive_window_base': [8, 15, 35],  # Base windows that scale with volatility
@@ -153,14 +153,14 @@ def calculate_dynamic_consolidation_features(data):
     )
     
     # Low volatility signal (relative to recent environment)
-    data['Low_Volatility_Signal'] = data['Volatility_Ratio'] < 0.85
+    data['Low_Volatility_Signal'] = data['Volatility_Ratio'] < 0.9
     
     # Central positioning signal
     data['Central_Position_Signal'] = 0
     for i in range(3):
         central_col = f'Central_Score_{i+1}'
         if central_col in data.columns:
-            central = data[central_col] > 0.2  # At least somewhat central
+            central = data[central_col] > 0.15  # At least somewhat central
             data['Central_Position_Signal'] += central.astype(int)
     
     return data
@@ -245,13 +245,17 @@ def classify_regimes_adaptive(data):
     data.loc[bull_breakout_condition, 'Regime'] = 'Bull Breakout'
     data.loc[bear_breakout_condition, 'Regime'] = 'Bear Breakout'
     
-    # 2. Consolidation detection (requires multiple confirmations)
+    # 2. Consolidation detection (requires 3 of 4 confirmations)
+    consolidation_score = (
+        (data['Range_Compression_Signal'] >= 2).astype(int) +  # At least 2 of 3 windows compressed
+        (data['Low_Momentum_Signal'] == True).astype(int) +     # Low momentum
+        (data['Low_Volatility_Signal'] == True).astype(int) +   # Low volatility
+        (data['Central_Position_Signal'] >= 1).astype(int)      # At least somewhat central
+    )
+
     consolidation_condition = (
-        (data['Range_Compression_Signal'] >= 2) &  # At least 2 of 3 windows compressed
-        (data['Low_Momentum_Signal'] == True) &     # Low momentum
-        (data['Low_Volatility_Signal'] == True) &   # Low volatility
-        (data['Central_Position_Signal'] >= 1) &    # At least somewhat central
-        ~bull_breakout_condition &                  # Not during breakouts
+        (consolidation_score >= 3) &               # At least 3 of 4 conditions
+        ~bull_breakout_condition &                 # Not during breakouts
         ~bear_breakout_condition
     )
     
