@@ -40,15 +40,15 @@ def main():
         print(f"Using last {TEST_SLICE} rows for testing")
 
     # Calculate ATR if not present (assuming TR is True Range, but we'll compute it)
-    data['TR'] = np.maximum.reduce([data['High'] - data['Low'], abs(data['High'] - data['Close'].shift(1)), abs(data['Low'] - data['Close'].shift(1))])
+    data['TR'] = np.maximum.reduce([data['high'] - data['low'], abs(data['high'] - data['close'].shift(1)), abs(data['low'] - data['close'].shift(1))])
     data['ATR'] = data['TR'].rolling(window=5).mean()
 
     # Calculate features with tqdm progress
     with tqdm(total=1, desc="Calculating Features", ncols=80) as pbar:
-        data['Price_Change'] = (data['Close'] - data['Close'].shift(3)) / data['ATR']
+        data['Price_Change'] = (data['close'] - data['close'].shift(3)) / data['ATR']
         data['Volatility_Ratio'] = data['ATR'] / data['ATR'].rolling(window=50).mean()
-        data['Price_Range'] = (data['High'].rolling(window=10).max() - data['Low'].rolling(window=10).min()) / data['ATR']
-        data['Momentum'] = (data['Close'] - data['Close'].shift(5)) / data['Close'].shift(5)
+        data['Price_Range'] = (data['high'].rolling(window=10).max() - data['low'].rolling(window=10).min()) / data['ATR']
+        data['Momentum'] = (data['close'] - data['close'].shift(5)) / data['close'].shift(5)
         data['Vol_Change'] = data['ATR'].diff(5)
         features = data[['Price_Change', 'Volatility_Ratio', 'Price_Range', 'Momentum', 'Vol_Change']].dropna()
         features = (features - features.mean()) / features.std()  # Normalize features
