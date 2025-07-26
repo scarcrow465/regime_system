@@ -17,7 +17,7 @@ LOOKBACK = 200  # Base lookback period for rolling calculations
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
 OUTPUT_FILE = 'regime_labeled_data.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
-MIN_REGIME_PERSISTENCE = 2  # Minimum bars for regime confirmation
+MIN_REGIME_PERSISTENCE = 3  # Minimum bars for regime confirmation
 
 # Simple data loading function (assuming CSV with Date, open, high, low, close columns)
 def load_csv_data(file_path, timeframe):
@@ -37,34 +37,52 @@ def calculate_adaptive_features(data):
     
     # Adaptive lookback: shorter in high vol, longer in low vol
     data['Adaptive_Short'] = np.where(data['Volatility_Regime'] > 1.5, 3, 
-                                     np.where(data['Volatility_Regime'] < 0.7, 8, 5))
+                                     np.where(data['Volatility_Regime'] < 0.7, 8, 5)).astype(int)
     data['Adaptive_Medium'] = np.where(data['Volatility_Regime'] > 1.5, 8, 
-                                      np.where(data['Volatility_Regime'] < 0.7, 20, 12))
+                                      np.where(data['Volatility_Regime'] < 0.7, 20, 12)).astype(int)
     data['Adaptive_Long'] = np.where(data['Volatility_Regime'] > 1.5, 20, 
-                                    np.where(data['Volatility_Regime'] < 0.7, 50, 30))
+                                    np.where(data['Volatility_Regime'] < 0.7, 50, 30)).astype(int)
     
-    # Multi-timeframe price changes (using adaptive lookbacks)
-    data['Price_Change_Short'] = (data['close'] - data['close'].shift(data['Adaptive_Short'])) / data['ATR']
-    data['Price_Change_Medium'] = (data['close'] - data['close'].shift(data['Adaptive_Medium'])) / data['ATR']
-    data['Price_Change_Long'] = (data['close'] - data['close'].shift(data['Adaptive_Long'])) / data['ATR']
+    # Fill NaN values with default values
+    data['Adaptive_Short'] = data['Adaptive_Short'].fillna(5).astype(int)
+    data['Adaptive_Medium'] = data['Adaptive_Medium'].fillna(12).astype(int)
+    data['Adaptive_Long'] = data['Adaptive_Long'].fillna(30).astype(int)
+    
+    # Initialize columns
+    data['Price_Change_Short'] = np.nan
+    data['Price_Change_Medium'] = np.nan
+    data['Price_Change_Long'] = np.nan
+    data['Momentum_Short'] = np.nan
+    data['Momentum_Medium'] = np.nan
+    data['Price_Range_Adaptive'] = np.nan
+    
+    # Calculate adaptive price changes using loops (vectorized approach not possible with variable shifts)
+    for i in range(len(data)):
+        short_window = data['Adaptive_Short'].iloc[i]
+        medium_window = data['Adaptive_Medium'].iloc[i]
+        long_window = data['Adaptive_Long'].iloc[i]
+        
+        if i >= long_window:  # Ensure we have enough data
+            # Price changes
+            if not pd.isna(data['ATR'].iloc[i]) and data['ATR'].iloc[i] != 0:
+                data.loc[data.index[i], 'Price_Change_Short'] = (data['close'].iloc[i] - data['close'].iloc[i-short_window]) / data['ATR'].iloc[i]
+                data.loc[data.index[i], 'Price_Change_Medium'] = (data['close'].iloc[i] - data['close'].iloc[i-medium_window]) / data['ATR'].iloc[i]
+                data.loc[data.index[i], 'Price_Change_Long'] = (data['close'].iloc[i] - data['close'].iloc[i-long_window]) / data['ATR'].iloc[i]
+                
+                # Momentum calculations
+                if data['close'].iloc[i-short_window] != 0:
+                    data.loc[data.index[i], 'Momentum_Short'] = (data['close'].iloc[i] - data['close'].iloc[i-short_window]) / data['close'].iloc[i-short_window]
+                if data['close'].iloc[i-medium_window] != 0:
+                    data.loc[data.index[i], 'Momentum_Medium'] = (data['close'].iloc[i] - data['close'].iloc[i-medium_window]) / data['close'].iloc[i-medium_window]
+                
+                # Adaptive range calculation
+                high_max = data['high'].iloc[i-medium_window:i+1].max()
+                low_min = data['low'].iloc[i-medium_window:i+1].min()
+                data.loc[data.index[i], 'Price_Range_Adaptive'] = (high_max - low_min) / data['ATR'].iloc[i]
     
     # Multi-timeframe volatility ratios
     data['Vol_Ratio_Short'] = data['ATR'].rolling(window=5).mean() / data['ATR'].rolling(window=20).mean()
     data['Vol_Ratio_Medium'] = data['ATR'].rolling(window=20).mean() / data['ATR'].rolling(window=50).mean()
-    
-    # Adaptive range calculations
-    adaptive_range_window = data['Adaptive_Medium'].fillna(method='ffill').astype(int)
-    data['Price_Range_Adaptive'] = np.nan
-    for i in range(len(data)):
-        if i >= adaptive_range_window.iloc[i]:
-            window = int(adaptive_range_window.iloc[i])
-            high_max = data['high'].iloc[i-window:i+1].max()
-            low_min = data['low'].iloc[i-window:i+1].min()
-            data.loc[data.index[i], 'Price_Range_Adaptive'] = (high_max - low_min) / data['ATR'].iloc[i]
-    
-    # Momentum persistence (trend consistency)
-    data['Momentum_Short'] = (data['close'] - data['close'].shift(data['Adaptive_Short'])) / data['close'].shift(data['Adaptive_Short'])
-    data['Momentum_Medium'] = (data['close'] - data['close'].shift(data['Adaptive_Medium'])) / data['close'].shift(data['Adaptive_Medium'])
     
     # Breakout strength indicators
     data['Breakout_Strength'] = np.abs(data['Price_Change_Medium']) * data['Vol_Ratio_Short']
@@ -79,7 +97,9 @@ def expanding_normalize(series, min_periods=50):
     """Normalize using expanding window to avoid lookahead bias"""
     expanding_mean = series.expanding(min_periods=min_periods).mean()
     expanding_std = series.expanding(min_periods=min_periods).std()
-    return (series - expanding_mean) / expanding_std
+    # Handle division by zero
+    normalized = (series - expanding_mean) / expanding_std
+    return normalized.fillna(0)  # Fill any remaining NaN with 0
 
 # Apply temporal logic for post-breakout regimes
 def apply_temporal_logic(data):
@@ -181,6 +201,12 @@ def main():
             features_normalized[col] = expanding_normalize(features_raw[col], min_periods=100)
         
         features = features_normalized.dropna()
+        
+        # Ensure we have enough data for clustering
+        if len(features) < K_CLUSTERS * 10:
+            print(f"Warning: Only {len(features)} valid feature rows for {K_CLUSTERS} clusters")
+            print("Consider reducing TEST_SLICE or K_CLUSTERS")
+        
         pbar.update(1)
 
     # Run MiniBatchKMeans with tqdm progress
