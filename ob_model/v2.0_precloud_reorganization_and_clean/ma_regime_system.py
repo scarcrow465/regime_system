@@ -11,7 +11,7 @@ from tqdm import tqdm
 # Centralized parameters
 TEST_SLICE = None  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data.csv'  # Output CSV file name
+OUTPUT_FILE = 'ma_regime_labeled_data_2.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -274,6 +274,11 @@ def main():
 
     # Apply regime classification
     data = apply_regime_classification(data)
+
+    # CRITICAL: Shift labels by 1 bar to eliminate lookahead bias
+    # This ensures regime label for current bar is based on previous bar's completed data
+    data['Raw_Regime'] = data['Raw_Regime'].shift(1)
+    print("Applied 1-bar shift to eliminate lookahead bias")
 
     # Apply persistence
     with tqdm(total=1, desc="Applying Persistence", ncols=80) as pbar:
