@@ -18,7 +18,7 @@ TIMEFRAME = '15min'  # Timeframe for data loading
 # Adaptive regime parameters (base multipliers that scale with market conditions)
 ADAPTIVE_PARAMS = {
     'breakout_base_threshold': 0.75,  # Base ATR multiple for breakout (reduced from 1.5)
-    'consolidation_base_threshold': 2.5,  # Base ATR multiple for consolidation range (increased from 0.5)
+    'consolidation_base_threshold': 3.5,  # Base ATR multiple for consolidation range (increased from 0.5)
     'momentum_lookback': 20,  # Bars to look back for adaptive momentum calculation
     'volatility_lookback': 50,  # Bars for volatility regime calculation
     'adaptive_window_base': [8, 15, 35],  # Base windows that scale with volatility
@@ -54,7 +54,7 @@ def calculate_adaptive_environment(data):
     # Adaptive momentum baseline (key for NQ's changing price levels)
     momentum_lookback = ADAPTIVE_PARAMS['momentum_lookback']
     data['Recent_Price_Changes'] = data['close'].pct_change().rolling(window=momentum_lookback).std()
-    data['Adaptive_Momentum_Threshold'] = data['Recent_Price_Changes'] * 1.5  # 1.5x recent volatility
+    data['Adaptive_Momentum_Threshold'] = data['Recent_Price_Changes'] * 2.0  # 1.5x recent volatility
     
     # Adaptive breakout threshold (scales with recent volatility)
     base_threshold = ADAPTIVE_PARAMS['breakout_base_threshold']
@@ -247,7 +247,7 @@ def classify_regimes_adaptive(data):
     
     # 2. Consolidation detection (requires 3 of 4 confirmations)
     consolidation_score = (
-        (data['Range_Compression_Signal'] >= 2).astype(int) +  # At least 2 of 3 windows compressed
+        (data['Range_Compression_Signal'] >= 1).astype(int) +  # At least 2 of 3 windows compressed
         (data['Low_Momentum_Signal'] == True).astype(int) +     # Low momentum
         (data['Low_Volatility_Signal'] == True).astype(int) +   # Low volatility
         (data['Central_Position_Signal'] >= 1).astype(int)      # At least somewhat central
