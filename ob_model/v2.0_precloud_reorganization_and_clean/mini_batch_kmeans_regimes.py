@@ -11,15 +11,31 @@ from tqdm import tqdm
 
 # Centralized parameters - Adjust these as needed
 TEST_SLICE = 10000  # Number of rows to use from the end of the dataset (set to None for full dataset)
-K_CLUSTERS = 6  # Reduced to 4 base clusters (Bull Breakout, Bear Breakout, Consolidation, Neutral)
-BATCH_SIZE = 100  # Batch size for MiniBatchKMeans
-LOOKBACK = 200  # Base lookback period for rolling calculations
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'regime_labeled_data_6.csv'  # Output CSV file name
+OUTPUT_FILE = 'regime_labeled_data_7.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
-MIN_REGIME_PERSISTENCE = 2  # Minimum bars for regime confirmation
 
-# Simple data loading function (assuming CSV with Date, open, high, low, close columns)
+# Regime-specific parameters
+CONSOLIDATION_PARAMS = {
+    'range_compression_threshold': 0.5,  # ATR multiple for tight range
+    'volatility_threshold': 0.8,  # Relative to rolling average
+    'min_consolidation_bars': 5,  # Minimum bars to consider consolidation
+    'lookback_windows': [10, 20, 50]  # Multiple timeframes for consolidation detection
+}
+
+BREAKOUT_PARAMS = {
+    'breakout_threshold': 1.5,  # ATR multiple for breakout
+    'momentum_threshold': 0.02,  # Minimum momentum for breakout
+    'volume_confirmation': False,  # Whether to use volume (set to False if no volume data)
+    'lookback_window': 20  # Window for range calculation
+}
+
+POST_BREAKOUT_PARAMS = {
+    'max_duration': 10,  # Maximum bars after breakout to consider post-breakout
+    'adjacent_only': True  # Only immediate next periods can be post-breakout
+}
+
+# Simple data loading function
 def load_csv_data(file_path, timeframe):
     print(f"Loading data from {file_path}")
     df = pd.read_csv(file_path, parse_dates=['Date'])
@@ -28,144 +44,198 @@ def load_csv_data(file_path, timeframe):
     print(f"Loaded {len(df)} rows")
     return df
 
-# Calculate adaptive lookback periods based on volatility
-def calculate_adaptive_features(data):
-    """Calculate features with adaptive lookback periods based on market volatility"""
+# Calculate multi-timeframe consolidation features
+def calculate_consolidation_features(data):
+    """Calculate features specifically designed to detect consolidations of variable sizes"""
     
-    # Base volatility measure for adaptive scaling
-    data['Volatility_Regime'] = data['ATR'] / data['ATR'].rolling(window=100).mean()
+    # Base volatility measures
+    data['ATR_5'] = data['TR'].rolling(window=5).mean()
+    data['ATR_14'] = data['TR'].rolling(window=14).mean()
+    data['ATR_50'] = data['TR'].rolling(window=50).mean()
     
-    # Adaptive lookback: shorter in high vol, longer in low vol
-    data['Adaptive_Short'] = np.where(data['Volatility_Regime'] > 1.5, 3, 
-                                     np.where(data['Volatility_Regime'] < 0.7, 8, 5)).astype(int)
-    data['Adaptive_Medium'] = np.where(data['Volatility_Regime'] > 1.5, 8, 
-                                      np.where(data['Volatility_Regime'] < 0.7, 20, 12)).astype(int)
-    data['Adaptive_Long'] = np.where(data['Volatility_Regime'] > 1.5, 20, 
-                                    np.where(data['Volatility_Regime'] < 0.7, 50, 30)).astype(int)
+    # Relative volatility (current vs historical)
+    data['Volatility_Ratio'] = data['ATR_5'] / data['ATR_50']
     
-    # Fill NaN values with default values
-    data['Adaptive_Short'] = data['Adaptive_Short'].fillna(5).astype(int)
-    data['Adaptive_Medium'] = data['Adaptive_Medium'].fillna(12).astype(int)
-    data['Adaptive_Long'] = data['Adaptive_Long'].fillna(30).astype(int)
-    
-    # Initialize columns
-    data['Price_Change_Short'] = np.nan
-    data['Price_Change_Medium'] = np.nan
-    data['Price_Change_Long'] = np.nan
-    data['Momentum_Short'] = np.nan
-    data['Momentum_Medium'] = np.nan
-    data['Price_Range_Adaptive'] = np.nan
-    
-    # Calculate adaptive price changes using loops (vectorized approach not possible with variable shifts)
-    for i in range(len(data)):
-        short_window = data['Adaptive_Short'].iloc[i]
-        medium_window = data['Adaptive_Medium'].iloc[i]
-        long_window = data['Adaptive_Long'].iloc[i]
+    # Multi-timeframe range compression detection
+    for window in CONSOLIDATION_PARAMS['lookback_windows']:
+        col_name = f'Range_Compression_{window}'
         
-        if i >= long_window:  # Ensure we have enough data
-            # Price changes
-            if not pd.isna(data['ATR'].iloc[i]) and data['ATR'].iloc[i] != 0:
-                data.loc[data.index[i], 'Price_Change_Short'] = (data['close'].iloc[i] - data['close'].iloc[i-short_window]) / data['ATR'].iloc[i]
-                data.loc[data.index[i], 'Price_Change_Medium'] = (data['close'].iloc[i] - data['close'].iloc[i-medium_window]) / data['ATR'].iloc[i]
-                data.loc[data.index[i], 'Price_Change_Long'] = (data['close'].iloc[i] - data['close'].iloc[i-long_window]) / data['ATR'].iloc[i]
-                
-                # Momentum calculations
-                if data['close'].iloc[i-short_window] != 0:
-                    data.loc[data.index[i], 'Momentum_Short'] = (data['close'].iloc[i] - data['close'].iloc[i-short_window]) / data['close'].iloc[i-short_window]
-                if data['close'].iloc[i-medium_window] != 0:
-                    data.loc[data.index[i], 'Momentum_Medium'] = (data['close'].iloc[i] - data['close'].iloc[i-medium_window]) / data['close'].iloc[i-medium_window]
-                
-                # Adaptive range calculation
-                high_max = data['high'].iloc[i-medium_window:i+1].max()
-                low_min = data['low'].iloc[i-medium_window:i+1].min()
-                data.loc[data.index[i], 'Price_Range_Adaptive'] = (high_max - low_min) / data['ATR'].iloc[i]
+        # Calculate rolling range as percentage of ATR
+        rolling_high = data['high'].rolling(window=window).max()
+        rolling_low = data['low'].rolling(window=window).min()
+        range_size = (rolling_high - rolling_low) / data['ATR_14']
+        
+        data[col_name] = range_size
+        
+        # Range compression score (lower = more compressed)
+        data[f'Compression_Score_{window}'] = np.where(
+            range_size < CONSOLIDATION_PARAMS['range_compression_threshold'] * window / 10,
+            1, 0
+        )
     
-    # Multi-timeframe volatility ratios
-    data['Vol_Ratio_Short'] = data['ATR'].rolling(window=5).mean() / data['ATR'].rolling(window=20).mean()
-    data['Vol_Ratio_Medium'] = data['ATR'].rolling(window=20).mean() / data['ATR'].rolling(window=50).mean()
+    # Price position within recent ranges
+    for window in [10, 20]:
+        rolling_high = data['high'].rolling(window=window).max()
+        rolling_low = data['low'].rolling(window=window).min()
+        range_position = (data['close'] - rolling_low) / (rolling_high - rolling_low)
+        data[f'Range_Position_{window}'] = range_position
+        
+        # Central position score (higher when price is in middle of range)
+        data[f'Central_Position_Score_{window}'] = 1 - 2 * np.abs(range_position - 0.5)
     
-    # Breakout strength indicators
-    data['Breakout_Strength'] = np.abs(data['Price_Change_Medium']) * data['Vol_Ratio_Short']
-    
-    # Consolidation tightness (lower values = tighter consolidation)
-    data['Consolidation_Tightness'] = data['Price_Range_Adaptive'] / data['Volatility_Regime']
+    # Trend consistency (lower = more sideways)
+    data['Price_Change_5'] = data['close'].pct_change(5)
+    data['Price_Change_20'] = data['close'].pct_change(20)
+    data['Trend_Consistency'] = np.abs(data['Price_Change_20'])
     
     return data
 
-# Apply expanding window normalization to avoid lookahead bias
-def expanding_normalize(series, min_periods=50):
-    """Normalize using expanding window to avoid lookahead bias"""
-    expanding_mean = series.expanding(min_periods=min_periods).mean()
-    expanding_std = series.expanding(min_periods=min_periods).std()
-    # Handle division by zero
-    normalized = (series - expanding_mean) / expanding_std
-    return normalized.fillna(0)  # Fill any remaining NaN with 0
+# Calculate breakout features
+def calculate_breakout_features(data):
+    """Calculate features specifically designed to detect breakouts"""
+    
+    # Recent range for breakout calculation
+    window = BREAKOUT_PARAMS['lookback_window']
+    data['Recent_High'] = data['high'].rolling(window=window).max().shift(1)  # Exclude current bar
+    data['Recent_Low'] = data['low'].rolling(window=window).min().shift(1)
+    data['Recent_Range'] = data['Recent_High'] - data['Recent_Low']
+    
+    # Breakout detection
+    data['Bull_Breakout_Signal'] = np.where(
+        (data['close'] > data['Recent_High']) & 
+        (data['close'] - data['Recent_High'] > BREAKOUT_PARAMS['breakout_threshold'] * data['ATR_14']),
+        1, 0
+    )
+    
+    data['Bear_Breakout_Signal'] = np.where(
+        (data['close'] < data['Recent_Low']) & 
+        (data['Recent_Low'] - data['close'] > BREAKOUT_PARAMS['breakout_threshold'] * data['ATR_14']),
+        1, 0
+    )
+    
+    # Breakout strength
+    data['Bull_Breakout_Strength'] = np.maximum(0, data['close'] - data['Recent_High']) / data['ATR_14']
+    data['Bear_Breakout_Strength'] = np.maximum(0, data['Recent_Low'] - data['close']) / data['ATR_14']
+    
+    # Momentum confirmation
+    data['Momentum_5'] = data['close'].pct_change(5)
+    data['Momentum_Confirmation'] = np.abs(data['Momentum_5']) > BREAKOUT_PARAMS['momentum_threshold']
+    
+    return data
 
-# Apply temporal logic for post-breakout regimes
-def apply_temporal_logic(data):
-    """Apply temporal sequencing for Post-Bull and Post-Bear regimes"""
+# Rule-based regime classification
+def classify_regimes_rule_based(data):
+    """Classify regimes using rule-based logic instead of clustering"""
     
-    # Initialize regime tracking
-    data['Base_Regime'] = data['Regime_Label'].copy()
-    data['Final_Regime'] = data['Regime_Label'].copy()
+    data['Regime'] = 'Neutral'  # Default
     
-    # Track last breakout type
-    last_breakout = None
-    post_breakout_counter = 0
+    # 1. Breakout detection (highest priority, no persistence needed)
+    bull_breakout_condition = (
+        (data['Bull_Breakout_Signal'] == 1) & 
+        (data['Momentum_Confirmation'] == True) &
+        (data['Bull_Breakout_Strength'] > 1.0)
+    )
     
-    for i in range(len(data)):
-        current_regime = data['Base_Regime'].iloc[i]
+    bear_breakout_condition = (
+        (data['Bear_Breakout_Signal'] == 1) & 
+        (data['Momentum_Confirmation'] == True) &
+        (data['Bear_Breakout_Strength'] > 1.0)
+    )
+    
+    data.loc[bull_breakout_condition, 'Regime'] = 'Bull Breakout'
+    data.loc[bear_breakout_condition, 'Regime'] = 'Bear Breakout'
+    
+    # 2. Consolidation detection (multi-timeframe approach)
+    # Require consolidation signals across multiple timeframes
+    consolidation_signals = []
+    for window in CONSOLIDATION_PARAMS['lookback_windows']:
+        signal = data[f'Compression_Score_{window}'] == 1
+        consolidation_signals.append(signal)
+    
+    # Additional consolidation conditions
+    low_volatility = data['Volatility_Ratio'] < CONSOLIDATION_PARAMS['volatility_threshold']
+    low_trend = data['Trend_Consistency'] < 0.01  # Less than 1% change over 20 bars
+    central_position = (data['Central_Position_Score_10'] > 0.3) | (data['Central_Position_Score_20'] > 0.3)
+    
+    # Consolidation requires multiple confirmations
+    consolidation_condition = (
+        (consolidation_signals[0] | consolidation_signals[1]) &  # At least one short-term compression
+        low_volatility & 
+        low_trend & 
+        central_position &
+        ~bull_breakout_condition &  # Not during breakouts
+        ~bear_breakout_condition
+    )
+    
+    data.loc[consolidation_condition, 'Regime'] = 'Consolidation'
+    
+    return data
+
+# Apply temporal logic for post-breakout regimes (strict adjacency)
+def apply_strict_temporal_logic(data):
+    """Apply strict temporal sequencing - post-breakout only immediately after breakouts"""
+    
+    data['Final_Regime'] = data['Regime'].copy()
+    
+    # Track regime changes
+    regime_changed = data['Regime'] != data['Regime'].shift(1)
+    
+    for i in range(1, len(data)):
+        current_regime = data['Regime'].iloc[i]
+        previous_regime = data['Regime'].iloc[i-1]
         
-        # Check for new breakouts
-        if current_regime == 'Bull Breakout':
-            last_breakout = 'Bull'
-            post_breakout_counter = 0
-        elif current_regime == 'Bear Breakout':
-            last_breakout = 'Bear'
-            post_breakout_counter = 0
-        
-        # Apply post-breakout logic
-        elif current_regime in ['Consolidation', 'Neutral'] and last_breakout is not None:
-            post_breakout_counter += 1
-            
-            # Convert to post-breakout regime if within reasonable timeframe
-            if post_breakout_counter <= 50:  # Max 50 bars after breakout
-                if last_breakout == 'Bull':
+        # Only apply post-breakout logic for immediate transitions
+        if POST_BREAKOUT_PARAMS['adjacent_only']:
+            # Post-Bull: only immediately after Bull Breakout
+            if (current_regime in ['Consolidation', 'Neutral']) and (previous_regime == 'Bull Breakout'):
+                # Check if we're still within reasonable range of the breakout
+                recent_bars = min(POST_BREAKOUT_PARAMS['max_duration'], i)
+                recent_regimes = data['Regime'].iloc[i-recent_bars:i]
+                
+                if 'Bull Breakout' in recent_regimes.values:
                     data.loc[data.index[i], 'Final_Regime'] = 'Post-Bull'
-                elif last_breakout == 'Bear':
+            
+            # Post-Bear: only immediately after Bear Breakout  
+            elif (current_regime in ['Consolidation', 'Neutral']) and (previous_regime == 'Bear Breakout'):
+                recent_bars = min(POST_BREAKOUT_PARAMS['max_duration'], i)
+                recent_regimes = data['Regime'].iloc[i-recent_bars:i]
+                
+                if 'Bear Breakout' in recent_regimes.values:
                     data.loc[data.index[i], 'Final_Regime'] = 'Post-Bear'
-        
-        # Reset if we get a strong opposite signal
-        elif (current_regime == 'Bear Breakout' and last_breakout == 'Bull') or \
-             (current_regime == 'Bull Breakout' and last_breakout == 'Bear'):
-            last_breakout = 'Bull' if current_regime == 'Bull Breakout' else 'Bear'
-            post_breakout_counter = 0
     
     return data
 
-# Add regime persistence confirmation
-def add_regime_persistence(data, min_persistence=MIN_REGIME_PERSISTENCE):
-    """Add regime persistence to avoid rapid switching"""
+# No persistence for breakouts, limited persistence for others
+def apply_selective_persistence(data):
+    """Apply persistence only to consolidation/neutral regimes, not breakouts"""
     
     data['Confirmed_Regime'] = data['Final_Regime'].copy()
+    min_persistence = 3
     
-    # Apply persistence filter
     for i in range(min_persistence, len(data)):
+        current_regime = data['Final_Regime'].iloc[i]
+        
+        # Skip persistence for breakouts - they can be single bars
+        if current_regime in ['Bull Breakout', 'Bear Breakout']:
+            continue
+            
+        # Apply persistence for other regimes
         recent_regimes = data['Final_Regime'].iloc[i-min_persistence:i+1]
         
-        # If regime has been consistent for min_persistence periods, confirm it
-        if len(recent_regimes.unique()) == 1:
-            data.loc[data.index[i], 'Confirmed_Regime'] = recent_regimes.iloc[-1]
-        else:
-            # Keep previous confirmed regime if no consistency
-            if i > 0:
-                data.loc[data.index[i], 'Confirmed_Regime'] = data['Confirmed_Regime'].iloc[i-1]
+        if current_regime in ['Consolidation', 'Neutral', 'Post-Bull', 'Post-Bear']:
+            # Check for consistency
+            if len(recent_regimes.unique()) == 1:
+                data.loc[data.index[i], 'Confirmed_Regime'] = recent_regimes.iloc[-1]
+            else:
+                # Keep previous confirmed regime if no consistency
+                if i > 0:
+                    data.loc[data.index[i], 'Confirmed_Regime'] = data['Confirmed_Regime'].iloc[i-1]
     
     return data
 
-# Main function to run the analysis
+# Main function
 def main():
-    # Load data with tqdm progress
+    # Load data
     with tqdm(total=1, desc="Loading Data", ncols=80) as pbar:
         data = load_csv_data(DATA_FILE, TIMEFRAME)
         pbar.update(1)
@@ -175,104 +245,58 @@ def main():
         data = data.tail(TEST_SLICE)
         print(f"Using last {TEST_SLICE} rows for testing")
 
-    # Calculate ATR if not present
-    data['TR'] = np.maximum.reduce([data['high'] - data['low'], 
-                                   abs(data['high'] - data['close'].shift(1)), 
-                                   abs(data['low'] - data['close'].shift(1))])
-    data['ATR'] = data['TR'].rolling(window=5).mean()
+    # Calculate ATR and True Range
+    data['TR'] = np.maximum.reduce([
+        data['high'] - data['low'], 
+        abs(data['high'] - data['close'].shift(1)), 
+        abs(data['low'] - data['close'].shift(1))
+    ])
+    data['ATR'] = data['TR'].rolling(window=14).mean()
 
-    # Calculate enhanced adaptive features
-    with tqdm(total=1, desc="Calculating Adaptive Features", ncols=80) as pbar:
-        data = calculate_adaptive_features(data)
+    # Calculate regime-specific features
+    with tqdm(total=1, desc="Calculating Consolidation Features", ncols=80) as pbar:
+        data = calculate_consolidation_features(data)
         pbar.update(1)
 
-    # Prepare features for clustering with expanding normalization
-    with tqdm(total=1, desc="Normalizing Features", ncols=80) as pbar:
-        feature_columns = ['Price_Change_Short', 'Price_Change_Medium', 'Price_Change_Long',
-                          'Vol_Ratio_Short', 'Vol_Ratio_Medium', 'Price_Range_Adaptive',
-                          'Momentum_Short', 'Momentum_Medium', 'Breakout_Strength', 
-                          'Consolidation_Tightness']
-        
-        features_raw = data[feature_columns].copy()
-        
-        # Apply expanding window normalization to avoid lookahead bias
-        features_normalized = pd.DataFrame(index=features_raw.index)
-        for col in feature_columns:
-            features_normalized[col] = expanding_normalize(features_raw[col], min_periods=100)
-        
-        features = features_normalized.dropna()
-        
-        # Ensure we have enough data for clustering
-        if len(features) < K_CLUSTERS * 10:
-            print(f"Warning: Only {len(features)} valid feature rows for {K_CLUSTERS} clusters")
-            print("Consider reducing TEST_SLICE or K_CLUSTERS")
-        
+    with tqdm(total=1, desc="Calculating Breakout Features", ncols=80) as pbar:
+        data = calculate_breakout_features(data)
         pbar.update(1)
 
-    # Run MiniBatchKMeans with tqdm progress
-    with tqdm(total=1, desc="Running Clustering", ncols=80) as pbar:
-        model = MiniBatchKMeans(n_clusters=K_CLUSTERS, batch_size=BATCH_SIZE, random_state=42)
-        data['Regime'] = np.nan
-        data.loc[features.index, 'Regime'] = model.fit_predict(features)
+    # Rule-based regime classification
+    with tqdm(total=1, desc="Classifying Regimes", ncols=80) as pbar:
+        data = classify_regimes_rule_based(data)
         pbar.update(1)
 
-    # Enhanced regime mapping based on multiple characteristics
-    with tqdm(total=1, desc="Mapping Regimes", ncols=80) as pbar:
-        centroids = pd.DataFrame(model.cluster_centers_, columns=features.columns)
-        
-        # Create composite scores for regime identification
-        centroids['Breakout_Score'] = centroids['Breakout_Strength'] + np.abs(centroids['Price_Change_Medium'])
-        centroids['Consolidation_Score'] = -centroids['Consolidation_Tightness'] - np.abs(centroids['Price_Change_Medium'])
-        centroids['Bull_Score'] = centroids['Price_Change_Medium'] + centroids['Momentum_Medium']
-        centroids['Bear_Score'] = -centroids['Price_Change_Medium'] - centroids['Momentum_Medium']
-        
-        # Map regimes based on composite scores
-        regime_assignments = []
-        for i in range(K_CLUSTERS):
-            if centroids['Breakout_Score'].iloc[i] > centroids['Breakout_Score'].quantile(0.5):
-                if centroids['Bull_Score'].iloc[i] > centroids['Bear_Score'].iloc[i]:
-                    regime_assignments.append('Bull Breakout')
-                else:
-                    regime_assignments.append('Bear Breakout')
-            else:
-                if centroids['Consolidation_Score'].iloc[i] > centroids['Consolidation_Score'].quantile(0.5):
-                    regime_assignments.append('Consolidation')
-                else:
-                    regime_assignments.append('Neutral')
-        
-        regime_map = {i: regime_assignments[i] for i in range(K_CLUSTERS)}
-        data['Regime_Label'] = data['Regime'].map(regime_map)
-        pbar.update(1)
-
-    # Apply temporal logic for post-breakout regimes
+    # Apply temporal logic
     with tqdm(total=1, desc="Applying Temporal Logic", ncols=80) as pbar:
-        data = apply_temporal_logic(data)
+        data = apply_strict_temporal_logic(data)
         pbar.update(1)
 
-    # Add regime persistence confirmation
-    with tqdm(total=1, desc="Adding Regime Persistence", ncols=80) as pbar:
-        data = add_regime_persistence(data)
+    # Apply selective persistence
+    with tqdm(total=1, desc="Applying Selective Persistence", ncols=80) as pbar:
+        data = apply_selective_persistence(data)
         pbar.update(1)
 
-    # Add dummy columns for each regime (1000000 if true, NaN otherwise)
+    # Add dummy columns for visualization
     regimes = ["Bear Breakout", "Bull Breakout", "Consolidation", "Neutral", "Post-Bear", "Post-Bull"]
     for regime in regimes:
         data[regime.replace(" ", "_") + "_Dummy"] = np.where(data['Confirmed_Regime'] == regime, 1000000, np.nan)
 
-    # Add numbered index for continuous plotting (ignores time gaps)
+    # Add numbered index for continuous plotting
     data['Index'] = range(len(data))
 
     # Reset index to include Date as column
     data = data.reset_index()
 
-    # Split Date (datetime) into separate Date and Time columns
+    # Split Date into separate Date and Time columns
     data['Date_Separate'] = data['Date'].dt.date
     data['Time'] = data['Date'].dt.time
 
-    # Export to CSV with enhanced regime information
+    # Export to CSV
     dummy_columns = [regime.replace(" ", "_") + "_Dummy" for regime in regimes]
     output_columns = ['Index', 'Date_Separate', 'Time', 'open', 'high', 'low', 'close', 
-                     'Confirmed_Regime', 'ATR', 'Volatility_Regime'] + dummy_columns
+                     'Confirmed_Regime', 'ATR', 'Volatility_Ratio'] + dummy_columns
+    
     data[output_columns].to_csv(OUTPUT_FILE, index=False)
     print(f"Exported labeled data to {OUTPUT_FILE}")
 
@@ -284,16 +308,30 @@ def main():
         percentage = (count / total) * 100
         print(f"{regime}: {count} ({percentage:.2f}%)")
 
-    # Print enhanced centroids analysis
-    print("\nCluster Centroids Analysis:")
-    centroids_display = centroids[['Price_Change_Medium', 'Breakout_Strength', 
-                                  'Consolidation_Tightness', 'Vol_Ratio_Short']].round(3)
-    for i, regime in regime_map.items():
-        print(f"Cluster {i} ({regime}):")
-        print(f"  Price Change: {centroids_display.iloc[i]['Price_Change_Medium']}")
-        print(f"  Breakout Strength: {centroids_display.iloc[i]['Breakout_Strength']}")
-        print(f"  Consolidation Tightness: {centroids_display.iloc[i]['Consolidation_Tightness']}")
-        print(f"  Volatility Ratio: {centroids_display.iloc[i]['Vol_Ratio_Short']}")
+    # Print consolidation analysis
+    print("\nConsolidation Detection Analysis:")
+    consolidation_data = data[data['Confirmed_Regime'] == 'Consolidation']
+    if len(consolidation_data) > 0:
+        avg_volatility = consolidation_data['Volatility_Ratio'].mean()
+        avg_range_10 = consolidation_data['Range_Compression_10'].mean()
+        avg_range_20 = consolidation_data['Range_Compression_20'].mean()
+        
+        print(f"Average Volatility Ratio during Consolidations: {avg_volatility:.3f}")
+        print(f"Average 10-bar Range Compression: {avg_range_10:.3f}")
+        print(f"Average 20-bar Range Compression: {avg_range_20:.3f}")
+
+    # Print breakout analysis
+    print("\nBreakout Analysis:")
+    bull_breakouts = data[data['Confirmed_Regime'] == 'Bull Breakout']
+    bear_breakouts = data[data['Confirmed_Regime'] == 'Bear Breakout']
+    
+    if len(bull_breakouts) > 0:
+        avg_bull_strength = bull_breakouts['Bull_Breakout_Strength'].mean()
+        print(f"Average Bull Breakout Strength: {avg_bull_strength:.3f} ATR")
+    
+    if len(bear_breakouts) > 0:
+        avg_bear_strength = bear_breakouts['Bear_Breakout_Strength'].mean()
+        print(f"Average Bear Breakout Strength: {avg_bear_strength:.3f} ATR")
 
 if __name__ == "__main__":
     main()
