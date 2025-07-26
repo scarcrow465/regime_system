@@ -15,7 +15,7 @@ OUTPUT_FILE = 'ma_regime_labeled_data.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
-ENHANCED_FEATURES = False
+ENHANCED_FEATURES = True
 
 # Core Excel parameters (exact replication)
 CORE_PARAMS = {
@@ -38,7 +38,7 @@ ENHANCED_PARAMS = {
     'strong_persistence': 1,             # Persistence for STRONG regimes
     'weak_persistence': 2,               # Persistence for WEAK regimes  
     'between_persistence': 3,            # Persistence for BETWEEN regimes
-    'session_adaptation': True           # Enable session-based adjustments
+    'session_adaptation': False           # Enable session-based adjustments
 }
 
 def load_csv_data(file_path, timeframe):
