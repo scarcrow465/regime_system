@@ -76,7 +76,7 @@ def main():
 
     # Export to CSV
     data = data.reset_index()
-    output_columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Regime_Label']  # Add Volume if present
+    output_columns = ['Date', 'open', 'high', 'low', 'close', 'Regime_Label']  # Add Volume if present
     data[output_columns].to_csv(OUTPUT_FILE, index=False)
     print(f"Exported labeled data to {OUTPUT_FILE}")
 
