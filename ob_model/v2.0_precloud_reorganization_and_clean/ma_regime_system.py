@@ -9,9 +9,9 @@ import numpy as np
 from tqdm import tqdm
 
 # Centralized parameters
-TEST_SLICE = 5000  # Number of rows to use from the end of the dataset (set to None for full dataset)
+TEST_SLICE = 10000  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_6_phase1_fix.csv'  # Output CSV file name
+OUTPUT_FILE = 'ma_regime_labeled_data_7_phase1_fix.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -23,7 +23,7 @@ CORE_PARAMS = {
     'long_ma_period': 13,     # M56 - 13-period SMA
     'short_atr_period': 5,    # R56 - 5-period ATR
     'long_atr_period': 50,    # S56 - 50-period ATR for volatility ratio
-    'base_slope_lookback': 200,          # Base lookback for dynamic slope thresholds
+    'base_slope_lookback': 400,          # Base lookback for dynamic slope thresholds
     'bull_weak_percentile': 0.55,        # 65th percentile for bull weak
     'bull_strong_percentile': 0.75,      # 85th percentile for bull strong
     'bear_weak_percentile': 0.30,        # 35th percentile for bear weak (inverted)
@@ -34,7 +34,7 @@ CORE_PARAMS = {
     'volatility_low_percentile': 0.25,   # 25th percentile for low volatility
     'volatility_high_percentile': 0.75,  # 75th percentile for high volatility
     'transitioning_factor': 0.5,         # Factor for transitioning threshold
-    'base_persistence': 2                # Base persistence requirement
+    'base_persistence': 3                # Base persistence requirement
 }
 
 # Enhanced parameters (only used when ENHANCED_FEATURES = True)
