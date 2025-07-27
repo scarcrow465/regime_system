@@ -11,7 +11,7 @@ from tqdm import tqdm
 # Centralized parameters
 TEST_SLICE = 10000  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_7_phase1_fix.csv'  # Output CSV file name
+OUTPUT_FILE = 'ma_regime_labeled_data_8_phase1_fix.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -24,9 +24,9 @@ CORE_PARAMS = {
     'short_atr_period': 5,    # R56 - 5-period ATR
     'long_atr_period': 50,    # S56 - 50-period ATR for volatility ratio
     'base_slope_lookback': 400,          # Base lookback for dynamic slope thresholds
-    'bull_weak_percentile': 0.55,        # 65th percentile for bull weak
-    'bull_strong_percentile': 0.75,      # 85th percentile for bull strong
-    'bear_weak_percentile': 0.30,        # 35th percentile for bear weak (inverted)
+    'bull_weak_percentile': 0.50,        # 65th percentile for bull weak
+    'bull_strong_percentile': 0.70,      # 85th percentile for bull strong
+    'bear_weak_percentile': 0.25,        # 35th percentile for bear weak (inverted)
     'bear_strong_percentile': 0.15,      # 15th percentile for bear strong (inverted)
     'volatility_lookback': 100,          # Lookback for dynamic volatility thresholds
     'volatility_filter_min': 0.7,        # Min volatility for "normal" periods
