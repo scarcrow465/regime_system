@@ -114,7 +114,7 @@ def calculate_helper_columns(data):
     data['Dynamic_Vol_High'] = np.nan
     
     # Calculate directional slope thresholds with volatility filtering
-    for i in range(len(data)):
+    for i in tqdm(range(len(data)), desc="Calculating Dynamic Thresholds", ncols=80):
         if i < base_lookback:
             continue
             
@@ -367,8 +367,9 @@ def main():
     dummy_columns = [regime.replace(" ", "_") + "_Dummy" for regime in regimes]
     output_columns = ['Index', 'Date_Separate', 'Time', 'open', 'high', 'low', 'close', 
                     'Confirmed_Regime', 'SMA_5', 'SMA_13', 'SMA_13_Slope', 'ATR_5', 
-                    'Volatility_Ratio', 'Dynamic_Multiplier', 'Dynamic_Slope_Weak', 
-                    'Dynamic_Slope_Strong', 'Dynamic_Vol_Low', 'Dynamic_Vol_High'] + dummy_columns
+                    'Volatility_Ratio', 'Dynamic_Multiplier', 'Dynamic_Bull_Weak', 
+                    'Dynamic_Bull_Strong', 'Dynamic_Bear_Weak', 'Dynamic_Bear_Strong',
+                    'Dynamic_Vol_Low', 'Dynamic_Vol_High'] + dummy_columns
     
     data[output_columns].to_csv(OUTPUT_FILE, index=False)
     print(f"Exported labeled data to {OUTPUT_FILE}")
