@@ -23,12 +23,16 @@ CORE_PARAMS = {
     'long_ma_period': 13,     # M56 - 13-period SMA
     'short_atr_period': 5,    # R56 - 5-period ATR
     'long_atr_period': 50,    # S56 - 50-period ATR for volatility ratio
-    'slope_lookback': 200,    # Lookback for dynamic slope thresholds
-    'slope_weak_percentile': 0.60,    # 65th percentile for weak threshold
-    'slope_strong_percentile': 0.80,   # 85th percentile for strong threshold
-    'volatility_lookback': 100,        # Lookback for dynamic volatility thresholds
-    'volatility_low_percentile': 0.25, # 25th percentile for low volatility
-    'volatility_high_percentile': 0.75, # 75th percentile for high volatility
+    'base_slope_lookback': 200,          # Base lookback for dynamic slope thresholds
+    'bull_weak_percentile': 0.65,        # 65th percentile for bull weak
+    'bull_strong_percentile': 0.85,      # 85th percentile for bull strong
+    'bear_weak_percentile': 0.35,        # 35th percentile for bear weak (inverted)
+    'bear_strong_percentile': 0.15,      # 15th percentile for bear strong (inverted)
+    'volatility_lookback': 100,          # Lookback for dynamic volatility thresholds
+    'volatility_filter_min': 0.7,        # Min volatility for "normal" periods
+    'volatility_filter_max': 1.3,        # Max volatility for "normal" periods
+    'volatility_low_percentile': 0.25,   # 25th percentile for low volatility
+    'volatility_high_percentile': 0.75,  # 75th percentile for high volatility
     'transitioning_factor': 0.5,         # Factor for transitioning threshold
     'base_persistence': 2                # Base persistence requirement
 }
@@ -87,51 +91,116 @@ def calculate_helper_columns(data):
     data['Upper_Threshold'] = data['SMA_13'] + data['Dynamic_Multiplier'] * data['ATR_5']
     data['Lower_Threshold'] = data['SMA_13'] - data['Dynamic_Multiplier'] * data['ATR_5']
     
-    # Calculate dynamic slope thresholds using percentiles
-    slope_lookback = CORE_PARAMS['slope_lookback']
-    data['Dynamic_Slope_Weak'] = abs(data['SMA_13_Slope']).rolling(window=slope_lookback).quantile(CORE_PARAMS['slope_weak_percentile'])
-    data['Dynamic_Slope_Strong'] = abs(data['SMA_13_Slope']).rolling(window=slope_lookback).quantile(CORE_PARAMS['slope_strong_percentile'])
+    # Calculate adaptive lookback based on volatility regime
+    vol_regime_factor = data['Volatility_Ratio'].rolling(window=50).mean()
+    base_lookback = CORE_PARAMS['base_slope_lookback']
     
-    # Calculate dynamic volatility thresholds using percentiles  
-    vol_lookback = CORE_PARAMS['volatility_lookback']
-    data['Dynamic_Vol_Low'] = data['Volatility_Ratio'].rolling(window=vol_lookback).quantile(CORE_PARAMS['volatility_low_percentile'])
-    data['Dynamic_Vol_High'] = data['Volatility_Ratio'].rolling(window=vol_lookback).quantile(CORE_PARAMS['volatility_high_percentile'])
+    # Shorter lookbacks in volatile periods, longer in stable periods
+    data['Adaptive_Slope_Lookback'] = np.where(
+        vol_regime_factor > 1.2, int(base_lookback * 0.7),  # Volatile: shorter lookback
+        np.where(vol_regime_factor < 0.8, int(base_lookback * 1.3), base_lookback)  # Stable: longer
+    ).astype(int)
+    
+    # Create volatility filter mask for "normal" periods only
+    vol_filter_min = CORE_PARAMS['volatility_filter_min']
+    vol_filter_max = CORE_PARAMS['volatility_filter_max']
+    
+    # Initialize dynamic threshold columns
+    data['Dynamic_Bull_Weak'] = np.nan
+    data['Dynamic_Bull_Strong'] = np.nan
+    data['Dynamic_Bear_Weak'] = np.nan
+    data['Dynamic_Bear_Strong'] = np.nan
+    data['Dynamic_Vol_Low'] = np.nan
+    data['Dynamic_Vol_High'] = np.nan
+    
+    # Calculate directional slope thresholds with volatility filtering
+    for i in range(len(data)):
+        if i < base_lookback:
+            continue
+            
+        # Get adaptive lookback for this period
+        lookback = int(data['Adaptive_Slope_Lookback'].iloc[i])
+        lookback = min(lookback, i)  # Don't exceed available data
+        
+        # Get recent data window
+        recent_slopes = data['SMA_13_Slope'].iloc[i-lookback:i]
+        recent_vol = data['Volatility_Ratio'].iloc[i-lookback:i]
+        
+        # Filter for normal volatility periods only
+        normal_vol_mask = (recent_vol >= vol_filter_min) & (recent_vol <= vol_filter_max)
+        
+        if normal_vol_mask.sum() < 20:  # Need minimum data points
+            # Fallback to all data if too little normal volatility data
+            filtered_slopes = recent_slopes
+        else:
+            filtered_slopes = recent_slopes[normal_vol_mask]
+        
+        # Separate bull and bear slopes from filtered data
+        bull_slopes = filtered_slopes[filtered_slopes > 0]
+        bear_slopes = filtered_slopes[filtered_slopes < 0]
+        
+        # Calculate bull thresholds (positive slopes)
+        if len(bull_slopes) >= 10:  # Need minimum bull slope data
+            data.loc[data.index[i], 'Dynamic_Bull_Weak'] = bull_slopes.quantile(CORE_PARAMS['bull_weak_percentile'])
+            data.loc[data.index[i], 'Dynamic_Bull_Strong'] = bull_slopes.quantile(CORE_PARAMS['bull_strong_percentile'])
+        
+        # Calculate bear thresholds (negative slopes - use absolute values)
+        if len(bear_slopes) >= 10:  # Need minimum bear slope data
+            bear_slopes_abs = abs(bear_slopes)
+            data.loc[data.index[i], 'Dynamic_Bear_Weak'] = bear_slopes_abs.quantile(CORE_PARAMS['bear_weak_percentile'])
+            data.loc[data.index[i], 'Dynamic_Bear_Strong'] = bear_slopes_abs.quantile(CORE_PARAMS['bear_strong_percentile'])
+        
+        # Calculate volatility thresholds (unchanged logic)
+        vol_lookback = CORE_PARAMS['volatility_lookback']
+        if i >= vol_lookback:
+            vol_window = data['Volatility_Ratio'].iloc[i-vol_lookback:i]
+            data.loc[data.index[i], 'Dynamic_Vol_Low'] = vol_window.quantile(CORE_PARAMS['volatility_low_percentile'])
+            data.loc[data.index[i], 'Dynamic_Vol_High'] = vol_window.quantile(CORE_PARAMS['volatility_high_percentile'])
     
     return data
 
 def get_adaptive_thresholds(data, row_idx):
-    """Get adaptive thresholds using dynamic percentiles"""
+    """Get adaptive thresholds using directional and volatility-filtered percentiles"""
     
-    # Get dynamic thresholds for this row
     dynamic_params = CORE_PARAMS.copy()
     
     if row_idx < len(data):
-        # Use dynamic percentile-based thresholds
-        dynamic_params['slope_weak_threshold'] = data['Dynamic_Slope_Weak'].iloc[row_idx]
-        dynamic_params['slope_strong_threshold'] = data['Dynamic_Slope_Strong'].iloc[row_idx]
+        # Get directional slope thresholds
+        dynamic_params['bull_weak_threshold'] = data['Dynamic_Bull_Weak'].iloc[row_idx]
+        dynamic_params['bull_strong_threshold'] = data['Dynamic_Bull_Strong'].iloc[row_idx]
+        dynamic_params['bear_weak_threshold'] = data['Dynamic_Bear_Weak'].iloc[row_idx]
+        dynamic_params['bear_strong_threshold'] = data['Dynamic_Bear_Strong'].iloc[row_idx]
+        
+        # Get volatility thresholds
         dynamic_params['volatility_low_threshold'] = data['Dynamic_Vol_Low'].iloc[row_idx]
         dynamic_params['volatility_high_threshold'] = data['Dynamic_Vol_High'].iloc[row_idx]
         
-        # Handle NaN values (fallback to reasonable defaults)
-        if pd.isna(dynamic_params['slope_weak_threshold']):
-            dynamic_params['slope_weak_threshold'] = 0.0002
-        if pd.isna(dynamic_params['slope_strong_threshold']):
-            dynamic_params['slope_strong_threshold'] = 0.0005
+        # Handle NaN values with reasonable fallbacks
+        if pd.isna(dynamic_params['bull_weak_threshold']):
+            dynamic_params['bull_weak_threshold'] = 0.0002
+        if pd.isna(dynamic_params['bull_strong_threshold']):
+            dynamic_params['bull_strong_threshold'] = 0.0005
+        if pd.isna(dynamic_params['bear_weak_threshold']):
+            dynamic_params['bear_weak_threshold'] = 0.0002
+        if pd.isna(dynamic_params['bear_strong_threshold']):
+            dynamic_params['bear_strong_threshold'] = 0.0005
         if pd.isna(dynamic_params['volatility_low_threshold']):
             dynamic_params['volatility_low_threshold'] = 0.8
         if pd.isna(dynamic_params['volatility_high_threshold']):
             dynamic_params['volatility_high_threshold'] = 1.2
     else:
         # Fallback to original fixed values
-        dynamic_params['slope_weak_threshold'] = 0.0002
-        dynamic_params['slope_strong_threshold'] = 0.0005
+        dynamic_params['bull_weak_threshold'] = 0.0002
+        dynamic_params['bull_strong_threshold'] = 0.0005
+        dynamic_params['bear_weak_threshold'] = 0.0002
+        dynamic_params['bear_strong_threshold'] = 0.0005
         dynamic_params['volatility_low_threshold'] = 0.8
         dynamic_params['volatility_high_threshold'] = 1.2
     
     return dynamic_params
 
 def classify_regime_excel_logic(data, row_idx, params):
-    """Exact Excel nested IF logic for regime classification"""
+    """Exact Excel nested IF logic with directional slope thresholds"""
     
     # Get current row values
     slope = data['SMA_13_Slope'].iloc[row_idx]
@@ -147,41 +216,41 @@ def classify_regime_excel_logic(data, row_idx, params):
     if pd.isna(slope) or pd.isna(short_ma) or pd.isna(long_ma) or pd.isna(volatility_ratio):
         return 'BETWEEN'
     
-    # Exact Excel nested IF structure
-    # STRONG ABOVE: slope > 0.0005 AND short_ma > upper_threshold AND volatility > 1.2
-    if (slope > params['slope_strong_threshold'] and 
+    # UPDATED: Use directional thresholds
+    # STRONG ABOVE: slope > bull_strong_threshold AND short_ma > upper_threshold AND volatility > high_threshold
+    if (slope > params['bull_strong_threshold'] and 
         short_ma > upper_threshold and 
         volatility_ratio > params['volatility_high_threshold']):
         return 'STRONG ABOVE'
     
-    # WEAK ABOVE: slope > 0.0002 AND short_ma > upper_threshold
-    elif (slope > params['slope_weak_threshold'] and 
+    # WEAK ABOVE: slope > bull_weak_threshold AND short_ma > upper_threshold
+    elif (slope > params['bull_weak_threshold'] and 
           short_ma > upper_threshold):
         return 'WEAK ABOVE'
     
-    # STRONG BELOW: slope < -0.0005 AND short_ma < lower_threshold AND volatility > 1.2
-    elif (slope < -params['slope_strong_threshold'] and 
+    # STRONG BELOW: slope < -bear_strong_threshold AND short_ma < lower_threshold AND volatility > high_threshold
+    elif (slope < -params['bear_strong_threshold'] and 
           short_ma < lower_threshold and 
           volatility_ratio > params['volatility_high_threshold']):
         return 'STRONG BELOW'
     
-    # WEAK BELOW: slope < -0.0002 AND short_ma < lower_threshold
-    elif (slope < -params['slope_weak_threshold'] and 
+    # WEAK BELOW: slope < -bear_weak_threshold AND short_ma < lower_threshold
+    elif (slope < -params['bear_weak_threshold'] and 
           short_ma < lower_threshold):
         return 'WEAK BELOW'
     
-    # CONTRACTING BETWEEN: abs(slope) <= 0.0002 AND volatility < 0.8
-    elif (abs(slope) <= params['slope_weak_threshold'] and 
+    # CONTRACTING BETWEEN: abs(slope) <= min(bull_weak, bear_weak) AND volatility < low_threshold
+    elif (abs(slope) <= min(params['bull_weak_threshold'], params['bear_weak_threshold']) and 
           volatility_ratio < params['volatility_low_threshold']):
         return 'CONTRACTING BETWEEN'
     
-    # EXPANDING BETWEEN: abs(slope) <= 0.0002 AND volatility > 1.2
-    elif (abs(slope) <= params['slope_weak_threshold'] and 
+    # EXPANDING BETWEEN: abs(slope) <= min(bull_weak, bear_weak) AND volatility > high_threshold
+    elif (abs(slope) <= min(params['bull_weak_threshold'], params['bear_weak_threshold']) and 
           volatility_ratio > params['volatility_high_threshold']):
         return 'EXPANDING BETWEEN'
     
-    # TRANSITIONING: abs(slope) <= 0.0002 AND abs(short_ma - long_ma) <= 0.5 * dynamic_multiplier * atr_5
-    elif (abs(slope) <= params['slope_weak_threshold'] and 
+    # TRANSITIONING: abs(slope) <= min(bull_weak, bear_weak) AND abs(short_ma - long_ma) <= 0.5 * dynamic_multiplier * atr_5
+    elif (abs(slope) <= min(params['bull_weak_threshold'], params['bear_weak_threshold']) and 
           abs(short_ma - long_ma) <= params['transitioning_factor'] * dynamic_multiplier * atr_5):
         return 'TRANSITIONING'
     
