@@ -11,7 +11,7 @@ from tqdm import tqdm
 # Centralized parameters
 TEST_SLICE = None  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_2.csv'  # Output CSV file name
+OUTPUT_FILE = 'ma_regime_labeled_data_3_phase1_fix.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -23,10 +23,12 @@ CORE_PARAMS = {
     'long_ma_period': 13,     # M56 - 13-period SMA
     'short_atr_period': 5,    # R56 - 5-period ATR
     'long_atr_period': 50,    # S56 - 50-period ATR for volatility ratio
-    'slope_strong_threshold': 0.0005,    # Strong trend slope
-    'slope_weak_threshold': 0.0002,      # Weak trend slope  
-    'volatility_low_threshold': 0.8,     # Low volatility threshold
-    'volatility_high_threshold': 1.2,    # High volatility threshold
+    'slope_lookback': 200,    # Lookback for dynamic slope thresholds
+    'slope_weak_percentile': 0.65,    # 65th percentile for weak threshold
+    'slope_strong_percentile': 0.85,   # 85th percentile for strong threshold
+    'volatility_lookback': 100,        # Lookback for dynamic volatility thresholds
+    'volatility_low_percentile': 0.25, # 25th percentile for low volatility
+    'volatility_high_percentile': 0.75, # 75th percentile for high volatility
     'transitioning_factor': 0.5,         # Factor for transitioning threshold
     'base_persistence': 2                # Base persistence requirement
 }
@@ -85,59 +87,48 @@ def calculate_helper_columns(data):
     data['Upper_Threshold'] = data['SMA_13'] + data['Dynamic_Multiplier'] * data['ATR_5']
     data['Lower_Threshold'] = data['SMA_13'] - data['Dynamic_Multiplier'] * data['ATR_5']
     
+    # Calculate dynamic slope thresholds using percentiles
+    slope_lookback = CORE_PARAMS['slope_lookback']
+    data['Dynamic_Slope_Weak'] = abs(data['SMA_13_Slope']).rolling(window=slope_lookback).quantile(CORE_PARAMS['slope_weak_percentile'])
+    data['Dynamic_Slope_Strong'] = abs(data['SMA_13_Slope']).rolling(window=slope_lookback).quantile(CORE_PARAMS['slope_strong_percentile'])
+    
+    # Calculate dynamic volatility thresholds using percentiles  
+    vol_lookback = CORE_PARAMS['volatility_lookback']
+    data['Dynamic_Vol_Low'] = data['Volatility_Ratio'].rolling(window=vol_lookback).quantile(CORE_PARAMS['volatility_low_percentile'])
+    data['Dynamic_Vol_High'] = data['Volatility_Ratio'].rolling(window=vol_lookback).quantile(CORE_PARAMS['volatility_high_percentile'])
+    
     return data
 
 def get_adaptive_thresholds(data, row_idx):
-    """Get adaptive thresholds if enhanced features enabled"""
+    """Get adaptive thresholds using dynamic percentiles"""
     
-    if not ENHANCED_FEATURES:
-        return CORE_PARAMS.copy()
+    # Get dynamic thresholds for this row
+    dynamic_params = CORE_PARAMS.copy()
     
-    # Get current volatility regime for adaptation
-    current_vol_ratio = data['Volatility_Ratio'].iloc[row_idx] if row_idx < len(data) else 1.0
-    
-    # Adaptive slope thresholds (tighter in high vol, looser in low vol)
-    slope_adaptation = ENHANCED_PARAMS['slope_adaptation_factor']
-    if current_vol_ratio > 1.3:  # High volatility
-        slope_multiplier = 1 - slope_adaptation  # Tighter thresholds
-    elif current_vol_ratio < 0.7:  # Low volatility  
-        slope_multiplier = 1 + slope_adaptation  # Looser thresholds
-    else:
-        slope_multiplier = 1.0
-    
-    # Adaptive volatility thresholds
-    vol_adaptation = ENHANCED_PARAMS['volatility_adaptation_factor']
-    vol_regime_lookback = min(100, row_idx)
-    if vol_regime_lookback > 20:
-        recent_vol_std = data['Volatility_Ratio'].iloc[row_idx-vol_regime_lookback:row_idx].std()
-        if recent_vol_std > 0.3:  # Volatile period
-            vol_multiplier = 1 + vol_adaptation  # Wider bands
-        else:
-            vol_multiplier = 1 - vol_adaptation  # Tighter bands
-    else:
-        vol_multiplier = 1.0
-    
-    # Session-based adjustments (if enabled)
-    session_multiplier = 1.0
-    if ENHANCED_PARAMS['session_adaptation'] and row_idx < len(data):
-        current_time = data.index[row_idx].time()
-        hour = current_time.hour
+    if row_idx < len(data):
+        # Use dynamic percentile-based thresholds
+        dynamic_params['slope_weak_threshold'] = data['Dynamic_Slope_Weak'].iloc[row_idx]
+        dynamic_params['slope_strong_threshold'] = data['Dynamic_Slope_Strong'].iloc[row_idx]
+        dynamic_params['volatility_low_threshold'] = data['Dynamic_Vol_Low'].iloc[row_idx]
+        dynamic_params['volatility_high_threshold'] = data['Dynamic_Vol_High'].iloc[row_idx]
         
-        # NY session (8-11 AM ET) - more sensitive
-        if 13 <= hour <= 16:  # Convert to UTC if needed
-            session_multiplier = 0.9
-        # Asia session (6 PM - 2 AM ET) - less sensitive  
-        elif hour >= 23 or hour <= 7:
-            session_multiplier = 1.1
+        # Handle NaN values (fallback to reasonable defaults)
+        if pd.isna(dynamic_params['slope_weak_threshold']):
+            dynamic_params['slope_weak_threshold'] = 0.0002
+        if pd.isna(dynamic_params['slope_strong_threshold']):
+            dynamic_params['slope_strong_threshold'] = 0.0005
+        if pd.isna(dynamic_params['volatility_low_threshold']):
+            dynamic_params['volatility_low_threshold'] = 0.8
+        if pd.isna(dynamic_params['volatility_high_threshold']):
+            dynamic_params['volatility_high_threshold'] = 1.2
+    else:
+        # Fallback to original fixed values
+        dynamic_params['slope_weak_threshold'] = 0.0002
+        dynamic_params['slope_strong_threshold'] = 0.0005
+        dynamic_params['volatility_low_threshold'] = 0.8
+        dynamic_params['volatility_high_threshold'] = 1.2
     
-    # Build adaptive parameters
-    adaptive_params = CORE_PARAMS.copy()
-    adaptive_params['slope_strong_threshold'] *= slope_multiplier * session_multiplier
-    adaptive_params['slope_weak_threshold'] *= slope_multiplier * session_multiplier
-    adaptive_params['volatility_low_threshold'] *= vol_multiplier
-    adaptive_params['volatility_high_threshold'] *= vol_multiplier
-    
-    return adaptive_params
+    return dynamic_params
 
 def classify_regime_excel_logic(data, row_idx, params):
     """Exact Excel nested IF logic for regime classification"""
@@ -306,8 +297,9 @@ def main():
     # Export to CSV
     dummy_columns = [regime.replace(" ", "_") + "_Dummy" for regime in regimes]
     output_columns = ['Index', 'Date_Separate', 'Time', 'open', 'high', 'low', 'close', 
-                     'Confirmed_Regime', 'SMA_5', 'SMA_13', 'SMA_13_Slope', 'ATR_5', 
-                     'Volatility_Ratio', 'Dynamic_Multiplier'] + dummy_columns
+                    'Confirmed_Regime', 'SMA_5', 'SMA_13', 'SMA_13_Slope', 'ATR_5', 
+                    'Volatility_Ratio', 'Dynamic_Multiplier', 'Dynamic_Slope_Weak', 
+                    'Dynamic_Slope_Strong', 'Dynamic_Vol_Low', 'Dynamic_Vol_High'] + dummy_columns
     
     data[output_columns].to_csv(OUTPUT_FILE, index=False)
     print(f"Exported labeled data to {OUTPUT_FILE}")
