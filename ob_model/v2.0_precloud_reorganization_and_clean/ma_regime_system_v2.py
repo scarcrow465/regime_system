@@ -182,7 +182,11 @@ def calculate_helper_columns(data):
     for i in tqdm(range(len(data)), desc="Calculating Perfect Forward Thresholds", ncols=80):
         # Determine adaptive forward lookback based on current volatility
         current_vol = data['Volatility_Ratio'].iloc[i] if i < len(data) else 1.0
-        
+
+        # Handle NaN values by using a default
+        if pd.isna(current_vol):
+            current_vol = 1.0  # Default to neutral volatility
+
         if PERFECT_PARAMS['adaptive_forward']:
             # More forward bars in stable periods, fewer in volatile
             if current_vol > 1.3:
@@ -192,8 +196,8 @@ def calculate_helper_columns(data):
             else:
                 # Linear interpolation
                 forward_bars = int(PERFECT_PARAMS['min_forward_bars'] + 
-                                 (PERFECT_PARAMS['max_forward_bars'] - PERFECT_PARAMS['min_forward_bars']) * 
-                                 (1.3 - current_vol) / 0.6)
+                                (PERFECT_PARAMS['max_forward_bars'] - PERFECT_PARAMS['min_forward_bars']) * 
+                                (1.3 - current_vol) / 0.6)
         else:
             forward_bars = PERFECT_PARAMS['min_forward_bars']
         
