@@ -56,8 +56,8 @@ PERFECT_PARAMS = {
     'min_forward_bars': 100,              # Minimum bars to look forward
     'max_forward_bars': 200,             # Maximum bars to look forward
     'adaptive_forward': True,            # Use adaptive forward looking based on volatility
-    'future_move_strong': 0.02,          # 2% move threshold for confirming STRONG regime
-    'future_move_weak': 0.01,            # 1% move threshold for confirming WEAK regime
+    'future_move_strong': 0.005,          # 2% move threshold for confirming STRONG regime
+    'future_move_weak': 0.002,            # 1% move threshold for confirming WEAK regime
 }
 
 def load_csv_data(file_path, timeframe):
