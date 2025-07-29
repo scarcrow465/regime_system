@@ -11,7 +11,7 @@ from tqdm import tqdm
 # Centralized parameters
 TEST_SLICE = 10000  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_9_phase1_fix.csv'  # Output CSV file name
+OUTPUT_FILE = 'ma_regime_labeled_data_10_phase1_fix.csv'  # Output CSV file name
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
