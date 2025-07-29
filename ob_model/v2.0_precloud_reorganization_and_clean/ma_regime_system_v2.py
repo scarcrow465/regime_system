@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = None  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v4.csv'  # Output CSV file name
-SCORING_FILE = 'regime_scoring_metrics_v4.csv'  # Scoring metrics output
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v5.csv'  # Output CSV file name
+SCORING_FILE = 'regime_scoring_metrics_v5.csv'  # Scoring metrics output
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -35,8 +35,12 @@ CORE_PARAMS = {
     'volatility_lookback': 100,          # Lookback for dynamic volatility thresholds
     'volatility_filter_min': 0.7,        # Min volatility for "normal" periods
     'volatility_filter_max': 1.3,        # Max volatility for "normal" periods
-    'volatility_low_percentile': 0.25,   # 25th percentile for low volatility
-    'volatility_high_percentile': 0.85,  # 75th percentile for high volatility
+    'volatility_low_percentile': 0.25,        # 25th percentile for low volatility (general)
+    'volatility_high_percentile': 0.85,       # 75th percentile for high volatility (general)
+    'volatility_high_bull_percentile': 0.70,  # Lower threshold for bull STRONG moves
+    'volatility_high_bear_percentile': 0.85,  # Higher threshold for bear STRONG moves
+    'volatility_low_bull_percentile': 0.30,   # Bull-specific low volatility threshold
+    'volatility_low_bear_percentile': 0.20,   # Bear-specific low volatility threshold
     'transitioning_factor': 0.5,         # Factor for transitioning threshold
     'base_persistence': 2                # Base persistence requirement
 }
@@ -125,6 +129,10 @@ def calculate_helper_columns(data):
     data['Dynamic_Bear_Strong'] = np.nan
     data['Dynamic_Vol_Low'] = np.nan
     data['Dynamic_Vol_High'] = np.nan
+    data['Dynamic_Vol_High_Bull'] = np.nan
+    data['Dynamic_Vol_High_Bear'] = np.nan
+    data['Dynamic_Vol_Low_Bull'] = np.nan
+    data['Dynamic_Vol_Low_Bear'] = np.nan
     
     # Initialize perfect system threshold columns
     data['Perfect_Bull_Weak'] = np.nan
@@ -171,12 +179,18 @@ def calculate_helper_columns(data):
             data.loc[data.index[i], 'Dynamic_Bear_Weak'] = bear_slopes_abs.quantile(CORE_PARAMS['bear_weak_percentile'])
             data.loc[data.index[i], 'Dynamic_Bear_Strong'] = bear_slopes_abs.quantile(CORE_PARAMS['bear_strong_percentile'])
         
-        # Calculate volatility thresholds (unchanged logic)
+        # Calculate volatility thresholds (directional logic)
         vol_lookback = CORE_PARAMS['volatility_lookback']
         if i >= vol_lookback:
             vol_window = data['Volatility_Ratio'].iloc[i-vol_lookback:i]
             data.loc[data.index[i], 'Dynamic_Vol_Low'] = vol_window.quantile(CORE_PARAMS['volatility_low_percentile'])
             data.loc[data.index[i], 'Dynamic_Vol_High'] = vol_window.quantile(CORE_PARAMS['volatility_high_percentile'])
+            
+            # Directional volatility thresholds
+            data.loc[data.index[i], 'Dynamic_Vol_High_Bull'] = vol_window.quantile(CORE_PARAMS['volatility_high_bull_percentile'])
+            data.loc[data.index[i], 'Dynamic_Vol_High_Bear'] = vol_window.quantile(CORE_PARAMS['volatility_high_bear_percentile'])
+            data.loc[data.index[i], 'Dynamic_Vol_Low_Bull'] = vol_window.quantile(CORE_PARAMS['volatility_low_bull_percentile'])
+            data.loc[data.index[i], 'Dynamic_Vol_Low_Bear'] = vol_window.quantile(CORE_PARAMS['volatility_low_bear_percentile'])
     
     # Calculate perfect system thresholds (FORWARD LOOKING)
     for i in tqdm(range(len(data)), desc="Calculating Perfect Forward Thresholds", ncols=80):
@@ -260,6 +274,10 @@ def get_adaptive_thresholds(data, row_idx, use_perfect=False):
         # Get volatility thresholds
         dynamic_params['volatility_low_threshold'] = data[f'{prefix}Vol_Low'].iloc[row_idx]
         dynamic_params['volatility_high_threshold'] = data[f'{prefix}Vol_High'].iloc[row_idx]
+        dynamic_params['volatility_high_bull_threshold'] = data[f'{prefix}Vol_High_Bull'].iloc[row_idx]
+        dynamic_params['volatility_high_bear_threshold'] = data[f'{prefix}Vol_High_Bear'].iloc[row_idx]
+        dynamic_params['volatility_low_bull_threshold'] = data[f'{prefix}Vol_Low_Bull'].iloc[row_idx]
+        dynamic_params['volatility_low_bear_threshold'] = data[f'{prefix}Vol_Low_Bear'].iloc[row_idx]
         
         # Handle NaN values with reasonable fallbacks
         if pd.isna(dynamic_params['bull_weak_threshold']):
@@ -302,10 +320,10 @@ def classify_regime_excel_logic(data, row_idx, params):
     if pd.isna(slope) or pd.isna(short_ma) or pd.isna(long_ma) or pd.isna(volatility_ratio):
         return 'BETWEEN'
     
-    # STRONG ABOVE: slope > bull_strong_threshold AND short_ma > upper_threshold AND volatility > high_threshold
+    # STRONG ABOVE: slope > bull_strong_threshold AND short_ma > upper_threshold AND volatility > bull_high_threshold
     if (slope > params['bull_strong_threshold'] and 
         short_ma > upper_threshold and 
-        volatility_ratio > params['volatility_high_threshold']):
+        volatility_ratio > params['volatility_high_bull_threshold']):
         return 'STRONG ABOVE'
     
     # WEAK ABOVE: slope > bull_weak_threshold AND short_ma > upper_threshold
@@ -313,10 +331,10 @@ def classify_regime_excel_logic(data, row_idx, params):
           short_ma > upper_threshold):
         return 'WEAK ABOVE'
     
-    # STRONG BELOW: slope < -bear_strong_threshold AND short_ma < lower_threshold AND volatility > high_threshold
+    # STRONG BELOW: slope < -bear_strong_threshold AND short_ma < lower_threshold AND volatility > bear_high_threshold
     elif (slope < -params['bear_strong_threshold'] and 
-          short_ma < lower_threshold and 
-          volatility_ratio > params['volatility_high_threshold']):
+        short_ma < lower_threshold and 
+        volatility_ratio > params['volatility_high_bear_threshold']):
         return 'STRONG BELOW'
     
     # WEAK BELOW: slope < -bear_weak_threshold AND short_ma < lower_threshold
