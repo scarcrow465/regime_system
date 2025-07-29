@@ -25,7 +25,7 @@ CORE_PARAMS = {
     'long_atr_period': 50,    # S56 - 50-period ATR for volatility ratio
     'base_slope_lookback': 400,          # Base lookback for dynamic slope thresholds
     'bull_weak_percentile': 0.50,        # 65th percentile for bull weak
-    'bull_strong_percentile': 0.70,      # 85th percentile for bull strong
+    'bull_strong_percentile': 0.65,      # 85th percentile for bull strong
     'bear_weak_percentile': 0.25,        # 35th percentile for bear weak (inverted)
     'bear_strong_percentile': 0.15,      # 15th percentile for bear strong (inverted)
     'volatility_lookback': 100,          # Lookback for dynamic volatility thresholds
