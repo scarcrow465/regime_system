@@ -141,6 +141,10 @@ def calculate_helper_columns(data):
     data['Perfect_Bear_Strong'] = np.nan
     data['Perfect_Vol_Low'] = np.nan
     data['Perfect_Vol_High'] = np.nan
+    data['Perfect_Vol_High_Bull'] = np.nan
+    data['Perfect_Vol_High_Bear'] = np.nan
+    data['Perfect_Vol_Low_Bull'] = np.nan
+    data['Perfect_Vol_Low_Bear'] = np.nan
     
     # Calculate directional slope thresholds with volatility filtering (LIVE SYSTEM)
     for i in tqdm(range(len(data)), desc="Calculating Live Dynamic Thresholds", ncols=80):
@@ -253,6 +257,12 @@ def calculate_helper_columns(data):
             future_vol_window = data['Volatility_Ratio'].iloc[i+1:i+min(forward_bars, 100)+1]
             data.loc[data.index[i], 'Perfect_Vol_Low'] = future_vol_window.quantile(CORE_PARAMS['volatility_low_percentile'])
             data.loc[data.index[i], 'Perfect_Vol_High'] = future_vol_window.quantile(CORE_PARAMS['volatility_high_percentile'])
+            
+            # Directional perfect volatility thresholds
+            data.loc[data.index[i], 'Perfect_Vol_High_Bull'] = future_vol_window.quantile(CORE_PARAMS['volatility_high_bull_percentile'])
+            data.loc[data.index[i], 'Perfect_Vol_High_Bear'] = future_vol_window.quantile(CORE_PARAMS['volatility_high_bear_percentile'])
+            data.loc[data.index[i], 'Perfect_Vol_Low_Bull'] = future_vol_window.quantile(CORE_PARAMS['volatility_low_bull_percentile'])
+            data.loc[data.index[i], 'Perfect_Vol_Low_Bear'] = future_vol_window.quantile(CORE_PARAMS['volatility_low_bear_percentile'])
     
     return data
 
@@ -292,6 +302,14 @@ def get_adaptive_thresholds(data, row_idx, use_perfect=False):
             dynamic_params['volatility_low_threshold'] = 0.8
         if pd.isna(dynamic_params['volatility_high_threshold']):
             dynamic_params['volatility_high_threshold'] = 1.2
+        if pd.isna(dynamic_params['volatility_high_bull_threshold']):
+            dynamic_params['volatility_high_bull_threshold'] = 1.0
+        if pd.isna(dynamic_params['volatility_high_bear_threshold']):
+            dynamic_params['volatility_high_bear_threshold'] = 1.2
+        if pd.isna(dynamic_params['volatility_low_bull_threshold']):
+            dynamic_params['volatility_low_bull_threshold'] = 0.8
+        if pd.isna(dynamic_params['volatility_low_bear_threshold']):
+            dynamic_params['volatility_low_bear_threshold'] = 0.8
     else:
         # Fallback to original fixed values
         dynamic_params['bull_weak_threshold'] = 0.0002
@@ -300,6 +318,10 @@ def get_adaptive_thresholds(data, row_idx, use_perfect=False):
         dynamic_params['bear_strong_threshold'] = 0.0005
         dynamic_params['volatility_low_threshold'] = 0.8
         dynamic_params['volatility_high_threshold'] = 1.2
+        dynamic_params['volatility_high_bull_threshold'] = 1.0
+        dynamic_params['volatility_high_bear_threshold'] = 1.2
+        dynamic_params['volatility_low_bull_threshold'] = 0.8
+        dynamic_params['volatility_low_bear_threshold'] = 0.8
     
     return dynamic_params
 
