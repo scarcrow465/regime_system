@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = None  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v4.csv'  # Output CSV file name
-SCORING_FILE = 'regime_scoring_metrics_v4.csv'  # Scoring metrics output
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v3.csv'  # Output CSV file name
+SCORING_FILE = 'regime_scoring_metrics_v3.csv'  # Scoring metrics output
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -29,9 +29,9 @@ CORE_PARAMS = {
     'long_atr_period': 50,    # S56 - 50-period ATR for volatility ratio
     'base_slope_lookback': 400,          # Base lookback for dynamic slope thresholds
     'bull_weak_percentile': 0.50,        # 65th percentile for bull weak
-    'bull_strong_percentile': 0.70,      # 85th percentile for bull strong
+    'bull_strong_percentile': 0.75,      # 85th percentile for bull strong
     'bear_weak_percentile': 0.25,        # 35th percentile for bear weak (inverted)
-    'bear_strong_percentile': 0.15,      # 15th percentile for bear strong (inverted)
+    'bear_strong_percentile': 0.10,      # 15th percentile for bear strong (inverted)
     'volatility_lookback': 100,          # Lookback for dynamic volatility thresholds
     'volatility_filter_min': 0.7,        # Min volatility for "normal" periods
     'volatility_filter_max': 1.3,        # Max volatility for "normal" periods
