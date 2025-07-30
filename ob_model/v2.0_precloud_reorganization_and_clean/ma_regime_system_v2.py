@@ -147,35 +147,35 @@ def calculate_helper_columns(data):
     data['Dynamic_Strong_Move_Threshold'] = np.nan
     data['Dynamic_Weak_Move_Threshold'] = np.nan
 
-    # Calculate historical move percentiles for perfect system validation
+    # Calculate historical move percentiles for perfect system validation (VECTORIZED)
     move_lookback = PERFECT_PARAMS['move_lookback']
-    for i in tqdm(range(len(data)), desc="Calculating Dynamic Move Thresholds", ncols=80):
-        if i >= move_lookback:
-            # Calculate actual moves that occurred over the lookback period
-            historical_moves = []
-            for j in range(i-move_lookback, i):
-                if j + 20 < len(data):  # Need 20 bars of future data
-                    future_high = data['high'].iloc[j:j+20].max()
-                    future_low = data['low'].iloc[j:j+20].min()
-                    current_close = data['close'].iloc[j]
-                    
-                    up_move = (future_high - current_close) / current_close
-                    down_move = (current_close - future_low) / current_close
-                    max_move = max(up_move, down_move)
-                    historical_moves.append(max_move)
-            
-            if len(historical_moves) >= 100:
-                moves_series = pd.Series(historical_moves)
-                strong_thresh = moves_series.quantile(PERFECT_PARAMS['strong_move_percentile'])
-                weak_thresh = moves_series.quantile(PERFECT_PARAMS['weak_move_percentile'])
-                
-                data.loc[data.index[i], 'Dynamic_Strong_Move_Threshold'] = strong_thresh
-                data.loc[data.index[i], 'Dynamic_Weak_Move_Threshold'] = weak_thresh
-                
-                # Debug: Print sample thresholds every 1000 bars
-                if i % 1000 == 0:
-                    print(f"Bar {i}: Strong threshold: {strong_thresh:.4f} ({strong_thresh*100:.2f}%), Weak threshold: {weak_thresh:.4f} ({weak_thresh*100:.2f}%)")
-                    print(f"  Sample moves: min={min(historical_moves):.4f}, max={max(historical_moves):.4f}, mean={np.mean(historical_moves):.4f}")
+    print("Calculating Dynamic Move Thresholds (vectorized)...")
+
+    # Calculate max moves for next 20 bars for all rows at once
+    future_window = 20
+    data['Future_High_20'] = data['high'].rolling(window=future_window, min_periods=1).max().shift(-future_window)
+    data['Future_Low_20'] = data['low'].rolling(window=future_window, min_periods=1).min().shift(-future_window)
+
+    # Calculate up and down moves
+    data['Future_Up_Move'] = (data['Future_High_20'] - data['close']) / data['close']
+    data['Future_Down_Move'] = (data['close'] - data['Future_Low_20']) / data['close']
+    data['Max_Future_Move'] = data[['Future_Up_Move', 'Future_Down_Move']].max(axis=1)
+
+    # Calculate rolling percentiles of historical moves
+    data['Dynamic_Strong_Move_Threshold'] = data['Max_Future_Move'].rolling(
+        window=move_lookback, min_periods=100
+    ).quantile(PERFECT_PARAMS['strong_move_percentile'])
+
+    data['Dynamic_Weak_Move_Threshold'] = data['Max_Future_Move'].rolling(
+        window=move_lookback, min_periods=100
+    ).quantile(PERFECT_PARAMS['weak_move_percentile'])
+
+    # Clean up temporary columns
+    data.drop(['Future_High_20', 'Future_Low_20', 'Future_Up_Move', 'Future_Down_Move', 'Max_Future_Move'], axis=1, inplace=True)
+
+    # Debug print some values
+    if len(data) > 1000:
+        print(f"Sample thresholds at row 1000: Strong={data['Dynamic_Strong_Move_Threshold'].iloc[1000]:.4f}, Weak={data['Dynamic_Weak_Move_Threshold'].iloc[1000]:.4f}")
     
     # Initialize dynamic threshold columns (for live system)
     data['Dynamic_Bull_Weak'] = np.nan
