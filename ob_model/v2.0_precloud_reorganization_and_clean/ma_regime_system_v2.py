@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 20000  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v14_test.csv'  # Output CSV file name
-SCORING_FILE = 'regime_scoring_metrics_v14_test.csv'  # Scoring metrics output
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v15_test.csv'  # Output CSV file name
+SCORING_FILE = 'regime_scoring_metrics_v15_test.csv'  # Scoring metrics output
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -57,13 +57,12 @@ ENHANCED_PARAMS = {
 
 # Perfect system parameters
 PERFECT_PARAMS = {
-    'min_forward_bars': 10,               # Minimum bars to look forward (reduced from 100)
-    'max_forward_bars': 30,               # Maximum bars to look forward (reduced from 200)
-    'adaptive_forward': True,             # Use adaptive forward looking based on volatility
-    'move_lookback': 500,                 # Lookback for calculating dynamic move thresholds
-    'strong_move_percentile': 0.85,       # Percentile for strong move threshold
-    'weak_move_percentile': 0.65,         # Percentile for weak move threshold
-    'validation_forward_bars': 20,        # Bars to validate if regime actually plays out
+    'min_forward_bars': 100,              # Minimum bars to look forward
+    'max_forward_bars': 200,             # Maximum bars to look forward
+    'adaptive_forward': True,            # Use adaptive forward looking based on volatility
+    'move_lookback': 500,                # Lookback for calculating dynamic move thresholds
+    'strong_move_percentile': 0.85,      # Percentile for strong move threshold
+    'weak_move_percentile': 0.65,        # Percentile for weak move threshold
 }
 
 def load_csv_data(file_path, timeframe):
@@ -265,18 +264,18 @@ def calculate_helper_columns(data):
             current_vol = 1.0  # Default to neutral volatility
 
         if PERFECT_PARAMS['adaptive_forward']:
-            # Fewer forward bars in volatile periods, more in stable
+            # More forward bars in stable periods, fewer in volatile
             if current_vol > 1.3:
-                forward_bars = PERFECT_PARAMS['min_forward_bars']  # 10 bars in volatile
+                forward_bars = PERFECT_PARAMS['min_forward_bars']
             elif current_vol < 0.7:
-                forward_bars = PERFECT_PARAMS['max_forward_bars']   # 30 bars in stable
+                forward_bars = PERFECT_PARAMS['max_forward_bars']
             else:
-                # Linear interpolation between 10-30 bars
+                # Linear interpolation
                 forward_bars = int(PERFECT_PARAMS['min_forward_bars'] + 
                                 (PERFECT_PARAMS['max_forward_bars'] - PERFECT_PARAMS['min_forward_bars']) * 
                                 (1.3 - current_vol) / 0.6)
         else:
-            forward_bars = PERFECT_PARAMS['validation_forward_bars']  # Default 20 bars
+            forward_bars = PERFECT_PARAMS['min_forward_bars']
         
         # Ensure we don't exceed data bounds
         if i + forward_bars >= len(data):
@@ -450,99 +449,103 @@ def classify_regime_excel_logic(data, row_idx, params):
         return 'BETWEEN'
 
 def validate_perfect_regime_with_future(data, row_idx, classified_regime):
-    """Perfect regime validation - identify optimal regime based on what actually happens"""
+    """Validate perfect regime classification using dynamic future price movements with conservative upgrade logic"""
+    
+    # DEBUG: Track validation decisions every 500 bars
+    debug_this_bar = (row_idx % 500 == 0)
     
     # Check if we have enough future data
-    validation_bars = PERFECT_PARAMS['validation_forward_bars']
-    if row_idx + validation_bars >= len(data):
+    forward_check = min(50, len(data) - row_idx - 1)
+    if forward_check < 10:
         return classified_regime  # Not enough data to validate
     
-    # Get current market conditions
-    current_price = data['close'].iloc[row_idx]
-    slope = data['SMA_13_Slope'].iloc[row_idx]
-    short_ma = data['SMA_5'].iloc[row_idx]
-    long_ma = data['SMA_13'].iloc[row_idx]
-    upper_threshold = data['Upper_Threshold'].iloc[row_idx]
-    lower_threshold = data['Lower_Threshold'].iloc[row_idx]
-    volatility_ratio = data['Volatility_Ratio'].iloc[row_idx]
-    
-    # Get dynamic thresholds
+    # Get dynamic thresholds for this bar
     strong_threshold = data['Dynamic_Strong_Move_Threshold'].iloc[row_idx]
     weak_threshold = data['Dynamic_Weak_Move_Threshold'].iloc[row_idx]
     
-    # Use fallbacks if thresholds not available
+    # Use fallback if dynamic thresholds not available
     if pd.isna(strong_threshold):
         strong_threshold = 0.008
     if pd.isna(weak_threshold):
         weak_threshold = 0.004
     
-    # Look at what happens in the immediate future (next 20 bars)
-    future_prices = data['close'].iloc[row_idx+1:row_idx+validation_bars+1]
-    future_highs = data['high'].iloc[row_idx+1:row_idx+validation_bars+1]
-    future_lows = data['low'].iloc[row_idx+1:row_idx+validation_bars+1]
+    # Get current market conditions for upgrade validation
+    slope = data['SMA_13_Slope'].iloc[row_idx]
+    short_ma = data['SMA_5'].iloc[row_idx]
+    long_ma = data['SMA_13'].iloc[row_idx]
+    upper_threshold = data['Upper_Threshold'].iloc[row_idx]
+    lower_threshold = data['Lower_Threshold'].iloc[row_idx]
+    
+    current_price = data['close'].iloc[row_idx]
+    future_prices = data['close'].iloc[row_idx+1:row_idx+forward_check+1]
     
     # Calculate actual future movement
-    max_future_high = future_highs.max()
-    min_future_low = future_lows.min()
+    max_up_move = (future_prices.max() - current_price) / current_price
+    max_down_move = (current_price - future_prices.min()) / current_price
     
-    max_up_move = (max_future_high - current_price) / current_price
-    max_down_move = (current_price - min_future_low) / current_price
+    if debug_this_bar:
+        print(f"Bar {row_idx}: Classified as {classified_regime}")
+        print(f"  Thresholds - Strong: {strong_threshold:.4f}, Weak: {weak_threshold:.4f}")
+        print(f"  Actual moves - Up: {max_up_move:.4f}, Down: {max_down_move:.4f}")
+        print(f"  Market conditions - Slope: {slope:.6f}, Short MA vs Upper: {short_ma:.2f} vs {upper_threshold:.2f}")
     
-    # Also check if the move is sustained (not just a spike)
-    # Look at where price settles after half the validation period
-    halfway_point = validation_bars // 2
-    if halfway_point > 0:
-        sustained_prices = data['close'].iloc[row_idx+halfway_point:row_idx+validation_bars+1]
-        avg_sustained_price = sustained_prices.mean()
-        sustained_up_move = (avg_sustained_price - current_price) / current_price
-        sustained_down_move = (current_price - avg_sustained_price) / current_price
-    else:
-        sustained_up_move = 0
-        sustained_down_move = 0
-    
-    # PERFECT REGIME LOGIC: What regime best describes what actually happens?
-    
-    # STRONG ABOVE: Strong upward move that sustains
-    if (max_up_move >= strong_threshold and 
-        sustained_up_move >= weak_threshold and
-        slope > 0 and short_ma > upper_threshold):
+    # CONSERVATIVE UPGRADE logic: Only upgrade if both future move AND current conditions support it
+    if 'WEAK ABOVE' in classified_regime and max_up_move >= strong_threshold:
+        if debug_this_bar:
+            print(f"  UPGRADED: WEAK ABOVE -> STRONG ABOVE (move {max_up_move:.4f} >= {strong_threshold:.4f})")
         return 'STRONG ABOVE'
     
-    # STRONG BELOW: Strong downward move that sustains
-    elif (max_down_move >= strong_threshold and 
-          sustained_down_move >= weak_threshold and
-          slope < 0 and short_ma < lower_threshold):
+    elif 'WEAK BELOW' in classified_regime and max_down_move >= strong_threshold:
+        if debug_this_bar:
+            print(f"  UPGRADED: WEAK BELOW -> STRONG BELOW (move {max_down_move:.4f} >= {strong_threshold:.4f})")
         return 'STRONG BELOW'
     
-    # WEAK ABOVE: Moderate upward move with bullish structure
-    elif (max_up_move >= weak_threshold and 
-          slope > 0 and short_ma > long_ma):
+    elif 'BETWEEN' in classified_regime or 'CONTRACTING BETWEEN' in classified_regime or 'EXPANDING BETWEEN' in classified_regime or 'TRANSITIONING' in classified_regime:
+        # CONSERVATIVE: Only upgrade BETWEEN if BOTH future move AND current market structure support it
+        if (max_up_move >= strong_threshold and 
+            slope > 0 and 
+            short_ma > upper_threshold):
+            if debug_this_bar:
+                print(f"  CONSERVATIVE UPGRADE: {classified_regime} -> STRONG ABOVE (move {max_up_move:.4f} >= {strong_threshold:.4f} + bullish structure)")
+            return 'STRONG ABOVE'
+            
+        elif (max_down_move >= strong_threshold and 
+              slope < 0 and 
+              short_ma < lower_threshold):
+            if debug_this_bar:
+                print(f"  CONSERVATIVE UPGRADE: {classified_regime} -> STRONG BELOW (move {max_down_move:.4f} >= {strong_threshold:.4f} + bearish structure)")
+            return 'STRONG BELOW'
+            
+        elif (max_up_move >= weak_threshold and 
+              slope > 0 and 
+              short_ma > long_ma):
+            if debug_this_bar:
+                print(f"  CONSERVATIVE UPGRADE: {classified_regime} -> WEAK ABOVE (move {max_up_move:.4f} >= {weak_threshold:.4f} + mild bullish structure)")
+            return 'WEAK ABOVE'
+            
+        elif (max_down_move >= weak_threshold and 
+              slope < 0 and 
+              short_ma < long_ma):
+            if debug_this_bar:
+                print(f"  CONSERVATIVE UPGRADE: {classified_regime} -> WEAK BELOW (move {max_down_move:.4f} >= {weak_threshold:.4f} + mild bearish structure)")
+            return 'WEAK BELOW'
+    
+    # DOWNGRADE logic: Downgrade STRONG regimes if they don't follow through
+    if 'STRONG ABOVE' in classified_regime and max_up_move < weak_threshold:
+        if debug_this_bar:
+            print(f"  DOWNGRADED: STRONG ABOVE -> WEAK ABOVE (move {max_up_move:.4f} < {weak_threshold:.4f})")
         return 'WEAK ABOVE'
     
-    # WEAK BELOW: Moderate downward move with bearish structure  
-    elif (max_down_move >= weak_threshold and
-          slope < 0 and short_ma < long_ma):
+    elif 'STRONG BELOW' in classified_regime and max_down_move < weak_threshold:
+        if debug_this_bar:
+            print(f"  DOWNGRADED: STRONG BELOW -> WEAK BELOW (move {max_down_move:.4f} < {weak_threshold:.4f})")
         return 'WEAK BELOW'
     
-    # EXPANDING BETWEEN: High volatility with no clear direction
-    elif (max(max_up_move, max_down_move) >= weak_threshold and
-          abs(sustained_up_move - sustained_down_move) < weak_threshold/2 and
-          volatility_ratio > 1.2):
-        return 'EXPANDING BETWEEN'
+    # If no changes needed, return original classification
+    if debug_this_bar:
+        print(f"  NO CHANGE: Regime stays {classified_regime}")
     
-    # CONTRACTING BETWEEN: Low volatility, minimal movement
-    elif (max(max_up_move, max_down_move) < weak_threshold/2 and
-          volatility_ratio < 0.8):
-        return 'CONTRACTING BETWEEN'
-    
-    # TRANSITIONING: Market is changing direction
-    elif (abs(slope) < 0.0001 and 
-          abs(short_ma - long_ma) / current_price < 0.001):
-        return 'TRANSITIONING'
-    
-    # Default: BETWEEN - no clear regime
-    else:
-        return 'BETWEEN'
+    return classified_regime
 
 def apply_regime_classification(data, use_perfect=False):
     """Apply regime classification to entire dataset"""
