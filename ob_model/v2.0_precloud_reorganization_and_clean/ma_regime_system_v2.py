@@ -596,46 +596,52 @@ def apply_transition_aware_persistence(data, regime_col, confirmed_col):
     """Apply transition-aware persistence with variable requirements"""
     
     data[confirmed_col] = data[regime_col].copy()
+
+    # Check if this is Live data (already shifted) to prevent double-shifting
     is_live_data = 'Live' in regime_col
     
-    # Use correct shifts: For live, account for 1-bar shift in main()
     if is_live_data:
-        regime_shift1 = data[regime_col].shift(1)  # Previous raw regime
-        regime_shift2 = data[regime_col].shift(2)  # 2 bars ago
-        regime_shift3 = data[regime_col].shift(3)  # 3 bars ago
+        # Live data is already shifted, so use current and previous positions
+        regime_shift1 = data[regime_col]  # Current (already shifted)
+        regime_shift2 = data[regime_col].shift(1)  # Previous
+        regime_shift3 = data[regime_col].shift(2)  # 2 bars ago
     else:
+        # Perfect data - use normal shifting
         regime_shift1 = data[regime_col].shift(1)
         regime_shift2 = data[regime_col].shift(2)
         regime_shift3 = data[regime_col].shift(3)
-    
+
     # Create match masks
     match1 = data[regime_col] == regime_shift1
     match2 = data[regime_col] == regime_shift2
     match3 = data[regime_col] == regime_shift3
-    
-    # Persistence requirements
+
+    # ENHANCED_FEATURES persistence (vectorized)
     if ENHANCED_FEATURES:
         persistence_needed = np.select(
             [data[regime_col].str.contains('STRONG', na=False),
-             data[regime_col].str.contains('WEAK', na=False)],
+            data[regime_col].str.contains('WEAK', na=False)],
             [ENHANCED_PARAMS['strong_persistence'],
-             ENHANCED_PARAMS['weak_persistence']],
+            ENHANCED_PARAMS['weak_persistence']],
             default=ENHANCED_PARAMS['between_persistence']
         )
     else:
         persistence_needed = np.full(len(data), CORE_PARAMS['base_persistence'])
-    
-    # Apply persistence: Use full requirement
+
+    # Apply persistence conditions
     data[confirmed_col] = np.where(
         persistence_needed == 1, data[regime_col],
         np.where(
-            persistence_needed == 2, np.where(match1, data[regime_col], data[confirmed_col].shift(1)),
-            np.where(match1 & match2, data[regime_col], data[confirmed_col].shift(1))
+            persistence_needed == 2, np.where(match1 & match2, data[regime_col], data[confirmed_col].shift(1)),
+            np.where(match1 & match2 & match3, data[regime_col], data[confirmed_col].shift(1))
         )
     )
-    
-    # Fill NaNs
-    data[confirmed_col] = data[confirmed_col].ffill().bfill()
+
+    # Forward fill any NaNs (use newer pandas syntax)
+    data[confirmed_col] = data[confirmed_col].ffill()
+
+    # Also backfill any remaining NaNs at the start
+    data[confirmed_col] = data[confirmed_col].bfill()
     
     return data
 
