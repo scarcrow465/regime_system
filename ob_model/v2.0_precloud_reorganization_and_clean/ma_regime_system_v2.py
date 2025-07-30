@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 20000  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v7_test.csv'  # Output CSV file name
-SCORING_FILE = 'regime_scoring_metrics_v7_test.csv'  # Scoring metrics output
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v8_test.csv'  # Output CSV file name
+SCORING_FILE = 'regime_scoring_metrics_v8_test.csv'  # Scoring metrics output
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -36,9 +36,9 @@ CORE_PARAMS = {
     'volatility_filter_min': 0.7,        # Min volatility for "normal" periods
     'volatility_filter_max': 1.3,        # Max volatility for "normal" periods
     'volatility_low_percentile': 0.25,        # 25th percentile for low volatility (general)
-    'volatility_high_percentile': 0.75,       # 75th percentile for high volatility (general)
-    'volatility_high_bull_percentile': 0.75,  # Lower threshold for bull STRONG moves
-    'volatility_high_bear_percentile': 0.75,  # Higher threshold for bear STRONG moves
+    'volatility_high_percentile': 0.85,       # 75th percentile for high volatility (general)
+    'volatility_high_bull_percentile': 0.85,  # Lower threshold for bull STRONG moves
+    'volatility_high_bear_percentile': 0.85,  # Higher threshold for bear STRONG moves
     'volatility_low_bull_percentile': 0.25,   # Bull-specific low volatility threshold
     'volatility_low_bear_percentile': 0.25,   # Bear-specific low volatility threshold
     'transitioning_factor': 0.5,         # Factor for transitioning threshold
