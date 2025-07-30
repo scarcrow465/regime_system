@@ -202,57 +202,75 @@ def calculate_helper_columns(data):
     data['Perfect_Vol_Low_Bear'] = np.nan
     
     # Calculate directional slope thresholds with volatility filtering (LIVE SYSTEM)
-    for i in tqdm(range(len(data)), desc="Calculating Live Dynamic Thresholds", ncols=80):
-        if i < base_lookback:
-            continue
-            
-        # Get adaptive lookback for this period
-        lookback = int(data['Adaptive_Slope_Lookback'].iloc[i])
-        lookback = min(lookback, i)  # Don't exceed available data
-        
-        # Get recent data window (BACKWARD LOOKING)
-        recent_slopes = data['SMA_13_Slope'].iloc[i-lookback:i]
-        recent_vol = data['Volatility_Ratio'].iloc[i-lookback:i]
-        
-        # Filter for normal volatility periods only
-        normal_vol_mask = (recent_vol >= vol_filter_min) & (recent_vol <= vol_filter_max)
-        
-        if normal_vol_mask.sum() < 20:  # Need minimum data points
-            # Fallback to all data if too little normal volatility data
-            filtered_slopes = recent_slopes
-        else:
-            filtered_slopes = recent_slopes[normal_vol_mask]
-        
-        # Separate bull and bear slopes from filtered data
-        bull_slopes = filtered_slopes[filtered_slopes > 0]
-        bear_slopes = filtered_slopes[filtered_slopes < 0]
-        
-        # Calculate bull thresholds (positive slopes)
-        if len(bull_slopes) >= 10:  # Need minimum bull slope data
-            data.loc[data.index[i], 'Dynamic_Bull_Weak'] = bull_slopes.quantile(CORE_PARAMS['bull_weak_percentile'])
-            data.loc[data.index[i], 'Dynamic_Bull_Strong'] = bull_slopes.quantile(CORE_PARAMS['bull_strong_percentile'])
-        
-        # Calculate bear thresholds (negative slopes - use absolute values)
-        if len(bear_slopes) >= 10:  # Need minimum bear slope data
-            bear_slopes_abs = abs(bear_slopes)
-            data.loc[data.index[i], 'Dynamic_Bear_Weak'] = bear_slopes_abs.quantile(CORE_PARAMS['bear_weak_percentile'])
-            data.loc[data.index[i], 'Dynamic_Bear_Strong'] = bear_slopes_abs.quantile(CORE_PARAMS['bear_strong_percentile'])
-        
-        # Calculate volatility thresholds (directional logic)
-        vol_lookback = CORE_PARAMS['volatility_lookback']
-        if i >= vol_lookback:
-            vol_window = data['Volatility_Ratio'].iloc[i-vol_lookback:i]
-            data.loc[data.index[i], 'Dynamic_Vol_Low'] = vol_window.quantile(CORE_PARAMS['volatility_low_percentile'])
-            data.loc[data.index[i], 'Dynamic_Vol_High'] = vol_window.quantile(CORE_PARAMS['volatility_high_percentile'])
-            
-            # Calculate directional volatility thresholds using directional ATR
-            up_vol_window = data['Up_Volatility_Ratio'].iloc[i-vol_lookback:i]
-            down_vol_window = data['Down_Volatility_Ratio'].iloc[i-vol_lookback:i]
+    def rolling_masked_quantile(series, lookback, percentile, mask_series, min_val, max_val):
+        def custom_quantile(arr):
+            mask = (arr >= min_val) & (arr <= max_val)
+            if mask.sum() < 20:
+                return np.quantile(arr, percentile)
+            return np.quantile(arr[mask], percentile)
+        return series.rolling(lookback).apply(custom_quantile, raw=True)
 
-            data.loc[data.index[i], 'Dynamic_Vol_High_Bull'] = up_vol_window.quantile(CORE_PARAMS['volatility_high_bull_percentile'])
-            data.loc[data.index[i], 'Dynamic_Vol_High_Bear'] = down_vol_window.quantile(CORE_PARAMS['volatility_high_bear_percentile'])
-            data.loc[data.index[i], 'Dynamic_Vol_Low_Bull'] = up_vol_window.quantile(CORE_PARAMS['volatility_low_bull_percentile'])
-            data.loc[data.index[i], 'Dynamic_Vol_Low_Bear'] = down_vol_window.quantile(CORE_PARAMS['volatility_low_bear_percentile'])
+    # Apply for bull weak
+    data['Dynamic_Bull_Weak'] = rolling_masked_quantile(
+        data['SMA_13_Slope'],
+        CORE_PARAMS['base_slope_lookback'],
+        CORE_PARAMS['bull_weak_percentile'],
+        data['Volatility_Ratio'],
+        CORE_PARAMS['volatility_filter_min'],
+        CORE_PARAMS['volatility_filter_max']
+    )
+
+    # Apply for bull strong
+    data['Dynamic_Bull_Strong'] = rolling_masked_quantile(
+        data['SMA_13_Slope'],
+        CORE_PARAMS['base_slope_lookback'],
+        CORE_PARAMS['bull_strong_percentile'],
+        data['Volatility_Ratio'],
+        CORE_PARAMS['volatility_filter_min'],
+        CORE_PARAMS['volatility_filter_max']
+    )
+
+    # Apply for bear weak
+    data['Dynamic_Bear_Weak'] = rolling_masked_quantile(
+        data['SMA_13_Slope'].abs(),  # Use abs for bear
+        CORE_PARAMS['base_slope_lookback'],
+        CORE_PARAMS['bear_weak_percentile'],
+        data['Volatility_Ratio'],
+        CORE_PARAMS['volatility_filter_min'],
+        CORE_PARAMS['volatility_filter_max']
+    )
+
+    # Apply for bear strong
+    data['Dynamic_Bear_Strong'] = rolling_masked_quantile(
+        data['SMA_13_Slope'].abs(),
+        CORE_PARAMS['base_slope_lookback'],
+        CORE_PARAMS['bear_strong_percentile'],
+        data['Volatility_Ratio'],
+        CORE_PARAMS['volatility_filter_min'],
+        CORE_PARAMS['volatility_filter_max']
+    )
+
+    # Vectorize volatility thresholds (general)
+    data['Dynamic_Vol_Low'] = data['Volatility_Ratio'].rolling(CORE_PARAMS['volatility_lookback']).quantile(CORE_PARAMS['volatility_low_percentile'])
+    data['Dynamic_Vol_High'] = data['Volatility_Ratio'].rolling(CORE_PARAMS['volatility_lookback']).quantile(CORE_PARAMS['volatility_high_percentile'])
+
+    # Directional volatility thresholds
+    data['Dynamic_Vol_High_Bull'] = data['Up_Volatility_Ratio'].rolling(CORE_PARAMS['volatility_lookback']).quantile(CORE_PARAMS['volatility_high_bull_percentile'])
+    data['Dynamic_Vol_High_Bear'] = data['Down_Volatility_Ratio'].rolling(CORE_PARAMS['volatility_lookback']).quantile(CORE_PARAMS['volatility_high_bear_percentile'])
+    data['Dynamic_Vol_Low_Bull'] = data['Up_Volatility_Ratio'].rolling(CORE_PARAMS['volatility_lookback']).quantile(CORE_PARAMS['volatility_low_bull_percentile'])
+    data['Dynamic_Vol_Low_Bear'] = data['Down_Volatility_Ratio'].rolling(CORE_PARAMS['volatility_lookback']).quantile(CORE_PARAMS['volatility_low_bear_percentile'])
+
+    # Fill NaNs with defaults (vectorized)
+    data['Dynamic_Bull_Weak'] = data['Dynamic_Bull_Weak'].fillna(0.0002)
+    data['Dynamic_Bull_Strong'] = data['Dynamic_Bull_Strong'].fillna(0.0005)
+    data['Dynamic_Bear_Weak'] = data['Dynamic_Bear_Weak'].fillna(0.0002)
+    data['Dynamic_Bear_Strong'] = data['Dynamic_Bear_Strong'].fillna(0.0005)
+    data['Dynamic_Vol_Low'] = data['Dynamic_Vol_Low'].fillna(0.8)
+    data['Dynamic_Vol_High'] = data['Dynamic_Vol_High'].fillna(1.2)
+    data['Dynamic_Vol_High_Bull'] = data['Dynamic_Vol_High_Bull'].fillna(1.0)
+    data['Dynamic_Vol_High_Bear'] = data['Dynamic_Vol_High_Bear'].fillna(1.2)
+    data['Dynamic_Vol_Low_Bull'] = data['Dynamic_Vol_Low_Bull'].fillna(0.8)
+    data['Dynamic_Vol_Low_Bear'] = data['Dynamic_Vol_Low_Bear'].fillna(0.8)
     
     # Calculate perfect system thresholds (FORWARD LOOKING)
     for i in tqdm(range(len(data)), desc="Calculating Perfect Forward Thresholds", ncols=80):
@@ -573,43 +591,40 @@ def apply_transition_aware_persistence(data, regime_col, confirmed_col):
     """Apply transition-aware persistence with variable requirements"""
     
     data[confirmed_col] = data[regime_col].copy()
-    
-    for i in range(len(data)):
-        if i < 2:  # Not enough history
-            continue
-            
-        current_regime = data[regime_col].iloc[i]
-        previous_confirmed = data[confirmed_col].iloc[i-1] if i > 0 else current_regime
-        
-        # Check if regime is changing
-        if current_regime != previous_confirmed:
-            # Regime change detected - use new regime's persistence requirement
-            if ENHANCED_FEATURES:
-                if 'STRONG' in current_regime:
-                    persistence_needed = ENHANCED_PARAMS['strong_persistence']
-                elif 'WEAK' in current_regime:
-                    persistence_needed = ENHANCED_PARAMS['weak_persistence']
-                else:  # BETWEEN regimes
-                    persistence_needed = ENHANCED_PARAMS['between_persistence']
-            else:
-                persistence_needed = CORE_PARAMS['base_persistence']
-        else:
-            # Same regime - minimal persistence
-            persistence_needed = 1
-        
-        # Check if we have enough history
-        if i < persistence_needed:
-            continue
-            
-        # Check persistence for the new regime
-        recent_regimes = data[regime_col].iloc[i-persistence_needed+1:i+1]
-        
-        if len(recent_regimes.unique()) == 1 and recent_regimes.iloc[-1] == current_regime:
-            # New regime has persisted long enough
-            data.loc[data.index[i], confirmed_col] = current_regime
-        else:
-            # Keep previous confirmed regime
-            data.loc[data.index[i], confirmed_col] = previous_confirmed
+
+    # Shift for previous regimes
+    regime_shift1 = data[regime_col].shift(1)
+    regime_shift2 = data[regime_col].shift(2)
+    regime_shift3 = data[regime_col].shift(3)
+
+    # Create match masks
+    match1 = data[regime_col] == regime_shift1
+    match2 = data[regime_col] == regime_shift2
+    match3 = data[regime_col] == regime_shift3
+
+    # ENHANCED_FEATURES persistence (vectorized)
+    if ENHANCED_FEATURES:
+        persistence_needed = np.select(
+            [data[regime_col].str.contains('STRONG', na=False),
+            data[regime_col].str.contains('WEAK', na=False)],
+            [ENHANCED_PARAMS['strong_persistence'],
+            ENHANCED_PARAMS['weak_persistence']],
+            default=ENHANCED_PARAMS['between_persistence']
+        )
+    else:
+        persistence_needed = np.full(len(data), CORE_PARAMS['base_persistence'])
+
+    # Apply persistence conditions
+    data[confirmed_col] = np.where(
+        persistence_needed == 1, data[regime_col],
+        np.where(
+            persistence_needed == 2, np.where(match1 & match2, data[regime_col], data[confirmed_col].shift(1)),
+            np.where(match1 & match2 & match3, data[regime_col], data[confirmed_col].shift(1))
+        )
+    )
+
+    # Forward fill any NaNs
+    data[confirmed_col] = data[confirmed_col].fillna(method='ffill')
     
     return data
 
