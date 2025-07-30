@@ -597,42 +597,39 @@ def apply_transition_aware_persistence(data, regime_col, confirmed_col):
     
     data[confirmed_col] = data[regime_col].copy()
 
-    # Shift for previous regimes
-    regime_shift1 = data[regime_col].shift(1)
-    regime_shift2 = data[regime_col].shift(2)
-    regime_shift3 = data[regime_col].shift(3)
+    # Initialize persistence counter
+    current_regime = None
+    persistence_count = 0
 
-    # Create match masks
-    match1 = data[regime_col] == regime_shift1
-    match2 = data[regime_col] == regime_shift2
-    match3 = data[regime_col] == regime_shift3
+    for i in range(len(data)):
+        new_regime = data.iloc[i][regime_col]
+        if pd.isna(new_regime):
+            data.iloc[i, data.columns.get_loc(confirmed_col)] = current_regime  # Carry forward
+            continue
 
-    # ENHANCED_FEATURES persistence (vectorized)
-    if ENHANCED_FEATURES:
-        persistence_needed = np.select(
-            [data[regime_col].str.contains('STRONG', na=False),
-            data[regime_col].str.contains('WEAK', na=False)],
-            [ENHANCED_PARAMS['strong_persistence'],
-            ENHANCED_PARAMS['weak_persistence']],
-            default=ENHANCED_PARAMS['between_persistence']
-        )
-    else:
-        persistence_needed = np.full(len(data), CORE_PARAMS['base_persistence'])
+        if ENHANCED_FEATURES:
+            if 'STRONG' in new_regime:
+                required_persistence = ENHANCED_PARAMS['strong_persistence']
+            elif 'WEAK' in new_regime:
+                required_persistence = ENHANCED_PARAMS['weak_persistence']
+            else:
+                required_persistence = ENHANCED_PARAMS['between_persistence']
+        else:
+            required_persistence = CORE_PARAMS['base_persistence']
 
-    # Apply persistence conditions
-    data[confirmed_col] = np.where(
-        persistence_needed == 1, data[regime_col],
-        np.where(
-            persistence_needed == 2, np.where(match1 & match2, data[regime_col], data[confirmed_col].shift(1)),
-            np.where(match1 & match2 & match3, data[regime_col], data[confirmed_col].shift(1))
-        )
-    )
+        if new_regime == current_regime:
+            persistence_count += 1
+        else:
+            persistence_count = 1
 
-    # Forward fill any NaNs (use newer pandas syntax)
-    data[confirmed_col] = data[confirmed_col].ffill()
+        if persistence_count >= required_persistence:
+            data.iloc[i, data.columns.get_loc(confirmed_col)] = new_regime
+            current_regime = new_regime
+        else:
+            data.iloc[i, data.columns.get_loc(confirmed_col)] = current_regime  # Stick to old
 
-    # Also backfill any remaining NaNs at the start
-    data[confirmed_col] = data[confirmed_col].bfill()
+    # Backfill any initial NaNs
+    data[confirmed_col] = data[confirmed_col].ffill().bfill()
     
     return data
 
