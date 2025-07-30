@@ -149,18 +149,20 @@ def calculate_helper_columns(data):
 
     # Calculate historical move percentiles for perfect system validation (VECTORIZED)
     move_lookback = PERFECT_PARAMS['move_lookback']
-    print("Calculating Dynamic Move Thresholds (vectorized)...")
 
-    # Calculate max moves for next 20 bars for all rows at once
-    print("  Step 1/4: Calculating future highs/lows...")
+    # Calculate max moves for next 20 bars using CLOSE-TO-CLOSE only
+    print("Calculating Dynamic Move Thresholds (vectorized - close-to-close)...")
+
+    # Calculate future close prices for next 20 bars
+    print("  Step 1/4: Calculating future close prices...")
     future_window = 20
-    data['Future_High_20'] = data['high'].rolling(window=future_window, min_periods=1).max().shift(-future_window)
-    data['Future_Low_20'] = data['low'].rolling(window=future_window, min_periods=1).min().shift(-future_window)
+    data['Future_Close_High'] = data['close'].rolling(window=future_window, min_periods=1).max().shift(-future_window)
+    data['Future_Close_Low'] = data['close'].rolling(window=future_window, min_periods=1).min().shift(-future_window)
 
-    # Calculate up and down moves
-    print("  Step 2/4: Calculating future moves...")
-    data['Future_Up_Move'] = (data['Future_High_20'] - data['close']) / data['close']
-    data['Future_Down_Move'] = (data['close'] - data['Future_Low_20']) / data['close']
+    # Calculate up and down moves (close-to-close)
+    print("  Step 2/4: Calculating future close-to-close moves...")
+    data['Future_Up_Move'] = (data['Future_Close_High'] - data['close']) / data['close']
+    data['Future_Down_Move'] = (data['close'] - data['Future_Close_Low']) / data['close']
     data['Max_Future_Move'] = data[['Future_Up_Move', 'Future_Down_Move']].max(axis=1)
 
     # Calculate rolling percentiles of historical moves
@@ -175,7 +177,7 @@ def calculate_helper_columns(data):
 
     # Clean up temporary columns
     print("  Step 4/4: Cleaning up...")
-    data.drop(['Future_High_20', 'Future_Low_20', 'Future_Up_Move', 'Future_Down_Move', 'Max_Future_Move'], axis=1, inplace=True)
+    data.drop(['Future_Close_High', 'Future_Close_Low', 'Future_Up_Move', 'Future_Down_Move', 'Max_Future_Move'], axis=1, inplace=True)
 
     # Debug print some values
     if len(data) > 1000:
