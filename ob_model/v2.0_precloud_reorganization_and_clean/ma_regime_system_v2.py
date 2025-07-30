@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 20000  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v9_test.csv'  # Output CSV file name
-SCORING_FILE = 'regime_scoring_metrics_v9_test.csv'  # Scoring metrics output
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v10_test.csv'  # Output CSV file name
+SCORING_FILE = 'regime_scoring_metrics_v10_test.csv'  # Scoring metrics output
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -57,11 +57,12 @@ ENHANCED_PARAMS = {
 
 # Perfect system parameters
 PERFECT_PARAMS = {
-    'min_forward_bars': 200,              # Minimum bars to look forward
-    'max_forward_bars': 300,             # Maximum bars to look forward
+    'min_forward_bars': 100,              # Minimum bars to look forward
+    'max_forward_bars': 200,             # Maximum bars to look forward
     'adaptive_forward': True,            # Use adaptive forward looking based on volatility
-    'future_move_strong': 0.005,          # 2% move threshold for confirming STRONG regime
-    'future_move_weak': 0.002,            # 1% move threshold for confirming WEAK regime
+    'move_lookback': 500,                # Lookback for calculating dynamic move thresholds
+    'strong_move_percentile': 0.85,      # Percentile for strong move threshold
+    'weak_move_percentile': 0.65,        # Percentile for weak move threshold
 }
 
 def load_csv_data(file_path, timeframe):
@@ -94,12 +95,26 @@ def calculate_helper_columns(data):
     
     # R56: 5-period ATR
     data['ATR_5'] = data['TR'].rolling(window=CORE_PARAMS['short_atr_period']).mean()
-    
+
     # S56: 50-period ATR (for volatility ratio)
     data['ATR_50'] = data['TR'].rolling(window=CORE_PARAMS['long_atr_period']).mean()
-    
+
     # Volatility ratio R56/S56
     data['Volatility_Ratio'] = data['ATR_5'] / data['ATR_50']
+
+    # Calculate directional True Range for up/down moves
+    data['Up_Move'] = np.where(data['close'] > data['close'].shift(1), 
+                            data['close'] - data['close'].shift(1), 0)
+    data['Down_Move'] = np.where(data['close'] < data['close'].shift(1), 
+                                data['close'].shift(1) - data['close'], 0)
+
+    # Directional ATR (5-period)
+    data['Up_ATR_5'] = data['Up_Move'].rolling(window=CORE_PARAMS['short_atr_period']).mean()
+    data['Down_ATR_5'] = data['Down_Move'].rolling(window=CORE_PARAMS['short_atr_period']).mean()
+
+    # Directional volatility ratios
+    data['Up_Volatility_Ratio'] = data['Up_ATR_5'] / data['ATR_50']
+    data['Down_Volatility_Ratio'] = data['Down_ATR_5'] / data['ATR_50']
     
     # W56: Dynamic multiplier = 0.15 + 0.2 / (1 + 10000 * ABS(V56))
     data['Dynamic_Multiplier'] = 0.15 + 0.2 / (1 + 10000 * np.abs(data['SMA_13_Slope']))
@@ -121,6 +136,32 @@ def calculate_helper_columns(data):
     # Create volatility filter mask for "normal" periods only
     vol_filter_min = CORE_PARAMS['volatility_filter_min']
     vol_filter_max = CORE_PARAMS['volatility_filter_max']
+
+    # Calculate dynamic perfect move thresholds
+    data['Dynamic_Strong_Move_Threshold'] = np.nan
+    data['Dynamic_Weak_Move_Threshold'] = np.nan
+
+    # Calculate historical move percentiles for perfect system validation
+    move_lookback = PERFECT_PARAMS['move_lookback']
+    for i in range(len(data)):
+        if i >= move_lookback:
+            # Calculate actual moves that occurred over the lookback period
+            historical_moves = []
+            for j in range(i-move_lookback, i):
+                if j + 20 < len(data):  # Need 20 bars of future data
+                    future_high = data['high'].iloc[j:j+20].max()
+                    future_low = data['low'].iloc[j:j+20].min()
+                    current_close = data['close'].iloc[j]
+                    
+                    up_move = (future_high - current_close) / current_close
+                    down_move = (current_close - future_low) / current_close
+                    max_move = max(up_move, down_move)
+                    historical_moves.append(max_move)
+            
+            if len(historical_moves) >= 100:
+                moves_series = pd.Series(historical_moves)
+                data.loc[data.index[i], 'Dynamic_Strong_Move_Threshold'] = moves_series.quantile(PERFECT_PARAMS['strong_move_percentile'])
+                data.loc[data.index[i], 'Dynamic_Weak_Move_Threshold'] = moves_series.quantile(PERFECT_PARAMS['weak_move_percentile'])
     
     # Initialize dynamic threshold columns (for live system)
     data['Dynamic_Bull_Weak'] = np.nan
@@ -190,11 +231,14 @@ def calculate_helper_columns(data):
             data.loc[data.index[i], 'Dynamic_Vol_Low'] = vol_window.quantile(CORE_PARAMS['volatility_low_percentile'])
             data.loc[data.index[i], 'Dynamic_Vol_High'] = vol_window.quantile(CORE_PARAMS['volatility_high_percentile'])
             
-            # Directional volatility thresholds
-            data.loc[data.index[i], 'Dynamic_Vol_High_Bull'] = vol_window.quantile(CORE_PARAMS['volatility_high_bull_percentile'])
-            data.loc[data.index[i], 'Dynamic_Vol_High_Bear'] = vol_window.quantile(CORE_PARAMS['volatility_high_bear_percentile'])
-            data.loc[data.index[i], 'Dynamic_Vol_Low_Bull'] = vol_window.quantile(CORE_PARAMS['volatility_low_bull_percentile'])
-            data.loc[data.index[i], 'Dynamic_Vol_Low_Bear'] = vol_window.quantile(CORE_PARAMS['volatility_low_bear_percentile'])
+            # Calculate directional volatility thresholds using directional ATR
+            up_vol_window = data['Up_Volatility_Ratio'].iloc[i-vol_lookback:i]
+            down_vol_window = data['Down_Volatility_Ratio'].iloc[i-vol_lookback:i]
+
+            data.loc[data.index[i], 'Dynamic_Vol_High_Bull'] = up_vol_window.quantile(CORE_PARAMS['volatility_high_bull_percentile'])
+            data.loc[data.index[i], 'Dynamic_Vol_High_Bear'] = down_vol_window.quantile(CORE_PARAMS['volatility_high_bear_percentile'])
+            data.loc[data.index[i], 'Dynamic_Vol_Low_Bull'] = up_vol_window.quantile(CORE_PARAMS['volatility_low_bull_percentile'])
+            data.loc[data.index[i], 'Dynamic_Vol_Low_Bear'] = down_vol_window.quantile(CORE_PARAMS['volatility_low_bear_percentile'])
     
     # Calculate perfect system thresholds (FORWARD LOOKING)
     for i in tqdm(range(len(data)), desc="Calculating Perfect Forward Thresholds", ncols=80):
@@ -258,11 +302,14 @@ def calculate_helper_columns(data):
             data.loc[data.index[i], 'Perfect_Vol_Low'] = future_vol_window.quantile(CORE_PARAMS['volatility_low_percentile'])
             data.loc[data.index[i], 'Perfect_Vol_High'] = future_vol_window.quantile(CORE_PARAMS['volatility_high_percentile'])
             
-            # Directional perfect volatility thresholds
-            data.loc[data.index[i], 'Perfect_Vol_High_Bull'] = future_vol_window.quantile(CORE_PARAMS['volatility_high_bull_percentile'])
-            data.loc[data.index[i], 'Perfect_Vol_High_Bear'] = future_vol_window.quantile(CORE_PARAMS['volatility_high_bear_percentile'])
-            data.loc[data.index[i], 'Perfect_Vol_Low_Bull'] = future_vol_window.quantile(CORE_PARAMS['volatility_low_bull_percentile'])
-            data.loc[data.index[i], 'Perfect_Vol_Low_Bear'] = future_vol_window.quantile(CORE_PARAMS['volatility_low_bear_percentile'])
+            # Calculate future directional volatility thresholds
+            future_up_vol = data['Up_Volatility_Ratio'].iloc[i+1:i+min(forward_bars, 100)+1]
+            future_down_vol = data['Down_Volatility_Ratio'].iloc[i+1:i+min(forward_bars, 100)+1]
+
+            data.loc[data.index[i], 'Perfect_Vol_High_Bull'] = future_up_vol.quantile(CORE_PARAMS['volatility_high_bull_percentile'])
+            data.loc[data.index[i], 'Perfect_Vol_High_Bear'] = future_down_vol.quantile(CORE_PARAMS['volatility_high_bear_percentile'])
+            data.loc[data.index[i], 'Perfect_Vol_Low_Bull'] = future_up_vol.quantile(CORE_PARAMS['volatility_low_bull_percentile'])
+            data.loc[data.index[i], 'Perfect_Vol_Low_Bear'] = future_down_vol.quantile(CORE_PARAMS['volatility_low_bear_percentile'])
     
     return data
 
@@ -342,21 +389,25 @@ def classify_regime_excel_logic(data, row_idx, params):
     if pd.isna(slope) or pd.isna(short_ma) or pd.isna(long_ma) or pd.isna(volatility_ratio):
         return 'BETWEEN'
     
-    # STRONG ABOVE: slope > bull_strong_threshold AND short_ma > upper_threshold AND volatility > bull_high_threshold
+    # Get directional volatility
+    up_volatility_ratio = data['Up_Volatility_Ratio'].iloc[row_idx]
+    down_volatility_ratio = data['Down_Volatility_Ratio'].iloc[row_idx]
+
+    # STRONG ABOVE: slope > bull_strong_threshold AND short_ma > upper_threshold AND UP volatility > bull_high_threshold
     if (slope > params['bull_strong_threshold'] and 
         short_ma > upper_threshold and 
-        volatility_ratio > params['volatility_high_bull_threshold']):
+        up_volatility_ratio > params['volatility_high_bull_threshold']):
         return 'STRONG ABOVE'
     
     # WEAK ABOVE: slope > bull_weak_threshold AND short_ma > upper_threshold
     elif (slope > params['bull_weak_threshold'] and 
           short_ma > upper_threshold):
         return 'WEAK ABOVE'
-    
-    # STRONG BELOW: slope < -bear_strong_threshold AND short_ma < lower_threshold AND volatility > bear_high_threshold
+
+    # STRONG BELOW: slope < -bear_strong_threshold AND short_ma < lower_threshold AND DOWN volatility > bear_high_threshold
     elif (slope < -params['bear_strong_threshold'] and 
         short_ma < lower_threshold and 
-        volatility_ratio > params['volatility_high_bear_threshold']):
+        down_volatility_ratio > params['volatility_high_bear_threshold']):
         return 'STRONG BELOW'
     
     # WEAK BELOW: slope < -bear_weak_threshold AND short_ma < lower_threshold
@@ -384,12 +435,22 @@ def classify_regime_excel_logic(data, row_idx, params):
         return 'BETWEEN'
 
 def validate_perfect_regime_with_future(data, row_idx, classified_regime):
-    """Validate perfect regime classification using actual future price movements"""
+    """Validate perfect regime classification using dynamic future price movements"""
     
     # Check if we have enough future data
     forward_check = min(50, len(data) - row_idx - 1)
     if forward_check < 10:
         return classified_regime  # Not enough data to validate
+    
+    # Get dynamic thresholds for this bar
+    strong_threshold = data['Dynamic_Strong_Move_Threshold'].iloc[row_idx]
+    weak_threshold = data['Dynamic_Weak_Move_Threshold'].iloc[row_idx]
+    
+    # Use fallback if dynamic thresholds not available
+    if pd.isna(strong_threshold):
+        strong_threshold = 0.005
+    if pd.isna(weak_threshold):
+        weak_threshold = 0.002
     
     current_price = data['close'].iloc[row_idx]
     future_prices = data['close'].iloc[row_idx+1:row_idx+forward_check+1]
@@ -398,24 +459,24 @@ def validate_perfect_regime_with_future(data, row_idx, classified_regime):
     max_up_move = (future_prices.max() - current_price) / current_price
     max_down_move = (current_price - future_prices.min()) / current_price
     
-    # Validate STRONG regimes
+    # Validate STRONG regimes using dynamic thresholds
     if 'STRONG ABOVE' in classified_regime:
-        if max_up_move < PERFECT_PARAMS['future_move_strong']:
+        if max_up_move < strong_threshold:
             # Downgrade if future move doesn't confirm
-            return 'WEAK ABOVE' if max_up_move >= PERFECT_PARAMS['future_move_weak'] else 'BETWEEN'
+            return 'WEAK ABOVE' if max_up_move >= weak_threshold else 'BETWEEN'
     
     elif 'STRONG BELOW' in classified_regime:
-        if max_down_move < PERFECT_PARAMS['future_move_strong']:
+        if max_down_move < strong_threshold:
             # Downgrade if future move doesn't confirm
-            return 'WEAK BELOW' if max_down_move >= PERFECT_PARAMS['future_move_weak'] else 'BETWEEN'
+            return 'WEAK BELOW' if max_down_move >= weak_threshold else 'BETWEEN'
     
-    # Validate WEAK regimes
+    # Validate WEAK regimes using dynamic thresholds
     elif 'WEAK ABOVE' in classified_regime:
-        if max_up_move < PERFECT_PARAMS['future_move_weak']:
+        if max_up_move < weak_threshold:
             return 'BETWEEN'
     
     elif 'WEAK BELOW' in classified_regime:
-        if max_down_move < PERFECT_PARAMS['future_move_weak']:
+        if max_down_move < weak_threshold:
             return 'BETWEEN'
     
     return classified_regime
