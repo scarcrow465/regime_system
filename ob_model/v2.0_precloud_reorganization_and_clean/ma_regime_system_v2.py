@@ -143,7 +143,7 @@ def calculate_helper_columns(data):
 
     # Calculate historical move percentiles for perfect system validation
     move_lookback = PERFECT_PARAMS['move_lookback']
-    for i in range(len(data)):
+    for i in tqdm(range(len(data)), desc="Calculating Dynamic Move Thresholds", ncols=80):
         if i >= move_lookback:
             # Calculate actual moves that occurred over the lookback period
             historical_moves = []
@@ -803,7 +803,8 @@ def main():
     print(f"\nPerfect System Analysis:")
     print(f"  Adaptive forward lookback: {PERFECT_PARAMS['adaptive_forward']}")
     print(f"  Forward bars range: {PERFECT_PARAMS['min_forward_bars']}-{PERFECT_PARAMS['max_forward_bars']}")
-    print(f"  Future validation thresholds: {PERFECT_PARAMS['future_move_strong']*100:.1f}% (strong), {PERFECT_PARAMS['future_move_weak']*100:.1f}% (weak)")
+    print(f"  Dynamic move thresholds: {PERFECT_PARAMS['strong_move_percentile']*100:.0f}th percentile (strong), {PERFECT_PARAMS['weak_move_percentile']*100:.0f}th percentile (weak)")
+    print(f"  Move calculation lookback: {PERFECT_PARAMS['move_lookback']} bars")
     
     print(f"\nPersistence Settings:")
     if ENHANCED_FEATURES:
