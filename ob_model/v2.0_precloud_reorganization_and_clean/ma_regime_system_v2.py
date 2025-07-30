@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = None # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v18.csv'  # Output CSV file name
-SCORING_FILE = 'regime_scoring_metrics_v18.csv'  # Scoring metrics output
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v16.csv'  # Output CSV file name
+SCORING_FILE = 'regime_scoring_metrics_v16.csv'  # Scoring metrics output
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -597,39 +597,51 @@ def apply_transition_aware_persistence(data, regime_col, confirmed_col):
     
     data[confirmed_col] = data[regime_col].copy()
 
-    # Initialize persistence counter
-    current_regime = None
-    persistence_count = 0
+    # Check if this is Live data (already shifted) to prevent double-shifting
+    is_live_data = 'Live' in regime_col
+    
+    if is_live_data:
+        # Live data is already shifted, so use current and previous positions
+        regime_shift1 = data[regime_col]  # Current (already shifted)
+        regime_shift2 = data[regime_col].shift(1)  # Previous
+        regime_shift3 = data[regime_col].shift(2)  # 2 bars ago
+    else:
+        # Perfect data - use normal shifting
+        regime_shift1 = data[regime_col].shift(1)
+        regime_shift2 = data[regime_col].shift(2)
+        regime_shift3 = data[regime_col].shift(3)
 
-    for i in range(len(data)):
-        new_regime = data.iloc[i][regime_col]
-        if pd.isna(new_regime):
-            data.iloc[i, data.columns.get_loc(confirmed_col)] = current_regime  # Carry forward
-            continue
+    # Create match masks
+    match1 = data[regime_col] == regime_shift1
+    match2 = data[regime_col] == regime_shift2
+    match3 = data[regime_col] == regime_shift3
 
-        if ENHANCED_FEATURES:
-            if 'STRONG' in new_regime:
-                required_persistence = ENHANCED_PARAMS['strong_persistence']
-            elif 'WEAK' in new_regime:
-                required_persistence = ENHANCED_PARAMS['weak_persistence']
-            else:
-                required_persistence = ENHANCED_PARAMS['between_persistence']
-        else:
-            required_persistence = CORE_PARAMS['base_persistence']
+    # ENHANCED_FEATURES persistence (vectorized)
+    if ENHANCED_FEATURES:
+        persistence_needed = np.select(
+            [data[regime_col].str.contains('STRONG', na=False),
+            data[regime_col].str.contains('WEAK', na=False)],
+            [ENHANCED_PARAMS['strong_persistence'],
+            ENHANCED_PARAMS['weak_persistence']],
+            default=ENHANCED_PARAMS['between_persistence']
+        )
+    else:
+        persistence_needed = np.full(len(data), CORE_PARAMS['base_persistence'])
 
-        if new_regime == current_regime:
-            persistence_count += 1
-        else:
-            persistence_count = 1
+    # Apply persistence conditions
+    data[confirmed_col] = np.where(
+        persistence_needed == 1, data[regime_col],
+        np.where(
+            persistence_needed == 2, np.where(match1 & match2, data[regime_col], data[confirmed_col].shift(1)),
+            np.where(match1 & match2 & match3, data[regime_col], data[confirmed_col].shift(1))
+        )
+    )
 
-        if persistence_count >= required_persistence:
-            data.iloc[i, data.columns.get_loc(confirmed_col)] = new_regime
-            current_regime = new_regime
-        else:
-            data.iloc[i, data.columns.get_loc(confirmed_col)] = current_regime  # Stick to old
+    # Forward fill any NaNs (use newer pandas syntax)
+    data[confirmed_col] = data[confirmed_col].ffill()
 
-    # Backfill any initial NaNs
-    data[confirmed_col] = data[confirmed_col].ffill().bfill()
+    # Also backfill any remaining NaNs at the start
+    data[confirmed_col] = data[confirmed_col].bfill()
     
     return data
 
