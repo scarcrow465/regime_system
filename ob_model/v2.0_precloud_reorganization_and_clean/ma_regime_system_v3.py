@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 5000 # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v20.csv'  # Output CSV file name
-SCORING_FILE = 'regime_scoring_metrics_v20.csv'  # Scoring metrics output
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v21.csv'  # Output CSV file name
+SCORING_FILE = 'regime_scoring_metrics_v21.csv'  # Scoring metrics output
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -493,9 +493,7 @@ def calculate_scoring_metrics(data):
     
     # Get valid rows (where both systems have regimes)
     valid_mask = (data['Live_Confirmed_Regime'].notna() & 
-                  data['Perfect_Confirmed_Regime'].notna() &
-                  (data['Live_Confirmed_Regime'] != 'BETWEEN') |
-                  (data['Perfect_Confirmed_Regime'] != 'BETWEEN'))
+                  data['Perfect_Confirmed_Regime'].notna())
     
     valid_data = data[valid_mask].copy()
     
@@ -545,16 +543,12 @@ def calculate_scoring_metrics(data):
     metrics['Directional_Accuracy'] = direction_matches.sum() / len(valid_data) * 100
     
     # Timing lag analysis
-    # Find regime change points in perfect system
     perfect_changes = valid_data['Perfect_Confirmed_Regime'].ne(valid_data['Perfect_Confirmed_Regime'].shift())
     change_indices = valid_data.index[perfect_changes]
     
     lag_values = []
-    for change_idx in change_indices[1:]:  # Skip first change
-        # Get perfect regime at change
+    for change_idx in change_indices[1:]:
         perfect_regime = valid_data.loc[change_idx, 'Perfect_Confirmed_Regime']
-        
-        # Find when live system catches up (within next 20 bars)
         idx_pos = valid_data.index.get_loc(change_idx)
         for lag in range(0, min(20, len(valid_data) - idx_pos)):
             if idx_pos + lag < len(valid_data):
