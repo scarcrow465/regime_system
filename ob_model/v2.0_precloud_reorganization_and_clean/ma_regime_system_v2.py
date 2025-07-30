@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 20000  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v12_test.csv'  # Output CSV file name
-SCORING_FILE = 'regime_scoring_metrics_v12_test.csv'  # Scoring metrics output
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v13_test.csv'  # Output CSV file name
+SCORING_FILE = 'regime_scoring_metrics_v13_test.csv'  # Scoring metrics output
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -449,7 +449,7 @@ def classify_regime_excel_logic(data, row_idx, params):
         return 'BETWEEN'
 
 def validate_perfect_regime_with_future(data, row_idx, classified_regime):
-    """Validate perfect regime classification using dynamic future price movements"""
+    """Validate perfect regime classification using dynamic future price movements with conservative upgrade logic"""
     
     # DEBUG: Track validation decisions every 500 bars
     debug_this_bar = (row_idx % 500 == 0)
@@ -469,6 +469,13 @@ def validate_perfect_regime_with_future(data, row_idx, classified_regime):
     if pd.isna(weak_threshold):
         weak_threshold = 0.004
     
+    # Get current market conditions for upgrade validation
+    slope = data['SMA_13_Slope'].iloc[row_idx]
+    short_ma = data['SMA_5'].iloc[row_idx]
+    long_ma = data['SMA_13'].iloc[row_idx]
+    upper_threshold = data['Upper_Threshold'].iloc[row_idx]
+    lower_threshold = data['Lower_Threshold'].iloc[row_idx]
+    
     current_price = data['close'].iloc[row_idx]
     future_prices = data['close'].iloc[row_idx+1:row_idx+forward_check+1]
     
@@ -480,8 +487,9 @@ def validate_perfect_regime_with_future(data, row_idx, classified_regime):
         print(f"Bar {row_idx}: Classified as {classified_regime}")
         print(f"  Thresholds - Strong: {strong_threshold:.4f}, Weak: {weak_threshold:.4f}")
         print(f"  Actual moves - Up: {max_up_move:.4f}, Down: {max_down_move:.4f}")
+        print(f"  Market conditions - Slope: {slope:.6f}, Short MA vs Upper: {short_ma:.2f} vs {upper_threshold:.2f}")
     
-    # UPGRADE logic: Upgrade regimes when future moves confirm stronger regime
+    # CONSERVATIVE UPGRADE logic: Only upgrade if both future move AND current conditions support it
     if 'WEAK ABOVE' in classified_regime and max_up_move >= strong_threshold:
         if debug_this_bar:
             print(f"  UPGRADED: WEAK ABOVE -> STRONG ABOVE (move {max_up_move:.4f} >= {strong_threshold:.4f})")
@@ -492,35 +500,46 @@ def validate_perfect_regime_with_future(data, row_idx, classified_regime):
             print(f"  UPGRADED: WEAK BELOW -> STRONG BELOW (move {max_down_move:.4f} >= {strong_threshold:.4f})")
         return 'STRONG BELOW'
     
-    elif 'BETWEEN' in classified_regime:
-        # Upgrade BETWEEN to trending if significant move occurs
-        if max_up_move >= strong_threshold:
+    elif 'BETWEEN' in classified_regime or 'CONTRACTING BETWEEN' in classified_regime or 'EXPANDING BETWEEN' in classified_regime or 'TRANSITIONING' in classified_regime:
+        # CONSERVATIVE: Only upgrade BETWEEN if BOTH future move AND current market structure support it
+        if (max_up_move >= strong_threshold and 
+            slope > 0 and 
+            short_ma > upper_threshold):
             if debug_this_bar:
-                print(f"  UPGRADED: BETWEEN -> STRONG ABOVE (move {max_up_move:.4f} >= {strong_threshold:.4f})")
+                print(f"  CONSERVATIVE UPGRADE: {classified_regime} -> STRONG ABOVE (move {max_up_move:.4f} >= {strong_threshold:.4f} + bullish structure)")
             return 'STRONG ABOVE'
-        elif max_down_move >= strong_threshold:
+            
+        elif (max_down_move >= strong_threshold and 
+              slope < 0 and 
+              short_ma < lower_threshold):
             if debug_this_bar:
-                print(f"  UPGRADED: BETWEEN -> STRONG BELOW (move {max_down_move:.4f} >= {strong_threshold:.4f})")
+                print(f"  CONSERVATIVE UPGRADE: {classified_regime} -> STRONG BELOW (move {max_down_move:.4f} >= {strong_threshold:.4f} + bearish structure)")
             return 'STRONG BELOW'
-        elif max_up_move >= weak_threshold:
+            
+        elif (max_up_move >= weak_threshold and 
+              slope > 0 and 
+              short_ma > long_ma):
             if debug_this_bar:
-                print(f"  UPGRADED: BETWEEN -> WEAK ABOVE (move {max_up_move:.4f} >= {weak_threshold:.4f})")
+                print(f"  CONSERVATIVE UPGRADE: {classified_regime} -> WEAK ABOVE (move {max_up_move:.4f} >= {weak_threshold:.4f} + mild bullish structure)")
             return 'WEAK ABOVE'
-        elif max_down_move >= weak_threshold:
+            
+        elif (max_down_move >= weak_threshold and 
+              slope < 0 and 
+              short_ma < long_ma):
             if debug_this_bar:
-                print(f"  UPGRADED: BETWEEN -> WEAK BELOW (move {max_down_move:.4f} >= {weak_threshold:.4f})")
+                print(f"  CONSERVATIVE UPGRADE: {classified_regime} -> WEAK BELOW (move {max_down_move:.4f} >= {weak_threshold:.4f} + mild bearish structure)")
             return 'WEAK BELOW'
     
-    # DOWNGRADE logic: Only downgrade if move is significantly less than expected
-    elif 'STRONG ABOVE' in classified_regime and max_up_move < weak_threshold:
+    # DOWNGRADE logic: Downgrade STRONG regimes if they don't follow through
+    if 'STRONG ABOVE' in classified_regime and max_up_move < weak_threshold:
         if debug_this_bar:
-            print(f"  DOWNGRADED: STRONG ABOVE -> BETWEEN (move {max_up_move:.4f} < {weak_threshold:.4f})")
-        return 'BETWEEN'
+            print(f"  DOWNGRADED: STRONG ABOVE -> WEAK ABOVE (move {max_up_move:.4f} < {weak_threshold:.4f})")
+        return 'WEAK ABOVE'
     
     elif 'STRONG BELOW' in classified_regime and max_down_move < weak_threshold:
         if debug_this_bar:
-            print(f"  DOWNGRADED: STRONG BELOW -> BETWEEN (move {max_down_move:.4f} < {weak_threshold:.4f})")
-        return 'BETWEEN'
+            print(f"  DOWNGRADED: STRONG BELOW -> WEAK BELOW (move {max_down_move:.4f} < {weak_threshold:.4f})")
+        return 'WEAK BELOW'
     
     # If no changes needed, return original classification
     if debug_this_bar:
