@@ -595,55 +595,42 @@ def apply_regime_classification(data, use_perfect=False):
     return data
 
 def apply_transition_aware_persistence(data, regime_col, confirmed_col):
-    """Apply transition-aware persistence with variable requirements"""
+    """Apply transition-aware persistence with proper sequential state tracking"""
     
     data[confirmed_col] = data[regime_col].copy()
+    
+    # Initialize state
+    current_confirmed = None
+    persistence_count = 0
 
-    # Shift for previous regimes
-    # Check if this is already shifted data (for live system)
-    is_live_system = 'Live' in regime_col
-    if is_live_system:
-        # Data is already shifted, so use direct indexing
-        regime_shift1 = data[regime_col].shift(0)  # No additional shift
-        regime_shift2 = data[regime_col].shift(1)  # This becomes previous
-        regime_shift3 = data[regime_col].shift(2)  # This becomes 2 bars ago
-    else:
-        # Perfect system - use normal shifting
-        regime_shift1 = data[regime_col].shift(1)
-        regime_shift2 = data[regime_col].shift(2)
-        regime_shift3 = data[regime_col].shift(3)
+    for i in range(len(data)):
+        new_raw = data.iloc[i][regime_col]
+        if pd.isna(new_raw):
+            data.iloc[i, data.columns.get_loc(confirmed_col)] = current_confirmed
+            continue
 
-    # Create match masks
-    match1 = data[regime_col] == regime_shift1
-    match2 = data[regime_col] == regime_shift2
-    match3 = data[regime_col] == regime_shift3
+        if ENHANCED_FEATURES:
+            if 'STRONG' in new_raw:
+                required = ENHANCED_PARAMS['strong_persistence']
+            elif 'WEAK' in new_raw:
+                required = ENHANCED_PARAMS['weak_persistence']
+            else:
+                required = ENHANCED_PARAMS['between_persistence']
+        else:
+            required = CORE_PARAMS['base_persistence']
 
-    # ENHANCED_FEATURES persistence (vectorized)
-    if ENHANCED_FEATURES:
-        persistence_needed = np.select(
-            [data[regime_col].str.contains('STRONG', na=False),
-            data[regime_col].str.contains('WEAK', na=False)],
-            [ENHANCED_PARAMS['strong_persistence'],
-            ENHANCED_PARAMS['weak_persistence']],
-            default=ENHANCED_PARAMS['between_persistence']
-        )
-    else:
-        persistence_needed = np.full(len(data), CORE_PARAMS['base_persistence'])
+        if new_raw == current_confirmed:
+            persistence_count += 1
+        else:
+            persistence_count = 1
+            # For transitions, use the new regime's required persistence
 
-    # Apply persistence conditions
-    data[confirmed_col] = np.where(
-        persistence_needed == 1, data[regime_col],
-        np.where(
-            persistence_needed == 2, np.where(match1 & match2, data[regime_col], data[confirmed_col].shift(1)),
-            np.where(match1 & match2 & match3, data[regime_col], data[confirmed_col].shift(1))
-        )
-    )
+        if persistence_count >= required:
+            current_confirmed = new_raw
 
-    # Forward fill any NaNs (use newer pandas syntax)
-    data[confirmed_col] = data[confirmed_col].ffill()
+        data.iloc[i, data.columns.get_loc(confirmed_col)] = current_confirmed
 
-    # Also backfill any remaining NaNs at the start
-    data[confirmed_col] = data[confirmed_col].bfill()
+    data[confirmed_col] = data[confirmed_col].ffill().bfill()
     
     return data
 
