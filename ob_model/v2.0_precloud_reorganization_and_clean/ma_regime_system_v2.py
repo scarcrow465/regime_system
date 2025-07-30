@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = None # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v17.csv'  # Output CSV file name
-SCORING_FILE = 'regime_scoring_metrics_v17.csv'  # Scoring metrics output
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v16.csv'  # Output CSV file name
+SCORING_FILE = 'regime_scoring_metrics_v16.csv'  # Scoring metrics output
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -149,20 +149,18 @@ def calculate_helper_columns(data):
 
     # Calculate historical move percentiles for perfect system validation (VECTORIZED)
     move_lookback = PERFECT_PARAMS['move_lookback']
+    print("Calculating Dynamic Move Thresholds (vectorized)...")
 
-    # Calculate max moves for next 20 bars using CLOSE-TO-CLOSE only
-    print("Calculating Dynamic Move Thresholds (vectorized - close-to-close)...")
-
-    # Calculate future close prices for next 20 bars
-    print("  Step 1/4: Calculating future close prices...")
+    # Calculate max moves for next 20 bars for all rows at once
+    print("  Step 1/4: Calculating future highs/lows...")
     future_window = 20
-    data['Future_Close_High'] = data['close'].rolling(window=future_window, min_periods=1).max().shift(-future_window)
-    data['Future_Close_Low'] = data['close'].rolling(window=future_window, min_periods=1).min().shift(-future_window)
+    data['Future_High_20'] = data['high'].rolling(window=future_window, min_periods=1).max().shift(-future_window)
+    data['Future_Low_20'] = data['low'].rolling(window=future_window, min_periods=1).min().shift(-future_window)
 
-    # Calculate up and down moves (close-to-close)
-    print("  Step 2/4: Calculating future close-to-close moves...")
-    data['Future_Up_Move'] = (data['Future_Close_High'] - data['close']) / data['close']
-    data['Future_Down_Move'] = (data['close'] - data['Future_Close_Low']) / data['close']
+    # Calculate up and down moves
+    print("  Step 2/4: Calculating future moves...")
+    data['Future_Up_Move'] = (data['Future_High_20'] - data['close']) / data['close']
+    data['Future_Down_Move'] = (data['close'] - data['Future_Low_20']) / data['close']
     data['Max_Future_Move'] = data[['Future_Up_Move', 'Future_Down_Move']].max(axis=1)
 
     # Calculate rolling percentiles of historical moves
@@ -177,7 +175,7 @@ def calculate_helper_columns(data):
 
     # Clean up temporary columns
     print("  Step 4/4: Cleaning up...")
-    data.drop(['Future_Close_High', 'Future_Close_Low', 'Future_Up_Move', 'Future_Down_Move', 'Max_Future_Move'], axis=1, inplace=True)
+    data.drop(['Future_High_20', 'Future_Low_20', 'Future_Up_Move', 'Future_Down_Move', 'Max_Future_Move'], axis=1, inplace=True)
 
     # Debug print some values
     if len(data) > 1000:
@@ -595,42 +593,46 @@ def apply_regime_classification(data, use_perfect=False):
     return data
 
 def apply_transition_aware_persistence(data, regime_col, confirmed_col):
-    """Apply transition-aware persistence with proper sequential state tracking"""
+    """Apply transition-aware persistence with variable requirements"""
     
     data[confirmed_col] = data[regime_col].copy()
-    
-    # Initialize state
-    current_confirmed = None
-    persistence_count = 0
 
-    for i in range(len(data)):
-        new_raw = data.iloc[i][regime_col]
-        if pd.isna(new_raw):
-            data.iloc[i, data.columns.get_loc(confirmed_col)] = current_confirmed
-            continue
+    # Shift for previous regimes
+    regime_shift1 = data[regime_col].shift(1)
+    regime_shift2 = data[regime_col].shift(2)
+    regime_shift3 = data[regime_col].shift(3)
 
-        if ENHANCED_FEATURES:
-            if 'STRONG' in new_raw:
-                required = ENHANCED_PARAMS['strong_persistence']
-            elif 'WEAK' in new_raw:
-                required = ENHANCED_PARAMS['weak_persistence']
-            else:
-                required = ENHANCED_PARAMS['between_persistence']
-        else:
-            required = CORE_PARAMS['base_persistence']
+    # Create match masks
+    match1 = data[regime_col] == regime_shift1
+    match2 = data[regime_col] == regime_shift2
+    match3 = data[regime_col] == regime_shift3
 
-        if new_raw == current_confirmed:
-            persistence_count += 1
-        else:
-            persistence_count = 1
-            # For transitions, use the new regime's required persistence
+    # ENHANCED_FEATURES persistence (vectorized)
+    if ENHANCED_FEATURES:
+        persistence_needed = np.select(
+            [data[regime_col].str.contains('STRONG', na=False),
+            data[regime_col].str.contains('WEAK', na=False)],
+            [ENHANCED_PARAMS['strong_persistence'],
+            ENHANCED_PARAMS['weak_persistence']],
+            default=ENHANCED_PARAMS['between_persistence']
+        )
+    else:
+        persistence_needed = np.full(len(data), CORE_PARAMS['base_persistence'])
 
-        if persistence_count >= required:
-            current_confirmed = new_raw
+    # Apply persistence conditions
+    data[confirmed_col] = np.where(
+        persistence_needed == 1, data[regime_col],
+        np.where(
+            persistence_needed == 2, np.where(match1 & match2, data[regime_col], data[confirmed_col].shift(1)),
+            np.where(match1 & match2 & match3, data[regime_col], data[confirmed_col].shift(1))
+        )
+    )
 
-        data.iloc[i, data.columns.get_loc(confirmed_col)] = current_confirmed
+    # Forward fill any NaNs (use newer pandas syntax)
+    data[confirmed_col] = data[confirmed_col].ffill()
 
-    data[confirmed_col] = data[confirmed_col].ffill().bfill()
+    # Also backfill any remaining NaNs at the start
+    data[confirmed_col] = data[confirmed_col].bfill()
     
     return data
 
