@@ -12,10 +12,10 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Centralized parameters
-TEST_SLICE = 5000  # Number of rows to use from the end of the dataset (set to None for full dataset)
+TEST_SLICE = 20000  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v10_test.csv'  # Output CSV file name
-SCORING_FILE = 'regime_scoring_metrics_v10_test.csv'  # Scoring metrics output
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v11_test.csv'  # Output CSV file name
+SCORING_FILE = 'regime_scoring_metrics_v11_test.csv'  # Scoring metrics output
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
