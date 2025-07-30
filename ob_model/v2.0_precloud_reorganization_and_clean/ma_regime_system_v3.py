@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 5000 # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v19.csv'  # Output CSV file name
-SCORING_FILE = 'regime_scoring_metrics_v19.csv'  # Scoring metrics output
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v20.csv'  # Output CSV file name
+SCORING_FILE = 'regime_scoring_metrics_v20.csv'  # Scoring metrics output
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -320,9 +320,9 @@ def classify_regime_excel_logic(data, row_idx, params):
         if abs(short_ma - long_ma) <= params['transitioning_factor'] * dynamic_multiplier * atr_5:
             return 'TRANSITIONING'
         elif volatility_ratio > params['volatility_high_threshold']:
-            return 'EXPANDING'
+            return 'EXPANDING BETWEEN'
         elif volatility_ratio < params['volatility_low_threshold']:
-            return 'CONTRACTING'
+            return 'CONTRACTING BETWEEN'
     return 'BETWEEN'
 
 def validate_perfect_regime_with_future(data, row_idx, classified_regime):
