@@ -152,16 +152,19 @@ def calculate_helper_columns(data):
     print("Calculating Dynamic Move Thresholds (vectorized)...")
 
     # Calculate max moves for next 20 bars for all rows at once
+    print("  Step 1/4: Calculating future highs/lows...")
     future_window = 20
     data['Future_High_20'] = data['high'].rolling(window=future_window, min_periods=1).max().shift(-future_window)
     data['Future_Low_20'] = data['low'].rolling(window=future_window, min_periods=1).min().shift(-future_window)
 
     # Calculate up and down moves
+    print("  Step 2/4: Calculating future moves...")
     data['Future_Up_Move'] = (data['Future_High_20'] - data['close']) / data['close']
     data['Future_Down_Move'] = (data['close'] - data['Future_Low_20']) / data['close']
     data['Max_Future_Move'] = data[['Future_Up_Move', 'Future_Down_Move']].max(axis=1)
 
     # Calculate rolling percentiles of historical moves
+    print(f"  Step 3/4: Calculating rolling percentiles (lookback={move_lookback})...")
     data['Dynamic_Strong_Move_Threshold'] = data['Max_Future_Move'].rolling(
         window=move_lookback, min_periods=100
     ).quantile(PERFECT_PARAMS['strong_move_percentile'])
@@ -171,11 +174,13 @@ def calculate_helper_columns(data):
     ).quantile(PERFECT_PARAMS['weak_move_percentile'])
 
     # Clean up temporary columns
+    print("  Step 4/4: Cleaning up...")
     data.drop(['Future_High_20', 'Future_Low_20', 'Future_Up_Move', 'Future_Down_Move', 'Max_Future_Move'], axis=1, inplace=True)
 
     # Debug print some values
     if len(data) > 1000:
-        print(f"Sample thresholds at row 1000: Strong={data['Dynamic_Strong_Move_Threshold'].iloc[1000]:.4f}, Weak={data['Dynamic_Weak_Move_Threshold'].iloc[1000]:.4f}")
+        print(f"  Complete! Sample thresholds at row 1000: Strong={data['Dynamic_Strong_Move_Threshold'].iloc[1000]:.4f}, Weak={data['Dynamic_Weak_Move_Threshold'].iloc[1000]:.4f}")
+    print("Dynamic Move Thresholds calculation finished!")
     
     # Initialize dynamic threshold columns (for live system)
     data['Dynamic_Bull_Weak'] = np.nan
