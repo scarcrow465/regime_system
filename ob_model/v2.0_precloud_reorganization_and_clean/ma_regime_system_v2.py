@@ -160,8 +160,16 @@ def calculate_helper_columns(data):
             
             if len(historical_moves) >= 100:
                 moves_series = pd.Series(historical_moves)
-                data.loc[data.index[i], 'Dynamic_Strong_Move_Threshold'] = moves_series.quantile(PERFECT_PARAMS['strong_move_percentile'])
-                data.loc[data.index[i], 'Dynamic_Weak_Move_Threshold'] = moves_series.quantile(PERFECT_PARAMS['weak_move_percentile'])
+                strong_thresh = moves_series.quantile(PERFECT_PARAMS['strong_move_percentile'])
+                weak_thresh = moves_series.quantile(PERFECT_PARAMS['weak_move_percentile'])
+                
+                data.loc[data.index[i], 'Dynamic_Strong_Move_Threshold'] = strong_thresh
+                data.loc[data.index[i], 'Dynamic_Weak_Move_Threshold'] = weak_thresh
+                
+                # Debug: Print sample thresholds every 1000 bars
+                if i % 1000 == 0:
+                    print(f"Bar {i}: Strong threshold: {strong_thresh:.4f} ({strong_thresh*100:.2f}%), Weak threshold: {weak_thresh:.4f} ({weak_thresh*100:.2f}%)")
+                    print(f"  Sample moves: min={min(historical_moves):.4f}, max={max(historical_moves):.4f}, mean={np.mean(historical_moves):.4f}")
     
     # Initialize dynamic threshold columns (for live system)
     data['Dynamic_Bull_Weak'] = np.nan
@@ -437,6 +445,9 @@ def classify_regime_excel_logic(data, row_idx, params):
 def validate_perfect_regime_with_future(data, row_idx, classified_regime):
     """Validate perfect regime classification using dynamic future price movements"""
     
+    # DEBUG: Track validation decisions every 500 bars
+    debug_this_bar = (row_idx % 500 == 0)
+    
     # Check if we have enough future data
     forward_check = min(50, len(data) - row_idx - 1)
     if forward_check < 10:
@@ -458,6 +469,11 @@ def validate_perfect_regime_with_future(data, row_idx, classified_regime):
     # Calculate actual future movement
     max_up_move = (future_prices.max() - current_price) / current_price
     max_down_move = (current_price - future_prices.min()) / current_price
+    
+    if debug_this_bar:
+        print(f"Bar {row_idx}: Classified as {classified_regime}")
+        print(f"  Thresholds - Strong: {strong_threshold:.4f}, Weak: {weak_threshold:.4f}")
+        print(f"  Actual moves - Up: {max_up_move:.4f}, Down: {max_down_move:.4f}")
     
     # Validate STRONG regimes using dynamic thresholds
     if 'STRONG ABOVE' in classified_regime:
@@ -760,6 +776,45 @@ def main():
     
     data[output_columns].to_csv(OUTPUT_FILE, index=False)
     print(f"\nExported labeled data to {OUTPUT_FILE}")
+
+    # DEBUG: Analyze threshold differences
+    print("\n" + "="*60)
+    print("DEBUG ANALYSIS")
+    print("="*60)
+
+    # Volatility comparison
+    valid_data = data.dropna(subset=['Volatility_Ratio', 'Up_Volatility_Ratio', 'Down_Volatility_Ratio'])
+    if len(valid_data) > 0:
+        print(f"\nVolatility Ratio Comparison:")
+        print(f"  Regular Volatility - Mean: {valid_data['Volatility_Ratio'].mean():.3f}, Std: {valid_data['Volatility_Ratio'].std():.3f}")
+        print(f"  Up Volatility - Mean: {valid_data['Up_Volatility_Ratio'].mean():.3f}, Std: {valid_data['Up_Volatility_Ratio'].std():.3f}")
+        print(f"  Down Volatility - Mean: {valid_data['Down_Volatility_Ratio'].mean():.3f}, Std: {valid_data['Down_Volatility_Ratio'].std():.3f}")
+
+    # Move threshold analysis
+    move_data = data.dropna(subset=['Dynamic_Strong_Move_Threshold', 'Dynamic_Weak_Move_Threshold'])
+    if len(move_data) > 0:
+        print(f"\nMove Threshold Analysis:")
+        print(f"  Strong Move Threshold - Mean: {move_data['Dynamic_Strong_Move_Threshold'].mean():.4f} ({move_data['Dynamic_Strong_Move_Threshold'].mean()*100:.2f}%)")
+        print(f"  Weak Move Threshold - Mean: {move_data['Dynamic_Weak_Move_Threshold'].mean():.4f} ({move_data['Dynamic_Weak_Move_Threshold'].mean()*100:.2f}%)")
+        print(f"  Strong Move Threshold - Range: {move_data['Dynamic_Strong_Move_Threshold'].min():.4f} to {move_data['Dynamic_Strong_Move_Threshold'].max():.4f}")
+
+    # Compare thresholds used in classification
+    bull_thresh_data = data.dropna(subset=['Dynamic_Vol_High_Bull', 'Dynamic_Vol_High_Bear'])
+    if len(bull_thresh_data) > 0:
+        print(f"\nDirectional Volatility Thresholds:")
+        print(f"  Bull High Volatility Threshold - Mean: {bull_thresh_data['Dynamic_Vol_High_Bull'].mean():.3f}")
+        print(f"  Bear High Volatility Threshold - Mean: {bull_thresh_data['Dynamic_Vol_High_Bear'].mean():.3f}")
+        print(f"  Regular High Volatility Threshold - Mean: {bull_thresh_data['Dynamic_Vol_High'].mean():.3f}")
+
+    # Check how often directional volatility conditions are met
+    bull_vol_met = (valid_data['Up_Volatility_Ratio'] > 0.5).sum()
+    bear_vol_met = (valid_data['Down_Volatility_Ratio'] > 0.5).sum()
+    total_bars = len(valid_data)
+
+    print(f"\nDirectional Volatility Condition Analysis:")
+    print(f"  Bars with Up_Volatility > 0.5: {bull_vol_met} ({bull_vol_met/total_bars*100:.2f}%)")
+    print(f"  Bars with Down_Volatility > 0.5: {bear_vol_met} ({bear_vol_met/total_bars*100:.2f}%)")
+    print(f"  Bars with Regular_Volatility > 0.5: {(valid_data['Volatility_Ratio'] > 0.5).sum()} ({(valid_data['Volatility_Ratio'] > 0.5).sum()/total_bars*100:.2f}%)")
 
     # Print regime distribution comparison
     print("\n" + "="*60)
