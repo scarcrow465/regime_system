@@ -447,22 +447,27 @@ def apply_regime_classification(data, use_perfect=False):
     return data
 
 def apply_transition_aware_persistence(data, regime_col, confirmed_col):
+    """Apply transition-aware persistence with variable requirements"""
+    
     data[confirmed_col] = data[regime_col].copy()
     is_live_data = 'Live' in regime_col
     
+    # Use correct shifts: For live, account for 1-bar shift in main()
     if is_live_data:
-        regime_shift1 = data[regime_col]
-        regime_shift2 = data[regime_col].shift(1)
-        regime_shift3 = data[regime_col].shift(2)
+        regime_shift1 = data[regime_col].shift(1)  # Previous raw regime
+        regime_shift2 = data[regime_col].shift(2)  # 2 bars ago
+        regime_shift3 = data[regime_col].shift(3)  # 3 bars ago
     else:
         regime_shift1 = data[regime_col].shift(1)
         regime_shift2 = data[regime_col].shift(2)
         regime_shift3 = data[regime_col].shift(3)
     
+    # Create match masks
     match1 = data[regime_col] == regime_shift1
     match2 = data[regime_col] == regime_shift2
     match3 = data[regime_col] == regime_shift3
     
+    # Persistence requirements
     if ENHANCED_FEATURES:
         persistence_needed = np.select(
             [data[regime_col].str.contains('STRONG', na=False),
@@ -474,14 +479,16 @@ def apply_transition_aware_persistence(data, regime_col, confirmed_col):
     else:
         persistence_needed = np.full(len(data), CORE_PARAMS['base_persistence'])
     
+    # Apply persistence: Use full requirement
     data[confirmed_col] = np.where(
         persistence_needed == 1, data[regime_col],
         np.where(
-            persistence_needed == 2, np.where(match1 & match2, data[regime_col], data[confirmed_col].shift(1)),
-            np.where(match1 & match2 & match3, data[regime_col], data[confirmed_col].shift(1))
+            persistence_needed == 2, np.where(match1, data[regime_col], data[confirmed_col].shift(1)),
+            np.where(match1 & match2, data[regime_col], data[confirmed_col].shift(1))
         )
     )
     
+    # Fill NaNs
     data[confirmed_col] = data[confirmed_col].ffill().bfill()
     
     return data
