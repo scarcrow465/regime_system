@@ -623,8 +623,11 @@ def apply_transition_aware_persistence(data, regime_col, confirmed_col):
         )
     )
 
-    # Forward fill any NaNs
-    data[confirmed_col] = data[confirmed_col].fillna(method='ffill')
+    # Forward fill any NaNs (use newer pandas syntax)
+    data[confirmed_col] = data[confirmed_col].ffill()
+
+    # Also backfill any remaining NaNs at the start
+    data[confirmed_col] = data[confirmed_col].bfill()
     
     return data
 
@@ -671,6 +674,8 @@ def calculate_scoring_metrics(data):
     
     # Directional accuracy (bullish vs bearish vs neutral)
     def get_direction(regime):
+        if pd.isna(regime) or regime is None:
+            return 'NEUTRAL'
         if 'ABOVE' in regime:
             return 'BULLISH'
         elif 'BELOW' in regime:
