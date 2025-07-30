@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 20000  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v11_test.csv'  # Output CSV file name
-SCORING_FILE = 'regime_scoring_metrics_v11_test.csv'  # Scoring metrics output
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v12_test.csv'  # Output CSV file name
+SCORING_FILE = 'regime_scoring_metrics_v12_test.csv'  # Scoring metrics output
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -102,15 +102,21 @@ def calculate_helper_columns(data):
     # Volatility ratio R56/S56
     data['Volatility_Ratio'] = data['ATR_5'] / data['ATR_50']
 
-    # Calculate directional True Range for up/down moves
-    data['Up_Move'] = np.where(data['close'] > data['close'].shift(1), 
-                            data['close'] - data['close'].shift(1), 0)
-    data['Down_Move'] = np.where(data['close'] < data['close'].shift(1), 
-                                data['close'].shift(1) - data['close'], 0)
+    # Calculate directional True Range for up/down CANDLES (not just moves)
+    data['Up_Candle'] = data['close'] > data['close'].shift(1)
+    data['Down_Candle'] = data['close'] < data['close'].shift(1)
 
-    # Directional ATR (5-period)
-    data['Up_ATR_5'] = data['Up_Move'].rolling(window=CORE_PARAMS['short_atr_period']).mean()
-    data['Down_ATR_5'] = data['Down_Move'].rolling(window=CORE_PARAMS['short_atr_period']).mean()
+    # Calculate True Range for up and down candles separately
+    data['Up_TR'] = np.where(data['Up_Candle'], data['TR'], 0)
+    data['Down_TR'] = np.where(data['Down_Candle'], data['TR'], 0)
+
+    # Directional ATR (5-period) - average TR during up/down candles
+    data['Up_ATR_5'] = data['Up_TR'].rolling(window=CORE_PARAMS['short_atr_period']).sum() / data['Up_Candle'].rolling(window=CORE_PARAMS['short_atr_period']).sum()
+    data['Down_ATR_5'] = data['Down_TR'].rolling(window=CORE_PARAMS['short_atr_period']).sum() / data['Down_Candle'].rolling(window=CORE_PARAMS['short_atr_period']).sum()
+
+    # Handle division by zero (when no up or down candles in window)
+    data['Up_ATR_5'] = data['Up_ATR_5'].fillna(data['ATR_5'])
+    data['Down_ATR_5'] = data['Down_ATR_5'].fillna(data['ATR_5'])
 
     # Directional volatility ratios
     data['Up_Volatility_Ratio'] = data['Up_ATR_5'] / data['ATR_50']
@@ -459,9 +465,9 @@ def validate_perfect_regime_with_future(data, row_idx, classified_regime):
     
     # Use fallback if dynamic thresholds not available
     if pd.isna(strong_threshold):
-        strong_threshold = 0.005
+        strong_threshold = 0.008
     if pd.isna(weak_threshold):
-        weak_threshold = 0.002
+        weak_threshold = 0.004
     
     current_price = data['close'].iloc[row_idx]
     future_prices = data['close'].iloc[row_idx+1:row_idx+forward_check+1]
@@ -475,25 +481,50 @@ def validate_perfect_regime_with_future(data, row_idx, classified_regime):
         print(f"  Thresholds - Strong: {strong_threshold:.4f}, Weak: {weak_threshold:.4f}")
         print(f"  Actual moves - Up: {max_up_move:.4f}, Down: {max_down_move:.4f}")
     
-    # Validate STRONG regimes using dynamic thresholds
-    if 'STRONG ABOVE' in classified_regime:
-        if max_up_move < strong_threshold:
-            # Downgrade if future move doesn't confirm
-            return 'WEAK ABOVE' if max_up_move >= weak_threshold else 'BETWEEN'
+    # UPGRADE logic: Upgrade regimes when future moves confirm stronger regime
+    if 'WEAK ABOVE' in classified_regime and max_up_move >= strong_threshold:
+        if debug_this_bar:
+            print(f"  UPGRADED: WEAK ABOVE -> STRONG ABOVE (move {max_up_move:.4f} >= {strong_threshold:.4f})")
+        return 'STRONG ABOVE'
     
-    elif 'STRONG BELOW' in classified_regime:
-        if max_down_move < strong_threshold:
-            # Downgrade if future move doesn't confirm
-            return 'WEAK BELOW' if max_down_move >= weak_threshold else 'BETWEEN'
+    elif 'WEAK BELOW' in classified_regime and max_down_move >= strong_threshold:
+        if debug_this_bar:
+            print(f"  UPGRADED: WEAK BELOW -> STRONG BELOW (move {max_down_move:.4f} >= {strong_threshold:.4f})")
+        return 'STRONG BELOW'
     
-    # Validate WEAK regimes using dynamic thresholds
-    elif 'WEAK ABOVE' in classified_regime:
-        if max_up_move < weak_threshold:
-            return 'BETWEEN'
+    elif 'BETWEEN' in classified_regime:
+        # Upgrade BETWEEN to trending if significant move occurs
+        if max_up_move >= strong_threshold:
+            if debug_this_bar:
+                print(f"  UPGRADED: BETWEEN -> STRONG ABOVE (move {max_up_move:.4f} >= {strong_threshold:.4f})")
+            return 'STRONG ABOVE'
+        elif max_down_move >= strong_threshold:
+            if debug_this_bar:
+                print(f"  UPGRADED: BETWEEN -> STRONG BELOW (move {max_down_move:.4f} >= {strong_threshold:.4f})")
+            return 'STRONG BELOW'
+        elif max_up_move >= weak_threshold:
+            if debug_this_bar:
+                print(f"  UPGRADED: BETWEEN -> WEAK ABOVE (move {max_up_move:.4f} >= {weak_threshold:.4f})")
+            return 'WEAK ABOVE'
+        elif max_down_move >= weak_threshold:
+            if debug_this_bar:
+                print(f"  UPGRADED: BETWEEN -> WEAK BELOW (move {max_down_move:.4f} >= {weak_threshold:.4f})")
+            return 'WEAK BELOW'
     
-    elif 'WEAK BELOW' in classified_regime:
-        if max_down_move < weak_threshold:
-            return 'BETWEEN'
+    # DOWNGRADE logic: Only downgrade if move is significantly less than expected
+    elif 'STRONG ABOVE' in classified_regime and max_up_move < weak_threshold:
+        if debug_this_bar:
+            print(f"  DOWNGRADED: STRONG ABOVE -> BETWEEN (move {max_up_move:.4f} < {weak_threshold:.4f})")
+        return 'BETWEEN'
+    
+    elif 'STRONG BELOW' in classified_regime and max_down_move < weak_threshold:
+        if debug_this_bar:
+            print(f"  DOWNGRADED: STRONG BELOW -> BETWEEN (move {max_down_move:.4f} < {weak_threshold:.4f})")
+        return 'BETWEEN'
+    
+    # If no changes needed, return original classification
+    if debug_this_bar:
+        print(f"  NO CHANGE: Regime stays {classified_regime}")
     
     return classified_regime
 
