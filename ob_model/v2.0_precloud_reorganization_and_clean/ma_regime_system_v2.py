@@ -12,7 +12,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Centralized parameters
-TEST_SLICE = 20000  # Number of rows to use from the end of the dataset (set to None for full dataset)
+TEST_SLICE = None  # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
 OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v15.csv'  # Output CSV file name
 SCORING_FILE = 'regime_scoring_metrics_v15.csv'  # Scoring metrics output
