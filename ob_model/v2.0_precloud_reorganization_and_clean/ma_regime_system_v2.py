@@ -27,20 +27,20 @@ CORE_PARAMS = {
     'long_ma_period': 13,     # M56 - 13-period SMA
     'short_atr_period': 5,    # R56 - 5-period ATR
     'long_atr_period': 50,    # S56 - 50-period ATR for volatility ratio
-    'base_slope_lookback': 400,          # Base lookback for dynamic slope thresholds
-    'bull_weak_percentile': 0.50,        # 65th percentile for bull weak
-    'bull_strong_percentile': 0.75,      # 85th percentile for bull strong
-    'bear_weak_percentile': 0.25,        # 35th percentile for bear weak (inverted)
+    'base_slope_lookback': 300,          # Base lookback for dynamic slope thresholds
+    'bull_weak_percentile': 0.65,        # 65th percentile for bull weak
+    'bull_strong_percentile': 0.85,      # 85th percentile for bull strong
+    'bear_weak_percentile': 0.35,        # 35th percentile for bear weak (inverted)
     'bear_strong_percentile': 0.15,      # 15th percentile for bear strong (inverted)
     'volatility_lookback': 100,          # Lookback for dynamic volatility thresholds
     'volatility_filter_min': 0.7,        # Min volatility for "normal" periods
     'volatility_filter_max': 1.3,        # Max volatility for "normal" periods
     'volatility_low_percentile': 0.25,        # 25th percentile for low volatility (general)
-    'volatility_high_percentile': 0.85,       # 75th percentile for high volatility (general)
-    'volatility_high_bull_percentile': 0.70,  # Lower threshold for bull STRONG moves
-    'volatility_high_bear_percentile': 0.85,  # Higher threshold for bear STRONG moves
-    'volatility_low_bull_percentile': 0.30,   # Bull-specific low volatility threshold
-    'volatility_low_bear_percentile': 0.20,   # Bear-specific low volatility threshold
+    'volatility_high_percentile': 0.75,       # 75th percentile for high volatility (general)
+    'volatility_high_bull_percentile': 0.75,  # Lower threshold for bull STRONG moves
+    'volatility_high_bear_percentile': 0.75,  # Higher threshold for bear STRONG moves
+    'volatility_low_bull_percentile': 0.25,   # Bull-specific low volatility threshold
+    'volatility_low_bear_percentile': 0.25,   # Bear-specific low volatility threshold
     'transitioning_factor': 0.5,         # Factor for transitioning threshold
     'base_persistence': 2                # Base persistence requirement
 }
