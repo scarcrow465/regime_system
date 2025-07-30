@@ -598,9 +598,18 @@ def apply_transition_aware_persistence(data, regime_col, confirmed_col):
     data[confirmed_col] = data[regime_col].copy()
 
     # Shift for previous regimes
-    regime_shift1 = data[regime_col].shift(1)
-    regime_shift2 = data[regime_col].shift(2)
-    regime_shift3 = data[regime_col].shift(3)
+    # Check if this is already shifted data (for live system)
+    is_live_system = 'Live' in regime_col
+    if is_live_system:
+        # Data is already shifted, so use direct indexing
+        regime_shift1 = data[regime_col].shift(0)  # No additional shift
+        regime_shift2 = data[regime_col].shift(1)  # This becomes previous
+        regime_shift3 = data[regime_col].shift(2)  # This becomes 2 bars ago
+    else:
+        # Perfect system - use normal shifting
+        regime_shift1 = data[regime_col].shift(1)
+        regime_shift2 = data[regime_col].shift(2)
+        regime_shift3 = data[regime_col].shift(3)
 
     # Create match masks
     match1 = data[regime_col] == regime_shift1
