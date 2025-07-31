@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 5000
 DATA_FILE = 'combined_NQ_15m_data.csv'
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v36_test.csv'
-SCORING_FILE = 'regime_scoring_metrics_v36_test.csv'
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v37_test.csv'
+SCORING_FILE = 'regime_scoring_metrics_v37_test.csv'
 TIMEFRAME = '15min'
 
 ENHANCED_FEATURES = True
@@ -50,8 +50,8 @@ ENHANCED_PARAMS = {
     'weak_persistence': 2,
     'between_persistence': 3,
     'session_adaptation': False,
-    'between_scale_sensitivity': 1.0,
-    'volatility_scale_factor': 1.0
+    'between_scale_sensitivity': 2.0,
+    'volatility_scale_factor': 2.0
 }
 
 PERFECT_PARAMS = {
@@ -259,24 +259,24 @@ def classify_regime_excel_logic(data, row_idx, params):
     abs_slope = abs(slope)
     max_strong = max(params['bull_strong_threshold'], abs(params['bear_strong_threshold']))
     
-    # Slope-based scaling: Nonexistent (0) in steep slopes, grows in flat slopes
-    between_scale_factor = max(0, min(1, 1 - (abs_slope / max_strong))) if max_strong > 0 else 1
+    # Slope-based scaling: Near-zero in steep slopes, larger in flat slopes
+    between_scale_factor = max(0, min(1, 1 - (abs_slope / max_strong) ** ENHANCED_PARAMS['between_scale_sensitivity'])) if max_strong > 0 else 1
     
-    # Volatility adjustment: Wider in high vol, narrower in low vol
-    vol_factor = min(1.5, max(0.5, volatility_ratio / params['volatility_high_threshold']))
+    # Volatility adjustment: Narrower in low vol, wider in high vol
+    vol_factor = min(2.0, max(0.2, volatility_ratio / params['volatility_high_threshold'] * ENHANCED_PARAMS['volatility_scale_factor']))
     
     effective_bull_weak = params['bull_weak_threshold'] * between_scale_factor * vol_factor
     effective_bear_weak = params['bear_weak_threshold'] * between_scale_factor * vol_factor
     
-    if (slope > params['bull_strong_threshold'] and short_ma > upper_threshold and up_volatility_ratio > params['volatility_high_bull_threshold']):
+    if slope > params['bull_strong_threshold'] and short_ma > upper_threshold and up_volatility_ratio > params['volatility_high_bull_threshold']:
         return 'STRONG ABOVE'
-    elif (slope > params['bull_weak_threshold'] and short_ma > upper_threshold):
+    elif slope > params['bull_weak_threshold'] and short_ma > upper_threshold:
         return 'WEAK ABOVE'
-    elif (slope < -params['bear_strong_threshold'] and short_ma < lower_threshold and down_volatility_ratio > params['volatility_high_bear_threshold']):
+    elif slope < -params['bear_strong_threshold'] and short_ma < lower_threshold and down_volatility_ratio > params['volatility_high_bear_threshold']:
         return 'STRONG BELOW'
-    elif (slope < -params['bear_weak_threshold'] and short_ma < lower_threshold):
+    elif slope < -params['bear_weak_threshold'] and short_ma < lower_threshold:
         return 'WEAK BELOW'
-    elif (abs(slope) <= effective_bull_weak):
+    elif abs(slope) <= effective_bull_weak:
         if abs(short_ma - long_ma) <= params['transitioning_factor'] * dynamic_multiplier * atr_5:
             return 'TRANSITIONING'
         elif volatility_ratio > params['volatility_high_threshold']:
