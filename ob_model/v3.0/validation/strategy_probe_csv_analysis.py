@@ -6,9 +6,13 @@
 
 import pandas as pd
 import numpy as np
+import sys
+import os
+BASE_DIR = r"C:\Users\rs\GitProjects\regime_system\ob_model\v3.0"  # Hardcode if not importing settings yet
+sys.path.append(BASE_DIR)
 
 # Load the CSV data
-df = pd.read_csv('20250722_140152_enhanced_strategy_probe_results.csv')
+df = pd.read_csv('exports\csv\20250722_140152_enhanced_strategy_probe_results.csv')
 
 print("=== REGIME DISTRIBUTION ANALYSIS ===")
 print(f"\nTotal regime-strategy combinations: {len(df)}")
