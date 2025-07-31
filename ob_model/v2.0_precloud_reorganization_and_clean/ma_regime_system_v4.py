@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 5000
 DATA_FILE = 'combined_NQ_15m_data.csv'
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v32_test.csv'
-SCORING_FILE = 'regime_scoring_metrics_v32_test.csv'
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v33_test.csv'
+SCORING_FILE = 'regime_scoring_metrics_v33_test.csv'
 TIMEFRAME = '15min'
 
 ENHANCED_FEATURES = True
@@ -94,7 +94,6 @@ def calculate_helper_columns(data):
     data['Upper_Threshold'] = data['SMA_13'] + data['Dynamic_Multiplier'] * data['ATR_5']
     data['Lower_Threshold'] = data['SMA_13'] - data['Dynamic_Multiplier'] * data['ATR_5']
     
-    # Perfect indicators: No shift, computed per bar in classification loop
     vol_regime_factor = data['Volatility_Ratio'].rolling(window=50).mean()
     base_lookback = CORE_PARAMS['base_slope_lookback']
     data['Adaptive_Slope_Lookback'] = np.where(
