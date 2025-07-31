@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 5000
 DATA_FILE = 'combined_NQ_15m_data.csv'
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v30_test.csv'
-SCORING_FILE = 'regime_scoring_metrics_v30_test.csv'
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v32_test.csv'
+SCORING_FILE = 'regime_scoring_metrics_v32_test.csv'
 TIMEFRAME = '15min'
 
 ENHANCED_FEATURES = True
@@ -94,18 +94,7 @@ def calculate_helper_columns(data):
     data['Upper_Threshold'] = data['SMA_13'] + data['Dynamic_Multiplier'] * data['ATR_5']
     data['Lower_Threshold'] = data['SMA_13'] - data['Dynamic_Multiplier'] * data['ATR_5']
     
-    # Perfect indicators: Future data for 20-bar window
-    data['Perfect_SMA_5'] = np.nan
-    data['Perfect_SMA_13'] = np.nan
-    data['Perfect_SMA_13_Slope'] = np.nan
-    data['Perfect_ATR_5'] = np.nan
-    data['Perfect_Volatility_Ratio'] = np.nan
-    data['Perfect_Up_Volatility_Ratio'] = np.nan
-    data['Perfect_Down_Volatility_Ratio'] = np.nan
-    data['Perfect_Dynamic_Multiplier'] = np.nan
-    data['Perfect_Upper_Threshold'] = np.nan
-    data['Perfect_Lower_Threshold'] = np.nan
-    
+    # Perfect indicators: No shift, computed per bar in classification loop
     vol_regime_factor = data['Volatility_Ratio'].rolling(window=50).mean()
     base_lookback = CORE_PARAMS['base_slope_lookback']
     data['Adaptive_Slope_Lookback'] = np.where(
@@ -203,42 +192,6 @@ def calculate_helper_columns(data):
     for col in ['Bull_Weak', 'Bull_Strong', 'Bear_Weak', 'Bear_Strong', 'Vol_Low', 'Vol_High', 'Vol_High_Bull', 'Vol_High_Bear', 'Vol_Low_Bull', 'Vol_Low_Bear']:
         data[f'Perfect_{col}'] = data[f'Dynamic_{col}']
     
-    # Calculate perfect indicators for each bar using future window
-    # The key change: store the perfect indicators at the END of the lookahead window, not the beginning
-    perfect_lookahead = 20  # How far ahead the perfect system looks
-    
-    for i in tqdm(range(len(data) - perfect_lookahead), desc="Calculating Perfect Indicators", ncols=80):
-        future_window = data.iloc[i:i+perfect_lookahead]
-        target_idx = i + perfect_lookahead - 1  # Store at the end of the window
-        
-        # Calculate indicators using the future window
-        sma_5 = future_window['close'].rolling(window=CORE_PARAMS['short_ma_period']).mean().iloc[-1]
-        sma_13 = future_window['close'].rolling(window=CORE_PARAMS['long_ma_period']).mean().iloc[-1]
-        
-        # Store at the target index (future bar)
-        data.loc[data.index[target_idx], 'Perfect_SMA_5'] = sma_5
-        data.loc[data.index[target_idx], 'Perfect_SMA_13'] = sma_13
-        
-        # Calculate slope if possible
-        if target_idx > perfect_lookahead:
-            prev_sma_13 = data.loc[data.index[target_idx-1], 'Perfect_SMA_13']
-            if pd.notna(prev_sma_13) and prev_sma_13 != 0:
-                data.loc[data.index[target_idx], 'Perfect_SMA_13_Slope'] = sma_13 / prev_sma_13 - 1
-        
-        data.loc[data.index[target_idx], 'Perfect_ATR_5'] = future_window['TR'].rolling(window=CORE_PARAMS['short_atr_period']).mean().iloc[-1]
-        data.loc[data.index[target_idx], 'Perfect_Volatility_Ratio'] = data.loc[data.index[target_idx], 'Perfect_ATR_5'] / future_window['ATR_50'].iloc[-1]
-        data.loc[data.index[target_idx], 'Perfect_Up_Volatility_Ratio'] = future_window['Up_Volatility_Ratio'].iloc[-1]
-        data.loc[data.index[target_idx], 'Perfect_Down_Volatility_Ratio'] = future_window['Down_Volatility_Ratio'].iloc[-1]
-        
-        perfect_slope = data.loc[data.index[target_idx], 'Perfect_SMA_13_Slope']
-        if pd.notna(perfect_slope):
-            data.loc[data.index[target_idx], 'Perfect_Dynamic_Multiplier'] = 0.15 + 0.2 / (1 + 10000 * np.abs(perfect_slope))
-        else:
-            data.loc[data.index[target_idx], 'Perfect_Dynamic_Multiplier'] = 0.15
-            
-        data.loc[data.index[target_idx], 'Perfect_Upper_Threshold'] = data.loc[data.index[target_idx], 'Perfect_SMA_13'] + data.loc[data.index[target_idx], 'Perfect_Dynamic_Multiplier'] * data.loc[data.index[target_idx], 'Perfect_ATR_5']
-        data.loc[data.index[target_idx], 'Perfect_Lower_Threshold'] = data.loc[data.index[target_idx], 'Perfect_SMA_13'] - data.loc[data.index[target_idx], 'Perfect_Dynamic_Multiplier'] * data.loc[data.index[target_idx], 'Perfect_ATR_5']
-    
     return data
 
 def get_adaptive_thresholds(data, row_idx, use_perfect=False):
@@ -332,14 +285,11 @@ def apply_regime_classification(data, use_perfect=False):
     regime_col = 'Perfect_Raw_Regime' if use_perfect else 'Live_Raw_Regime'
     data[regime_col] = 'BETWEEN'
     desc = "Classifying Perfect Regimes" if use_perfect else "Classifying Live Regimes"
-    
-    # For perfect system, start from where we have perfect indicators
-    start_idx = 20 if use_perfect else CORE_PARAMS['long_ma_period']
-    
-    for i in tqdm(range(start_idx, len(data)), desc=desc, ncols=80):
-        params = get_adaptive_thresholds(data, i, use_perfect)
-        regime = classify_regime_excel_logic(data, i, params, use_perfect)
-        data.loc[data.index[i], regime_col] = regime
+    for i in tqdm(range(len(data)), desc=desc, ncols=80):
+        if i >= CORE_PARAMS['long_ma_period'] and (not use_perfect or i + 20 < len(data)):
+            params = get_adaptive_thresholds(data, i, use_perfect)
+            regime = classify_regime_excel_logic(data, i, params, use_perfect)
+            data.loc[data.index[i], regime_col] = regime
     return data
 
 def apply_transition_aware_persistence(data, regime_col, confirmed_col):
