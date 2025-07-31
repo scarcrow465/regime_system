@@ -47,11 +47,11 @@ ENHANCED_PARAMS = {
     'slope_adaptation_factor': 0.3,
     'volatility_adaptation_factor': 0.2,
     'strong_persistence': 1,
-    'weak_persistence': 1,
-    'between_persistence': 2,
+    'weak_persistence': 2,
+    'between_persistence': 3,
     'session_adaptation': False,
     'between_scale_sensitivity': 5.0,
-    'volatility_scale_factor': 1.0
+    'volatility_scale_factor': 3.0
 }
 
 PERFECT_PARAMS = {
