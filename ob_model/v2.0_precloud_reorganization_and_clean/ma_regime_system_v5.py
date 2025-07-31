@@ -24,7 +24,7 @@ CORE_PARAMS = {
     'short_ma_period': 5,
     'long_ma_period': 13,
     'short_atr_period': 5,
-    'long_atr_period': 20,
+    'long_atr_period': 50,
     'base_slope_lookback': 300,
     'bull_weak_percentile': 0.65,
     'bull_strong_percentile': 0.85,
