@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 5000
 DATA_FILE = 'combined_NQ_15m_data.csv'
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v47_test.csv'
-SCORING_FILE = 'regime_scoring_metrics_v47_test.csv'
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v48_test.csv'
+SCORING_FILE = 'regime_scoring_metrics_v48_test.csv'
 TIMEFRAME = '15min'
 
 ENHANCED_FEATURES = True
@@ -50,7 +50,7 @@ ENHANCED_PARAMS = {
     'weak_persistence': 2,
     'between_persistence': 3,
     'session_adaptation': False,
-    'between_scale_sensitivity': 10.0,
+    'between_scale_sensitivity': 50.0,
     'volatility_scale_factor': 3.0
 }
 
