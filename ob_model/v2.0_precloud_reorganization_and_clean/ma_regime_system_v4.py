@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 5000
 DATA_FILE = 'combined_NQ_15m_data.csv'
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v27_test.csv'
-SCORING_FILE = 'regime_scoring_metrics_v27_test.csv'
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v28_test.csv'
+SCORING_FILE = 'regime_scoring_metrics_v28_test.csv'
 TIMEFRAME = '15min'
 
 ENHANCED_FEATURES = True
@@ -94,18 +94,6 @@ def calculate_helper_columns(data):
     data['Upper_Threshold'] = data['SMA_13'] + data['Dynamic_Multiplier'] * data['ATR_5']
     data['Lower_Threshold'] = data['SMA_13'] - data['Dynamic_Multiplier'] * data['ATR_5']
     
-    # Perfect indicators: Future data for 20-bar window
-    data['Perfect_SMA_5'] = data['close'].shift(-20).rolling(window=CORE_PARAMS['short_ma_period']).mean()
-    data['Perfect_SMA_13'] = data['close'].shift(-20).rolling(window=CORE_PARAMS['long_ma_period']).mean()
-    data['Perfect_SMA_13_Slope'] = data['Perfect_SMA_13'].pct_change()
-    data['Perfect_ATR_5'] = data['TR'].shift(-20).rolling(window=CORE_PARAMS['short_atr_period']).mean()
-    data['Perfect_Volatility_Ratio'] = data['Perfect_ATR_5'] / data['ATR_50'].shift(-20)
-    data['Perfect_Up_Volatility_Ratio'] = data['Up_Volatility_Ratio'].shift(-20).fillna(data['Volatility_Ratio'])
-    data['Perfect_Down_Volatility_Ratio'] = data['Down_Volatility_Ratio'].shift(-20).fillna(data['Volatility_Ratio'])
-    data['Perfect_Dynamic_Multiplier'] = 0.15 + 0.2 / (1 + 10000 * np.abs(data['Perfect_SMA_13_Slope']))
-    data['Perfect_Upper_Threshold'] = data['Perfect_SMA_13'] + data['Perfect_Dynamic_Multiplier'] * data['Perfect_ATR_5']
-    data['Perfect_Lower_Threshold'] = data['Perfect_SMA_13'] - data['Perfect_Dynamic_Multiplier'] * data['Perfect_ATR_5']
-    
     vol_regime_factor = data['Volatility_Ratio'].rolling(window=50).mean()
     base_lookback = CORE_PARAMS['base_slope_lookback']
     data['Adaptive_Slope_Lookback'] = np.where(
@@ -140,7 +128,7 @@ def calculate_helper_columns(data):
     def rolling_masked_quantile(series, lookback, percentile, mask_series, min_val, max_val):
         def custom_quantile(arr):
             mask = (arr >= min_val) & (arr <= max_val)
-            if mask.sum() < 50:
+            if mask.sum() < 20:
                 return np.quantile(arr, percentile)
             return np.quantile(arr[mask], percentile)
         return series.rolling(lookback).apply(custom_quantile, raw=True)
@@ -235,93 +223,6 @@ def get_adaptive_thresholds(data, row_idx, use_perfect=False):
             dynamic_params['volatility_high_bull_threshold'] = 1.0
         if pd.isna(dynamic_params['volatility_high_bear_threshold']):
             dynamic_params['volatility_high_bear_threshold'] = 1.2
-        if pd.isna(dynamic_params['volatility_low_bull_threshold']):
-            dynamic_params['volatility_low_bull_threshold'] = 0.8
-        if pd.isna(dynamic_params['volatility_low_bear_threshold']):
-            dynamic_params['volatility_low_bear_threshold'] = 0.8
-    else:
-        dynamic_params['bull_weak_threshold'] = 0.0002
-        dynamic_params['bull_strong_threshold'] = 0.0005
-        dynamic_params['bear_weak_threshold'] = 0.0002
-        dynamic_params['bear_strong_threshold'] = 0.0005
-        dynamic_params['volatility_low_threshold'] = 0.8
-        dynamic_params['volatility_high_threshold'] = 1.2
-        dynamic_params['volatility_high_bull_threshold'] = 1.0
-        dynamic_params['volatility_high_bear_threshold'] = 1.2
-        dynamic_params['volatility_low_bull_threshold'] = 0.8
-        dynamic_params['volatility_low_bear_threshold'] = 0.8
-    return dynamic_params
-
-def classify_regime_excel_logic(data, row_idx, params, is_perfect=False):
-    prefix = 'Perfect_' if is_perfect else ''
-    slope = data[f'{prefix}SMA_13_Slope'].iloc[row_idx]
-    short_ma = data[f'{prefix}SMA_5'].iloc[row_idx]
-    long_ma = data[f'{prefix}SMA_13'].iloc[row_idx]
-    upper_threshold = data[f'{prefix}Upper_Threshold'].iloc[row_idx]
-    lower_threshold = data[f'{prefix}Lower_Threshold'].iloc[row_idx]
-    volatility_ratio = data[f'{prefix}Volatility_Ratio'].iloc[row_idx]
-    dynamic_multiplier = data[f'{prefix}Dynamic_Multiplier'].iloc[row_idx]
-    atr_5 = data[f'{prefix}ATR_5'].iloc[row_idx]
-    up_volatility_ratio = data[f'{prefix}Up_Volatility_Ratio'].iloc[row_idx]
-    down_volatility_ratio = data[f'{prefix}Down_Volatility_Ratio'].iloc[row_idx]
-    
-    if pd.isna(slope) or pd.isna(short_ma) or pd.isna(long_ma) or pd.isna(volatility_ratio):
-        return 'BETWEEN'
-    
-    abs_slope = abs(slope)
-    max_strong = max(params['bull_strong_threshold'], abs(params['bear_strong_threshold']))
-    between_scale_factor = max(0, min(1, 1 - (abs_slope / (max_strong * ENHANCED_PARAMS['between_scale_sensitivity'])))) if max_strong > 0 else 1
-    vol_factor = min(1.5, max(0.5, volatility_ratio / params['volatility_high_threshold']))
-    effective_bull_weak = params['bull_weak_threshold'] * between_scale_factor * vol_factor
-    effective_bear_weak = params['bear_weak_threshold'] * between_scale_factor * vol_factor
-    
-    if slope > params['bull_strong_threshold'] and short_ma > upper_threshold and up_volatility_ratio > params['volatility_high_bull_threshold']:
-        return 'STRONG ABOVE'
-    elif slope > params['bull_weak_threshold'] and short_ma > upper_threshold:
-        return 'WEAK ABOVE'
-    elif slope < -params['bear_strong_threshold'] and short_ma < lower_threshold and down_volatility_ratio > params['volatility_high_bear_threshold']:
-        return 'STRONG BELOW'
-    elif slope < -params['bear_weak_threshold'] and short_ma < lower_threshold:
-        return 'WEAK BELOW'
-    elif abs(slope) <= effective_bull_weak:
-        if abs(short_ma - long_ma) <= params['transitioning_factor'] * dynamic_multiplier * atr_5:
-            return 'TRANSITIONING'
-        elif volatility_ratio > params['volatility_high_threshold']:
-            return 'EXPANDING BETWEEN'
-        elif volatility_ratio < params['volatility_low_threshold']:
-            return 'CONTRACTING BETWEEN'
-    return 'BETWEEN'
-
-def get_adaptive_thresholds(data, row_idx, use_perfect=False):
-    dynamic_params = CORE_PARAMS.copy()
-    prefix = 'Perfect_' if use_perfect else 'Dynamic_'
-    if row_idx < len(data):
-        dynamic_params['bull_weak_threshold'] = data[f'{prefix}Bull_Weak'].iloc[row_idx]
-        dynamic_params['bull_strong_threshold'] = data[f'{prefix}Bull_Strong'].iloc[row_idx]
-        dynamic_params['bear_weak_threshold'] = data[f'{prefix}Bear_Weak'].iloc[row_idx]
-        dynamic_params['bear_strong_threshold'] = data[f'{prefix}Bear_Strong'].iloc[row_idx]
-        dynamic_params['volatility_low_threshold'] = data[f'{prefix}Vol_Low'].iloc[row_idx]
-        dynamic_params['volatility_high_threshold'] = data[f'{prefix}Vol_High'].iloc[row_idx]
-        dynamic_params['volatility_high_bull_threshold'] = data[f'{prefix}Vol_High_Bull'].iloc[row_idx]
-        dynamic_params['volatility_high_bear_threshold'] = data[f'{prefix}Vol_High_Bear'].iloc[row_idx]
-        dynamic_params['volatility_low_bull_threshold'] = data[f'{prefix}Vol_Low_Bull'].iloc[row_idx]
-        dynamic_params['volatility_low_bear_threshold'] = data[f'{prefix}Vol_Low_Bear'].iloc[row_idx]
-        if pd.isna(dynamic_params['bull_weak_threshold']):
-            dynamic_params['bull_weak_threshold'] = 0.0002
-        if pd.isna(dynamic_params['bull_strong_threshold']):
-            dynamic_params['bull_strong_threshold'] = 0.0005
-        if pd.isna(dynamic_params['bear_weak_threshold']):
-            dynamic_params['bear_weak_threshold'] = 0.0002
-        if pd.isna(dynamic_params['bear_strong_threshold']):
-            dynamic_params['bear_strong_threshold'] = 0.0005
-        if pd.isna(dynamic_params['volatility_low_threshold']):
-            dynamic_params['volatility_low_threshold'] = 0.8
-        if pd.isna(dynamic_params['volatility_high_threshold']):
-            dynamic_params['volatility_high_threshold'] = 1.2
-        if pd.isna(dynamic_params['volatility_high_bull_threshold']):
-            dynamic_params['volatility_high_bull_threshold'] = 1.0
-        if pd.isna(dynamic_params['volatility_high_bull_threshold']):
-            dynamic_params['volatility_high_bull_threshold'] = 1.2
         if pd.isna(dynamic_params['volatility_low_bull_threshold']):
             dynamic_params['volatility_low_bull_threshold'] = 0.8
         if pd.isna(dynamic_params['volatility_low_bear_threshold']):
