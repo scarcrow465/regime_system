@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 5000
 DATA_FILE = 'combined_NQ_15m_data.csv'
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v51_test.csv'
-SCORING_FILE = 'regime_scoring_metrics_v51_test.csv'
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v52_test.csv'
+SCORING_FILE = 'regime_scoring_metrics_v52_test.csv'
 TIMEFRAME = '15min'
 
 ENHANCED_FEATURES = True
@@ -50,7 +50,7 @@ ENHANCED_PARAMS = {
     'weak_persistence': 2,       # Reduced for V-shaped bounces
     'between_persistence': 3,    # Reduced for faster transitions
     'session_adaptation': False,
-    'between_scale_sensitivity': 5.0,  # Near-zero BETWEEN in non-flat slopes
+    'between_scale_sensitivity': 3.0,  # Near-zero BETWEEN in non-flat slopes
     'volatility_scale_factor': 1.0      # Strong volatility adjustment
 }
 
