@@ -38,10 +38,10 @@ def add_session_labels(df):
     
     # CORRECTED Refined sessions (your key trading windows)
     df['refined_session'] = 'Other'
-    df.loc[(df['hour'] >= 3) & (df['hour'] < 5), 'refined_session'] = 'London_Open'    # 3-5am ET
-    df.loc[(df['hour'] >= 8) & (df['hour'] < 11), 'refined_session'] = 'NY_Open'       # 8-11am ET
-    df.loc[(df['hour'] >= 11) & (df['hour'] < 14), 'refined_session'] = 'NY_Midday'    # 11am-2pm ET
-    df.loc[(df['hour'] >= 14) & (df['hour'] < 15), 'refined_session'] = 'NY_Afternoon' # 2-3pm ET
+    df.loc[(df['hour'] >= 2) & (df['hour'] < 6), 'refined_session'] = 'London_Open'    # 3-5am ET
+    df.loc[(df['hour'] >= 7) & (df['hour'] < 11), 'refined_session'] = 'NY_Open'       # 8-11am ET
+    df.loc[(df['hour'] >= 11) & (df['hour'] < 13), 'refined_session'] = 'NY_Midday'    # 11am-2pm ET
+    df.loc[(df['hour'] >= 13) & (df['hour'] < 15), 'refined_session'] = 'NY_Afternoon' # 2-3pm ET
     df.loc[(df['hour'] >= 15) & (df['hour'] < 16), 'refined_session'] = 'Power_Hour'   # 3-4pm ET
     
     if DEBUG_LEVEL == 'verbose':
@@ -69,7 +69,7 @@ def add_session_labels(df):
     
     return df
 
-def fit_gmm(features, n_components_range=[2,5], bias_free=True):
+def fit_gmm(features, n_components_range=[5,8], bias_free=True):
     if len(features) < n_components_range[1] * 2:
         log_message("Insufficient data for GMM—need > 2*max n_components rows", 'error')
         return None, None
