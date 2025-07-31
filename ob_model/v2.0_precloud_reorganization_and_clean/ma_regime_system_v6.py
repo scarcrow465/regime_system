@@ -9,7 +9,7 @@ import numpy as np
 from tqdm import tqdm
 from datetime import datetime
 import warnings
-warnings.filterWarnings('ignore')
+warnings.filterwarnings('ignore')
 
 # Centralized parameters
 TEST_SLICE = 5000
