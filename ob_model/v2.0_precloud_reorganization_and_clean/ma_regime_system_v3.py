@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 5000 # Number of rows to use from the end of the dataset (set to None for full dataset)
 DATA_FILE = 'combined_NQ_15m_data.csv'  # Path to your CSV file
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v22.csv'  # Output CSV file name
-SCORING_FILE = 'regime_scoring_metrics_v22.csv'  # Scoring metrics output
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v23.csv'  # Output CSV file name
+SCORING_FILE = 'regime_scoring_metrics_v23.csv'  # Scoring metrics output
 TIMEFRAME = '15min'  # Timeframe for data loading
 
 # Enhancement toggle - set to True to enable adaptive features, False for pure Excel logic
@@ -449,46 +449,42 @@ def apply_regime_classification(data, use_perfect=False):
 def apply_transition_aware_persistence(data, regime_col, confirmed_col):
     """Apply transition-aware persistence with variable requirements"""
     
-    data[confirmed_col] = data[regime_col].copy()
-    is_live_data = 'Live' in regime_col
+    data[confirmed_col] = np.nan  # Start empty for sequential build
+
+    for i in range(len(data)):
+        current_raw = data[regime_col].iloc[i]
+        if pd.isna(current_raw):
+            if i > 0:
+                data.iloc[i, data.columns.get_loc(confirmed_col)] = data[confirmed_col].iloc[i-1]
+            continue
+        
+        # Persistence for current raw regime
+        if ENHANCED_FEATURES:
+            if 'STRONG' in current_raw:
+                needed = ENHANCED_PARAMS['strong_persistence']
+            elif 'WEAK' in current_raw:
+                needed = ENHANCED_PARAMS['weak_persistence']
+            else:
+                needed = ENHANCED_PARAMS['between_persistence']
+        else:
+            needed = CORE_PARAMS['base_persistence']
+        
+        # Check consecutive raw regimes
+        count = 1  # Current bar
+        for j in range(1, needed):
+            if i - j < 0:
+                break
+            if data[regime_col].iloc[i - j] == current_raw:
+                count += 1
+            else:
+                break
+        
+        if count >= needed:
+            data.iloc[i, data.columns.get_loc(confirmed_col)] = current_raw
+        else:
+            if i > 0:
+                data.iloc[i, data.columns.get_loc(confirmed_col)] = data[confirmed_col].iloc[i-1]
     
-    # Use correct shifts: For live, account for 1-bar shift in main()
-    if is_live_data:
-        regime_shift1 = data[regime_col].shift(1)  # Previous raw regime
-        regime_shift2 = data[regime_col].shift(2)  # 2 bars ago
-        regime_shift3 = data[regime_col].shift(3)  # 3 bars ago
-    else:
-        regime_shift1 = data[regime_col].shift(1)
-        regime_shift2 = data[regime_col].shift(2)
-        regime_shift3 = data[regime_col].shift(3)
-    
-    # Create match masks
-    match1 = data[regime_col] == regime_shift1
-    match2 = data[regime_col] == regime_shift2
-    match3 = data[regime_col] == regime_shift3
-    
-    # Persistence requirements
-    if ENHANCED_FEATURES:
-        persistence_needed = np.select(
-            [data[regime_col].str.contains('STRONG', na=False),
-             data[regime_col].str.contains('WEAK', na=False)],
-            [ENHANCED_PARAMS['strong_persistence'],
-             ENHANCED_PARAMS['weak_persistence']],
-            default=ENHANCED_PARAMS['between_persistence']
-        )
-    else:
-        persistence_needed = np.full(len(data), CORE_PARAMS['base_persistence'])
-    
-    # Apply persistence: Use full requirement
-    data[confirmed_col] = np.where(
-        persistence_needed == 1, data[regime_col],
-        np.where(
-            persistence_needed == 2, np.where(match1, data[regime_col], data[confirmed_col].shift(1)),
-            np.where(match1 & match2, data[regime_col], data[confirmed_col].shift(1))
-        )
-    )
-    
-    # Fill NaNs
     data[confirmed_col] = data[confirmed_col].ffill().bfill()
     
     return data
