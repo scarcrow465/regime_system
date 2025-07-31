@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 5000
 DATA_FILE = 'combined_NQ_15m_data.csv'
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v25_test.csv'
-SCORING_FILE = 'regime_scoring_metrics_v25_test.csv'
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v26_test.csv'
+SCORING_FILE = 'regime_scoring_metrics_v26_test.csv'
 TIMEFRAME = '15min'
 
 ENHANCED_FEATURES = True
@@ -273,17 +273,6 @@ def classify_regime_excel_logic(data, row_idx, params, is_perfect=False):
     vol_factor = min(1.5, max(0.5, volatility_ratio / params['volatility_high_threshold']))
     effective_bull_weak = params['bull_weak_threshold'] * between_scale_factor * vol_factor
     effective_bear_weak = params['bear_weak_threshold'] * between_scale_factor * vol_factor
-    
-    # For perfect system, check future slope to avoid premature STRONG
-    if is_perfect:
-        future_window = min(20, len(data) - row_idx - 1)
-        if future_window >= 10:
-            future_slopes = data['SMA_13_Slope'].iloc[row_idx+1:row_idx+future_window+1]
-            max_future_slope = future_slopes.max() if slope >= 0 else -future_slopes.min()
-            if slope >= 0 and max_future_slope > slope:
-                return 'WEAK ABOVE' if slope > params['bull_weak_threshold'] and short_ma > upper_threshold else 'BETWEEN'
-            elif slope < 0 and max_future_slope < slope:
-                return 'WEAK BELOW' if slope < -params['bear_weak_threshold'] and short_ma < lower_threshold else 'BETWEEN'
     
     if slope > params['bull_strong_threshold'] and short_ma > upper_threshold and up_volatility_ratio > params['volatility_high_bull_threshold']:
         return 'STRONG ABOVE'
