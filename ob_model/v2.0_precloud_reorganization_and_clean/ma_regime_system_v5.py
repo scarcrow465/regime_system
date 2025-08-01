@@ -30,7 +30,7 @@ CORE_PARAMS = {
     'bull_strong_percentile': 0.85,
     'bear_weak_percentile': 0.35,
     'bear_strong_percentile': 0.15,
-    'volatility_lookback': 100,
+    'volatility_lookback': 500,
     'volatility_filter_min': 0.7,
     'volatility_filter_max': 1.3,
     'volatility_low_percentile': 0.25,
