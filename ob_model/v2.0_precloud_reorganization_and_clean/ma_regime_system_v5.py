@@ -21,9 +21,9 @@ TIMEFRAME = '15min'
 ENHANCED_FEATURES = True
 
 CORE_PARAMS = {
-    'short_ma_period': 5,
-    'long_ma_period': 13,
-    'short_atr_period': 3,
+    'short_ma_period': 2,
+    'long_ma_period': 16,
+    'short_atr_period': 5,
     'long_atr_period': 20,
     'base_slope_lookback': 100,
     'bull_weak_percentile': 0.65,
