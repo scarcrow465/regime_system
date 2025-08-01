@@ -44,7 +44,7 @@ CORE_PARAMS = {
 }
 
 ENHANCED_PARAMS = {
-    'slope_adaptation_factor': 0.5,
+    'slope_adaptation_factor': 0.3,
     'volatility_adaptation_factor': 0.2,
     'strong_persistence': 1,
     'weak_persistence': 2,
@@ -55,10 +55,10 @@ ENHANCED_PARAMS = {
 }
 
 PERFECT_PARAMS = {
-    'min_forward_bars': 100,
-    'max_forward_bars': 200,
+    'min_forward_bars': 32,
+    'max_forward_bars': 64,
     'adaptive_forward': True,
-    'perfect_lookahead': 100  # Max bars to scan for stable regime
+    'perfect_lookahead': 48  # Max bars to scan for stable regime
 }
 
 def load_csv_data(file_path, timeframe):
