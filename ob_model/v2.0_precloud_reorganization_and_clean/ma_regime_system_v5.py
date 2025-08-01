@@ -22,10 +22,10 @@ ENHANCED_FEATURES = True
 
 CORE_PARAMS = {
     'short_ma_period': 2,
-    'long_ma_period': 16,
+    'long_ma_period': 8,
     'short_atr_period': 2,
-    'long_atr_period': 16,
-    'base_slope_lookback': 32,
+    'long_atr_period': 8,
+    'base_slope_lookback': 16,
     'bull_weak_percentile': 0.50,
     'bull_strong_percentile': 0.75,
     'bear_weak_percentile': 0.50,
