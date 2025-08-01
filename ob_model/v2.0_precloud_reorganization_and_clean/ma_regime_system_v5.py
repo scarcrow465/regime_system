@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 5000
 DATA_FILE = 'combined_NQ_15m_data.csv'
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v54_test.csv'
-SCORING_FILE = 'regime_scoring_metrics_v54_test.csv'
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v55_test.csv'
+SCORING_FILE = 'regime_scoring_metrics_v55_test.csv'
 TIMEFRAME = '15min'
 
 ENHANCED_FEATURES = True
@@ -23,7 +23,7 @@ ENHANCED_FEATURES = True
 CORE_PARAMS = {
     'short_ma_period': 5,
     'long_ma_period': 13,
-    'short_atr_period': 5,
+    'short_atr_period': 3,
     'long_atr_period': 50,
     'base_slope_lookback': 100,
     'bull_weak_percentile': 0.65,
