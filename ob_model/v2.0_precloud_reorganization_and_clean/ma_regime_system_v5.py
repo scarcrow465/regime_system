@@ -44,7 +44,7 @@ CORE_PARAMS = {
 }
 
 ENHANCED_PARAMS = {
-    'slope_adaptation_factor': 0.3,
+    'slope_adaptation_factor': 0.5,
     'volatility_adaptation_factor': 0.2,
     'strong_persistence': 1,
     'weak_persistence': 2,
