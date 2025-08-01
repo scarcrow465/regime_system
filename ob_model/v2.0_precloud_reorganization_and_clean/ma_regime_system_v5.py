@@ -14,8 +14,8 @@ warnings.filterwarnings('ignore')
 # Centralized parameters
 TEST_SLICE = 5000
 DATA_FILE = 'combined_NQ_15m_data.csv'
-OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v58_test.csv'
-SCORING_FILE = 'regime_scoring_metrics_v58_test.csv'
+OUTPUT_FILE = 'ma_regime_labeled_data_with_perfect_v59_test.csv'
+SCORING_FILE = 'regime_scoring_metrics_v59_test.csv'
 TIMEFRAME = '15min'
 
 ENHANCED_FEATURES = True
