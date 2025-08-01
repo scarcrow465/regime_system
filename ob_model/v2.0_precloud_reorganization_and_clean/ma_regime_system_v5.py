@@ -50,8 +50,8 @@ ENHANCED_PARAMS = {
     'weak_persistence': 2,
     'between_persistence': 3,
     'session_adaptation': False,
-    'between_scale_sensitivity': 4.0,
-    'volatility_scale_factor': 1.0
+    'between_scale_sensitivity': 5.0,
+    'volatility_scale_factor': 2.0
 }
 
 PERFECT_PARAMS = {
